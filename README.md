@@ -127,9 +127,10 @@ $ mcpjungle deregister calculator
 
 After running this, the registry will stop tracking this server and its tools will no longer be available to use.
 
-### Cursor Configuration
-Use the following configuration in Cursor to connect to MCPJungle:
+### Integration with other MCP Clients
+Assuming that MCPJungle is running on `http://localhost:8080`, use the following configurations to connect to it:
 
+**Cursor**
 ```json
 {
   "mcpServers": {
@@ -140,7 +141,21 @@ Use the following configuration in Cursor to connect to MCPJungle:
 }
 ```
 
-(Assuming that MCPJungle is running on `localhost:8080`)
+**Claude**
+```json
+{
+  "mcpServers": {
+    "mcpjungle": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "http://localhost:8080/mcp",
+        "--allow-http"
+      ]
+    }
+  }
+}
+```
 
 ### Authentication
 MCPJungle currently supports authentication if your MCP Server accepts static tokens for auth.
