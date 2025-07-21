@@ -7,6 +7,7 @@ import (
 	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"net/http"
 	"regexp"
 	"strings"
 )
@@ -54,6 +55,14 @@ func createMcpServerConn(ctx context.Context, s *model.McpServer) (*client.Clien
 		})
 		opts = append(opts, o)
 	}
+
+	// Create secure HTTP client that blocks redirects to prevent SSRF attacks
+	secureClient := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse // Block all redirects
+		},
+	}
+	opts = append(opts, transport.WithHTTPBasicClient(secureClient))
 
 	c, err := client.NewStreamableHttpClient(s.URL, opts...)
 	if err != nil {

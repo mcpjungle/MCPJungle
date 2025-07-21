@@ -1,7 +1,13 @@
 package mcp
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/mcpjungle/mcpjungle/internal/model"
 )
 
 func TestValidateServerName(t *testing.T) {
@@ -65,4 +71,85 @@ func TestSplitServerToolName(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCreateMcpServerConnBlocksRedirects(t *testing.T) {
+	// Test that the HTTP client blocks redirects
+	// This protects against SSRF and credential leakage
+
+	// Create a test server that returns redirects
+	redirectServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/redirect" {
+			// Return a redirect response
+			http.Redirect(w, r, "http://evil.com/steal-credentials", http.StatusFound)
+			return
+		}
+		// For any other path, return a simple response
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	}))
+	defer redirectServer.Close()
+
+	// Create a test MCP server that points to the redirect endpoint
+	testServer := &model.McpServer{
+		URL:         redirectServer.URL + "/redirect",
+		BearerToken: "test-token", // This would be leaked if redirects weren't blocked
+	}
+
+	// Attempt to create connection (this should fail due to redirect being blocked)
+	ctx := context.Background()
+	_, err := createMcpServerConn(ctx, testServer)
+
+	// We expect this to fail because:
+	// 1. The redirect is blocked (returns http.ErrUseLastResponse)
+	// 2. The MCP initialization will fail on the redirect response
+	if err == nil {
+		t.Fatal("Expected error when connecting to server that returns redirects, but got none")
+	}
+
+	// The error should indicate connection/initialization failure, not a successful redirect
+	errMsg := err.Error()
+	if strings.Contains(errMsg, "evil.com") {
+		t.Fatalf("Error message contains redirected URL, suggesting redirects were not blocked: %s", errMsg)
+	}
+
+	// This is a positive test - we WANT the connection to fail when redirects are encountered
+	t.Logf("Successfully blocked redirect attempt - error: %v", err)
+}
+
+func TestCreateMcpServerConnWorksWithoutRedirects(t *testing.T) {
+	// Test that normal connections still work when no redirects are involved
+
+	// Create a test server that returns a proper MCP response
+	normalServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Simple response that won't cause MCP initialization to succeed
+		// (but won't be blocked by redirect protection)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"jsonrpc":"2.0","error":{"code":-1,"message":"test"},"id":null}`))
+	}))
+	defer normalServer.Close()
+
+	// Create a test MCP server with normal URL
+	testServer := &model.McpServer{
+		URL: normalServer.URL,
+	}
+
+	// Attempt to create connection
+	ctx := context.Background()
+	_, err := createMcpServerConn(ctx, testServer)
+
+	// We expect this to fail due to MCP initialization issues, but NOT due to redirect blocking
+	if err == nil {
+		t.Log("Connection succeeded (unexpected but not a redirect protection issue)")
+		return
+	}
+
+	// The error should be related to MCP initialization, not redirect blocking
+	errMsg := err.Error()
+	if strings.Contains(errMsg, "redirect") || strings.Contains(errMsg, "ErrUseLastResponse") {
+		t.Fatalf("Error suggests redirect blocking interfered with normal connection: %s", errMsg)
+	}
+
+	t.Logf("Connection failed as expected for non-redirect reasons: %v", err)
 }
