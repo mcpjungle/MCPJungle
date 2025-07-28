@@ -244,8 +244,12 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 		apiV0.POST("/servers", registerServerHandler(opts.MCPService))
 		apiV0.DELETE("/servers/:name", deregisterServerHandler(opts.MCPService))
 		apiV0.GET("/servers", listServersHandler(opts.MCPService))
+
 		apiV0.GET("/tools", listToolsHandler(opts.MCPService))
 		apiV0.POST("/tools/invoke", invokeToolHandler(opts.MCPService))
+		apiV0.POST("/tools/enable", enableToolsHandler(opts.MCPService))
+		apiV0.POST("/tools/disable", disableToolsHandler(opts.MCPService))
+
 		apiV0.GET("/tool", getToolHandler(opts.MCPService))
 
 		apiV0.GET(

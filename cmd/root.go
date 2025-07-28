@@ -9,6 +9,8 @@ import (
 	"net/http"
 )
 
+// TODO: refactor: all commands should use cmd.Print..() instead of fmt.Print..() statements to produce outputs.
+
 // SilentErr is a sentinel error used to indicate that the command should not print an error message
 // This is useful when we handle error printing internally but want main to exit with a non-zero status.
 // See https://github.com/spf13/cobra/issues/914#issuecomment-548411337

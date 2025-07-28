@@ -86,3 +86,37 @@ func getToolHandler(mcpService *mcp.MCPService) gin.HandlerFunc {
 		c.JSON(http.StatusOK, tool)
 	}
 }
+
+// enableToolsHandler enables the given tool or all tools of the given mcp server
+func enableToolsHandler(mcpService *mcp.MCPService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		entity := c.Query("entity")
+		if entity == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "missing 'entity' query parameter"})
+			return
+		}
+		enabledTools, err := mcpService.EnableTools(entity)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to enable tool(s): " + err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, enabledTools)
+	}
+}
+
+// disableToolsHandler disables the given tool or all tools of the given mcp server
+func disableToolsHandler(mcpService *mcp.MCPService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		entity := c.Query("entity")
+		if entity == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "missing 'entity' query parameter"})
+			return
+		}
+		disabledTools, err := mcpService.DisableTools(entity)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to disable tool(s): " + err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, disabledTools)
+	}
+}
