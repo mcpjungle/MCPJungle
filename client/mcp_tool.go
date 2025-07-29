@@ -18,6 +18,7 @@ type ToolInputSchema struct {
 // Tool represents a tool provided by an MCP Server registered in the registry.
 type Tool struct {
 	Name        string          `json:"name"`
+	Enabled     bool            `json:"enabled"`
 	Description string          `json:"description"`
 	InputSchema ToolInputSchema `json:"input_schema"`
 }

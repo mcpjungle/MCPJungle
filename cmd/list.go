@@ -60,7 +60,11 @@ func runListTools(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 	for i, t := range tools {
-		fmt.Printf("%d. %s\n", i+1, t.Name)
+		ed := "ENABLED"
+		if !t.Enabled {
+			ed = "DISABLED"
+		}
+		fmt.Printf("%d. %s  [%s]\n", i+1, t.Name, ed)
 		fmt.Println(t.Description)
 		fmt.Println()
 	}
