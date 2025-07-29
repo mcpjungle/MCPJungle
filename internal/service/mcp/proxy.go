@@ -53,15 +53,6 @@ func (m *MCPService) mcpProxyToolCallHandler(ctx context.Context, request mcp.Ca
 		}
 	}
 
-	// do not allow call to a disabled tool
-	t, err := m.GetTool(name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get tool %s from DB: %w", name, err)
-	}
-	if !t.Enabled {
-		return nil, fmt.Errorf("tool %s not found", name)
-	}
-
 	// get the MCP server details from the database
 	server, err := m.GetMcpServer(serverName)
 	if err != nil {
