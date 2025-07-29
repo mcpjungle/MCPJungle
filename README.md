@@ -163,6 +163,30 @@ Assuming that MCPJungle is running on `http://localhost:8080`, use the following
 }
 ```
 
+### Enabling/Disabling Tools
+You can enable or disable a specific tool or all the tools provided by an MCP Server.
+
+If a tool is disabled, it is not available via the MCPJungle Proxy, so no MCP clients can view or call it.
+
+```bash
+# disable the `get-library-docs` tool provided by the `context7` MCP server
+mcpjungle disable context7__get-library-docs
+
+# re-enable the tool
+mcpjungle enable context7__get-library-docs
+
+# disable all tools provided by the `context7` MCP server
+mcpjungle disable context7
+
+# re-enable all tools of `context7`
+mcpjungle enable context7
+```
+
+A disabled tool is still accessible via mcpjungle's HTTP API, so you can still manage it from the CLI (or any other HTTP client).
+
+> [!NOTE]
+> When a new server is registered in MCPJungle, all its tools are **enabled** by default.
+
 ### Authentication
 MCPJungle currently supports authentication if your MCP Server accepts static tokens for auth.
 
