@@ -2,7 +2,6 @@ package mcp
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
@@ -22,17 +21,10 @@ func (m *MCPService) initMCPProxyServer() error {
 		}
 
 		// Add tool to the MCP proxy server
-		tool := mcp.NewTool(tm.Name, mcp.WithDescription(tm.Description))
-
-		var inputSchema mcp.ToolInputSchema
-		if err := json.Unmarshal(tm.InputSchema, &inputSchema); err != nil {
-			return fmt.Errorf(
-				"failed to unmarshal input schema %s for tool %s: %w", tm.InputSchema, tm.Name, err,
-			)
+		tool, err := convertToolModelToMcpObject(&tm)
+		if err != nil {
+			return fmt.Errorf("failed to convert tool model to MCP object for tool %s: %w", tm.Name, err)
 		}
-		tool.InputSchema = inputSchema
-
-		// TODO: Add other attributes to the tool, such as annotations
 
 		m.mcpProxyServer.AddTool(tool, m.mcpProxyToolCallHandler)
 	}

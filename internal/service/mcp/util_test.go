@@ -127,3 +127,5 @@ func TestIsLoopbackURL(t *testing.T) {
 		})
 	}
 }
+
+// todo: add tests for convertToolModelToMcpObject()

@@ -184,9 +184,12 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 
 		if enabled {
 			// if the tool was enabled, add it back to the MCP proxy server
-			// NOTE: if more fields are added to the tool in DB, they should be set here as well
-			mcpTool := mcp.NewTool(entity, mcp.WithDescription(tool.Description))
-			mcpTool.RawInputSchema = json.RawMessage(tool.InputSchema)
+			mcpTool, err := convertToolModelToMcpObject(&tool)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert tool model to MCP object for tool %s: %w", tool.Name, err)
+			}
+			// set the tool name to its canonical form in the proxy
+			mcpTool.Name = entity
 			m.mcpProxyServer.AddTool(mcpTool, m.mcpProxyToolCallHandler)
 		} else {
 			// if the tool was disabled, remove it from the MCP proxy server
@@ -220,9 +223,13 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 		canonicalToolName := mergeServerToolNames(s.Name, tools[i].Name)
 
 		if enabled {
-			// NOTE: if more fields are added to the tool in DB, they should be set here as well
-			mcpTool := mcp.NewTool(canonicalToolName, mcp.WithDescription(tools[i].Description))
-			mcpTool.RawInputSchema = json.RawMessage(tools[i].InputSchema)
+			mcpTool, err := convertToolModelToMcpObject(&tools[i])
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert tool model to MCP object for tool %s: %w", tools[i].Name, err)
+			}
+			// set the tool name to its canonical form in the proxy
+			mcpTool.Name = canonicalToolName
+
 			m.mcpProxyServer.AddTool(mcpTool, m.mcpProxyToolCallHandler)
 		} else {
 			m.mcpProxyServer.DeleteTools(canonicalToolName)
