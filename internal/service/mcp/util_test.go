@@ -69,7 +69,7 @@ func TestSplitServerToolName(t *testing.T) {
 		{"a__b/c", "a", "b/c", true},
 		{"a__b__c", "a", "b__c", true},
 		{"_abc__def", "_abc", "def", true},
-		{"no_separator", "", "", false},
+		{"no_separator", "no_separator", "", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {

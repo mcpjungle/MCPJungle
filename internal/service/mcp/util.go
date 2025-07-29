@@ -51,13 +51,7 @@ func mergeServerToolNames(s, t string) string {
 
 // splitServerToolName splits the unique tool name into server name and tool name.
 func splitServerToolName(name string) (string, string, bool) {
-	serverName, toolName, ok := strings.Cut(name, serverToolNameSep)
-	if !ok {
-		// there is no separator in tool name, we cannot extract mcp server name
-		// this is invalid input
-		return "", "", false
-	}
-	return serverName, toolName, true
+	return strings.Cut(name, serverToolNameSep)
 }
 
 // isLoopbackURL returns true if rawURL resolves to a loopback address.

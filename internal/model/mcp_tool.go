@@ -15,6 +15,10 @@ type Tool struct {
 	// they belong to different servers, identified by server ID.
 	Name string `json:"name" gorm:"not null"`
 
+	// Enabled indicates whether the tool is enabled or not.
+	// If a tool is disabled, it cannot be viewed or called from the MCP proxy.
+	Enabled bool `json:"enabled" gorm:"default:true"`
+
 	Description string `json:"description"`
 
 	// InputSchema is a JSON schema that describes the input parameters for the tool.

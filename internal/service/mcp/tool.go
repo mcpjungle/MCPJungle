@@ -67,7 +67,7 @@ func (m *MCPService) GetTool(name string) (*model.Tool, error) {
 	if err := m.db.Where("server_id = ? AND name = ?", s.ID, toolName).First(&tool).Error; err != nil {
 		return nil, fmt.Errorf("failed to get tool %s from DB: %w", name, err)
 	}
-	// set the tool name back to the full name including server name
+	// set the tool name back to its canonical form
 	tool.Name = name
 	return &tool, nil
 }
@@ -135,6 +135,86 @@ func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[strin
 		Content: contentList,
 	}
 	return result, nil
+}
+
+// EnableTools enables one or more tools.
+// If the entity is a tool name, only that tool is enabled.
+// If the entity is a server name, all tools of that server are enabled.
+// The function returns a list of enabled tool names.
+// If the tool or server does not exist, it returns an error.
+// If the tool is already enabled, it returns the tool name without an error.
+func (m *MCPService) EnableTools(entity string) ([]string, error) {
+	serverName, toolName, ok := splitServerToolName(entity)
+	if ok {
+		// splitting was successful, so the entity is a tool name
+		// only this tool needs to be enabled
+		s, err := m.GetMcpServer(serverName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get MCP server %s: %w", serverName, err)
+		}
+
+		var tool model.Tool
+		if err := m.db.Where("server_id = ? AND name = ?", s.ID, toolName).First(&tool).Error; err != nil {
+			return nil, fmt.Errorf("failed to get tool %s: %w", entity, err)
+		}
+
+		// if tool is already enabled, no need to make a DB call. Just return without any error
+		if !tool.Enabled {
+			tool.Enabled = true
+			if err := m.db.Save(&tool).Error; err != nil {
+				return nil, fmt.Errorf("failed to enable tool %s: %w", entity, err)
+			}
+		}
+
+		return []string{entity}, nil
+	}
+
+	// splitting was unsuccessful, so the entity is a server name
+	// all tools of this server need to be enabled
+	s, err := m.GetMcpServer(entity)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get MCP server %s: %w", serverName, err)
+	}
+
+	var tools []model.Tool
+	if err := m.db.Where("server_id = ?", s.ID).Find(&tools).Error; err != nil {
+		return nil, fmt.Errorf("failed to get tools for server %s: %w", entity, err)
+	}
+
+	enabledToolNames := make([]string, 0)
+	for i := range tools {
+		if !tools[i].Enabled {
+			tools[i].Enabled = true
+			if err := m.db.Save(&tools[i]).Error; err != nil {
+				return nil, fmt.Errorf("failed to enable tool %s: %w", tools[i].Name, err)
+			}
+		}
+		enabledToolNames = append(enabledToolNames, mergeServerToolNames(s.Name, tools[i].Name))
+	}
+
+	return enabledToolNames, nil
+}
+
+// DisableTools disables one or more tools.
+// If the entity is a tool name, only that tool is disabled.
+// If the entity is a server name, all tools of that server are disabled.
+// The function returns a list of disabled tool names.
+// If the tool or server does not exist, it returns an error.
+// If the tool is already disabled, it returns the tool name without an error.
+func (m *MCPService) DisableTools(entity string) ([]string, error) {
+	_, _, ok := splitServerToolName(entity)
+	if ok {
+		// splitting was successful, so the entity is a tool name
+		// only this tool needs to be disabled
+		// TODO
+		return []string{entity}, nil
+	}
+
+	// splitting was unsuccessful, so the entity is a server name
+	// all tools of this server need to be disabled
+	// TODO
+
+	return []string{}, nil
 }
 
 // registerServerTools fetches all tools from an MCP server and registers them in the DB.
