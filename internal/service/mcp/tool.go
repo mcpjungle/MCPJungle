@@ -144,55 +144,7 @@ func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[strin
 // If the tool or server does not exist, it returns an error.
 // If the tool is already enabled, it returns the tool name without an error.
 func (m *MCPService) EnableTools(entity string) ([]string, error) {
-	serverName, toolName, ok := splitServerToolName(entity)
-	if ok {
-		// splitting was successful, so the entity is a tool name
-		// only this tool needs to be enabled
-		s, err := m.GetMcpServer(serverName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get MCP server %s: %w", serverName, err)
-		}
-
-		var tool model.Tool
-		if err := m.db.Where("server_id = ? AND name = ?", s.ID, toolName).First(&tool).Error; err != nil {
-			return nil, fmt.Errorf("failed to get tool %s: %w", entity, err)
-		}
-
-		// if tool is already enabled, no need to make a DB call. Just return without any error
-		if !tool.Enabled {
-			tool.Enabled = true
-			if err := m.db.Save(&tool).Error; err != nil {
-				return nil, fmt.Errorf("failed to enable tool %s: %w", entity, err)
-			}
-		}
-
-		return []string{entity}, nil
-	}
-
-	// splitting was unsuccessful, so the entity is a server name
-	// all tools of this server need to be enabled
-	s, err := m.GetMcpServer(entity)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get MCP server %s: %w", serverName, err)
-	}
-
-	var tools []model.Tool
-	if err := m.db.Where("server_id = ?", s.ID).Find(&tools).Error; err != nil {
-		return nil, fmt.Errorf("failed to get tools for server %s: %w", entity, err)
-	}
-
-	enabledToolNames := make([]string, 0)
-	for i := range tools {
-		if !tools[i].Enabled {
-			tools[i].Enabled = true
-			if err := m.db.Save(&tools[i]).Error; err != nil {
-				return nil, fmt.Errorf("failed to enable tool %s: %w", tools[i].Name, err)
-			}
-		}
-		enabledToolNames = append(enabledToolNames, mergeServerToolNames(s.Name, tools[i].Name))
-	}
-
-	return enabledToolNames, nil
+	return m.setToolsEnabled(entity, true)
 }
 
 // DisableTools disables one or more tools.
@@ -202,10 +154,15 @@ func (m *MCPService) EnableTools(entity string) ([]string, error) {
 // If the tool or server does not exist, it returns an error.
 // If the tool is already disabled, it returns the tool name without an error.
 func (m *MCPService) DisableTools(entity string) ([]string, error) {
+	return m.setToolsEnabled(entity, false)
+}
+
+// setToolsEnabled does the heavy lifting of enabling or disabling one or more tools.
+func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, error) {
 	serverName, toolName, ok := splitServerToolName(entity)
 	if ok {
 		// splitting was successful, so the entity is a tool name
-		// only this tool needs to be disabled
+		// only this tool needs to be enabled/disabled
 		s, err := m.GetMcpServer(serverName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get MCP server %s: %w", serverName, err)
@@ -216,19 +173,20 @@ func (m *MCPService) DisableTools(entity string) ([]string, error) {
 			return nil, fmt.Errorf("failed to get tool %s: %w", entity, err)
 		}
 
-		// if tool is already disabled, no need to make a DB call. Just return without any error
-		if tool.Enabled {
-			tool.Enabled = false
-			if err := m.db.Save(&tool).Error; err != nil {
-				return nil, fmt.Errorf("failed to disable tool %s: %w", entity, err)
-			}
+		if tool.Enabled == enabled {
+			return []string{entity}, nil // no change needed
+		}
+
+		tool.Enabled = enabled
+		if err := m.db.Save(&tool).Error; err != nil {
+			return nil, fmt.Errorf("failed to set tool %s enabled=%t: %w", entity, enabled, err)
 		}
 
 		return []string{entity}, nil
 	}
 
 	// splitting was unsuccessful, so the entity is a server name
-	// all tools of this server need to be disabled
+	// all tools of this server need to be enabled/disabled
 	s, err := m.GetMcpServer(entity)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get MCP server %s: %w", serverName, err)
@@ -239,18 +197,20 @@ func (m *MCPService) DisableTools(entity string) ([]string, error) {
 		return nil, fmt.Errorf("failed to get tools for server %s: %w", entity, err)
 	}
 
-	disabledToolNames := make([]string, 0)
+	var changedToolNames []string
 	for i := range tools {
-		if tools[i].Enabled {
-			tools[i].Enabled = false
-			if err := m.db.Save(&tools[i]).Error; err != nil {
-				return nil, fmt.Errorf("failed to disable tool %s: %w", tools[i].Name, err)
-			}
+		if tools[i].Enabled == enabled {
+			continue // no change needed
 		}
-		disabledToolNames = append(disabledToolNames, mergeServerToolNames(s.Name, tools[i].Name))
+		tools[i].Enabled = enabled
+		if err := m.db.Save(&tools[i]).Error; err != nil {
+			return nil, fmt.Errorf("failed to set tool %s enabled=%t: %w", tools[i].Name, enabled, err)
+		}
+		canonicalToolName := mergeServerToolNames(s.Name, tools[i].Name)
+		changedToolNames = append(changedToolNames, canonicalToolName)
 	}
 
-	return disabledToolNames, nil
+	return changedToolNames, nil
 }
 
 // registerServerTools fetches all tools from an MCP server and registers them in the DB.
