@@ -202,19 +202,55 @@ func (m *MCPService) EnableTools(entity string) ([]string, error) {
 // If the tool or server does not exist, it returns an error.
 // If the tool is already disabled, it returns the tool name without an error.
 func (m *MCPService) DisableTools(entity string) ([]string, error) {
-	_, _, ok := splitServerToolName(entity)
+	serverName, toolName, ok := splitServerToolName(entity)
 	if ok {
 		// splitting was successful, so the entity is a tool name
 		// only this tool needs to be disabled
-		// TODO
+		s, err := m.GetMcpServer(serverName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get MCP server %s: %w", serverName, err)
+		}
+
+		var tool model.Tool
+		if err := m.db.Where("server_id = ? AND name = ?", s.ID, toolName).First(&tool).Error; err != nil {
+			return nil, fmt.Errorf("failed to get tool %s: %w", entity, err)
+		}
+
+		// if tool is already disabled, no need to make a DB call. Just return without any error
+		if tool.Enabled {
+			tool.Enabled = false
+			if err := m.db.Save(&tool).Error; err != nil {
+				return nil, fmt.Errorf("failed to disable tool %s: %w", entity, err)
+			}
+		}
+
 		return []string{entity}, nil
 	}
 
 	// splitting was unsuccessful, so the entity is a server name
 	// all tools of this server need to be disabled
-	// TODO
+	s, err := m.GetMcpServer(entity)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get MCP server %s: %w", serverName, err)
+	}
 
-	return []string{}, nil
+	var tools []model.Tool
+	if err := m.db.Where("server_id = ?", s.ID).Find(&tools).Error; err != nil {
+		return nil, fmt.Errorf("failed to get tools for server %s: %w", entity, err)
+	}
+
+	disabledToolNames := make([]string, 0)
+	for i := range tools {
+		if tools[i].Enabled {
+			tools[i].Enabled = false
+			if err := m.db.Save(&tools[i]).Error; err != nil {
+				return nil, fmt.Errorf("failed to disable tool %s: %w", tools[i].Name, err)
+			}
+		}
+		disabledToolNames = append(disabledToolNames, mergeServerToolNames(s.Name, tools[i].Name))
+	}
+
+	return disabledToolNames, nil
 }
 
 // registerServerTools fetches all tools from an MCP server and registers them in the DB.
