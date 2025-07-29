@@ -16,9 +16,13 @@ func (m *MCPService) initMCPProxyServer() error {
 		return fmt.Errorf("failed to list tools from DB: %w", err)
 	}
 	for _, tm := range tools {
+		if !tm.Enabled {
+			// do not add disabled tools to the proxy
+			continue
+		}
+
 		// Add tool to the MCP proxy server
-		tool := mcp.NewTool(tm.Name)
-		tool.Description = tm.Description
+		tool := mcp.NewTool(tm.Name, mcp.WithDescription(tm.Description))
 
 		var inputSchema mcp.ToolInputSchema
 		if err := json.Unmarshal(tm.InputSchema, &inputSchema); err != nil {
@@ -55,6 +59,15 @@ func (m *MCPService) mcpProxyToolCallHandler(ctx context.Context, request mcp.Ca
 				"client %s is not authorized to access MCP server %s", c.Name, serverName,
 			)
 		}
+	}
+
+	// do not allow call to a disabled tool
+	t, err := m.GetTool(name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tool %s from DB: %w", name, err)
+	}
+	if !t.Enabled {
+		return nil, fmt.Errorf("tool %s not found", name)
 	}
 
 	// get the MCP server details from the database

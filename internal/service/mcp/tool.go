@@ -182,6 +182,17 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 			return nil, fmt.Errorf("failed to set tool %s enabled=%t: %w", entity, enabled, err)
 		}
 
+		if enabled {
+			// if the tool was enabled, add it back to the MCP proxy server
+			// NOTE: if more fields are added to the tool in DB, they should be set here as well
+			mcpTool := mcp.NewTool(entity, mcp.WithDescription(tool.Description))
+			mcpTool.RawInputSchema = json.RawMessage(tool.InputSchema)
+			m.mcpProxyServer.AddTool(mcpTool, m.mcpProxyToolCallHandler)
+		} else {
+			// if the tool was disabled, remove it from the MCP proxy server
+			m.mcpProxyServer.DeleteTools(entity)
+		}
+
 		return []string{entity}, nil
 	}
 
@@ -207,6 +218,16 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 			return nil, fmt.Errorf("failed to set tool %s enabled=%t: %w", tools[i].Name, enabled, err)
 		}
 		canonicalToolName := mergeServerToolNames(s.Name, tools[i].Name)
+
+		if enabled {
+			// NOTE: if more fields are added to the tool in DB, they should be set here as well
+			mcpTool := mcp.NewTool(canonicalToolName, mcp.WithDescription(tools[i].Description))
+			mcpTool.RawInputSchema = json.RawMessage(tools[i].InputSchema)
+			m.mcpProxyServer.AddTool(mcpTool, m.mcpProxyToolCallHandler)
+		} else {
+			m.mcpProxyServer.DeleteTools(canonicalToolName)
+		}
+
 		changedToolNames = append(changedToolNames, canonicalToolName)
 	}
 
