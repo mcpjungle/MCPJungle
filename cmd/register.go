@@ -16,8 +16,9 @@ var (
 var registerMCPServerCmd = &cobra.Command{
 	Use:   "register",
 	Short: "Register an MCP Server",
-	Long:  "Register a MCP Server with the registry.\nA server name is unique across the registry and must not contain a slash '/'",
-	RunE:  runRegisterMCPServer,
+	Long: "Register a MCP Server with the registry.\nA server name is unique across the registry and " +
+		"must not contain any whitespaces, special characters or multiple consecutive underscores '__'.",
+	RunE: runRegisterMCPServer,
 }
 
 func init() {
