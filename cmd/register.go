@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/mcpjungle/mcpjungle/client"
 	"github.com/spf13/cobra"
+	"os"
 )
 
 var (
@@ -11,6 +13,8 @@ var (
 	registerCmdServerURL   string
 	registerCmdServerDesc  string
 	registerCmdBearerToken string
+
+	registerCmdServerConfigFilePath string
 )
 
 var registerMCPServerCmd = &cobra.Command{
@@ -18,6 +22,20 @@ var registerMCPServerCmd = &cobra.Command{
 	Short: "Register an MCP Server",
 	Long: "Register a MCP Server with the registry.\nA server name is unique across the registry and " +
 		"must not contain any whitespaces, special characters or multiple consecutive underscores '__'.",
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		// Skip flag validation if config file is provided
+		if registerCmdServerConfigFilePath != "" {
+			return nil
+		}
+		// Otherwise, validate required flags
+		if registerCmdServerName == "" {
+			return fmt.Errorf("required flag \"name\" not set")
+		}
+		if registerCmdServerURL == "" {
+			return fmt.Errorf("required flag \"url\" not set")
+		}
+		return nil
+	},
 	RunE: runRegisterMCPServer,
 }
 
@@ -47,23 +65,49 @@ func init() {
 		"If provided, MCPJungle will use this token to authenticate with the MCP server for all requests."+
 			" This is useful if the MCP server requires static tokens (eg- your API token) for authentication.",
 	)
-
-	// TODO: name should not be mandatory.
-	//  If not supplied, name should be read from MCP server metadata by the registry.
-	_ = registerMCPServerCmd.MarkFlagRequired("name")
-	_ = registerMCPServerCmd.MarkFlagRequired("url")
+	registerMCPServerCmd.Flags().StringVarP(
+		&registerCmdServerConfigFilePath,
+		"conf",
+		"c",
+		"",
+		"Path to a JSON configuration file for the MCP server.\n"+
+			"If provided, the mcp server will be registered using the configuration in the file.\n"+
+			"All other flags will be ignored.",
+	)
 
 	rootCmd.AddCommand(registerMCPServerCmd)
 }
 
 func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
-	input := &client.RegisterServerInput{
-		Name:        registerCmdServerName,
-		URL:         registerCmdServerURL,
-		Description: registerCmdServerDesc,
-		BearerToken: registerCmdBearerToken,
+	var input client.RegisterServerInput
+
+	if registerCmdServerConfigFilePath == "" {
+		// If no config file is provided, use the flags to create the input for server registration
+		input = client.RegisterServerInput{
+			Name:        registerCmdServerName,
+			URL:         registerCmdServerURL,
+			Description: registerCmdServerDesc,
+			BearerToken: registerCmdBearerToken,
+		}
+	} else {
+		// If a config file is provided, read the configuration from the file
+		data, err := os.ReadFile(registerCmdServerConfigFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to read config file %s: %w", registerCmdServerConfigFilePath, err)
+		}
+
+		// Parse JSON config
+		if err := json.Unmarshal(data, &input); err != nil {
+			return fmt.Errorf("failed to parse config file: %w", err)
+		}
+
+		// Validate required fields
+		if input.Name == "" {
+			return fmt.Errorf("missing required field 'name' in config file")
+		}
 	}
-	s, err := apiClient.RegisterServer(input)
+
+	s, err := apiClient.RegisterServer(&input)
 	if err != nil {
 		return fmt.Errorf("failed to register server: %w", err)
 	}
