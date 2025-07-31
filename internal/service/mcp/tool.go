@@ -87,13 +87,27 @@ func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[strin
 		)
 	}
 
-	mcpClient, err := createMcpServerConn(ctx, serverModel)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"failed to create connection to MCP server %s: %w", serverName, err,
-		)
+	var mcpClient *client.Client
+
+	if serverModel.Transport == types.TransportStreamableHTTP {
+
+		mcpClient, err = createMcpServerConn(ctx, serverModel)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"failed to create connection to MCP server %s: %w", serverName, err,
+			)
+		}
+		defer mcpClient.Close()
+
+	} else {
+
+		mcpClient, err = runStdioServer(ctx, serverModel)
+		if err != nil {
+			return nil, fmt.Errorf("failed to run stdio MCP server %s: %w", serverName, err)
+		}
+		defer mcpClient.Close()
+
 	}
-	defer mcpClient.Close()
 
 	callToolReq := mcp.CallToolRequest{}
 	callToolReq.Params.Name = toolName
