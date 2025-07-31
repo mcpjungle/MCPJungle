@@ -79,16 +79,21 @@ func isLoopbackURL(rawURL string) bool {
 
 // createMcpServerConn creates a new MCP server connection and returns the client.
 func createMcpServerConn(ctx context.Context, s *model.McpServer) (*client.Client, error) {
+	conf, err := s.GetStreamableHTTPConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get streamable HTTP config for MCP server %s: %w", s.Name, err)
+	}
+
 	var opts []transport.StreamableHTTPCOption
-	if s.BearerToken != "" {
+	if conf.BearerToken != "" {
 		// If bearer token is provided, set the Authorization header
 		o := transport.WithHTTPHeaders(map[string]string{
-			"Authorization": "Bearer " + s.BearerToken,
+			"Authorization": "Bearer " + conf.BearerToken,
 		})
 		opts = append(opts, o)
 	}
 
-	c, err := client.NewStreamableHttpClient(s.URL, opts...)
+	c, err := client.NewStreamableHttpClient(conf.URL, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create streamable HTTP client for MCP server: %w", err)
 	}
@@ -96,18 +101,18 @@ func createMcpServerConn(ctx context.Context, s *model.McpServer) (*client.Clien
 	initRequest := mcp.InitializeRequest{}
 	initRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
 	initRequest.Params.ClientInfo = mcp.Implementation{
-		Name:    "mcpjungle mcp client for " + s.URL,
+		Name:    "mcpjungle mcp client for " + conf.URL,
 		Version: "0.1",
 	}
 	initRequest.Params.Capabilities = mcp.ClientCapabilities{}
 
 	_, err = c.Initialize(ctx, initRequest)
 	if err != nil {
-		if errors.Is(err, syscall.ECONNREFUSED) && isLoopbackURL(s.URL) {
+		if errors.Is(err, syscall.ECONNREFUSED) && isLoopbackURL(conf.URL) {
 			return nil, fmt.Errorf(
 				"connection to the MCP server %s was refused. "+
 					"If mcpjungle is running inside Docker, use 'host.docker.internal' as your MCP server's hostname",
-				s.URL,
+				conf.URL,
 			)
 		}
 		return nil, fmt.Errorf("failed to initialize connection with MCP server: %w", err)
