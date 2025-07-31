@@ -142,13 +142,22 @@ func convertToolModelToMcpObject(t *model.Tool) (mcp.Tool, error) {
 	return mcpTool, nil
 }
 
+// runStdioServer runs a stdio MCP server and returns the client.
 func runStdioServer(ctx context.Context, s *model.McpServer) (*client.Client, error) {
 	conf, err := s.GetStdioConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stdio config for MCP server %s: %w", s.Name, err)
 	}
 
-	c, err := client.NewStdioMCPClient(conf.Command, conf.Env, conf.Args...)
+	// Convert the environment map to a slice of strings in the format "KEY=VALUE"
+	envVars := make([]string, 0)
+	if conf.Env != nil {
+		for k, v := range conf.Env {
+			envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
+		}
+	}
+
+	c, err := client.NewStdioMCPClient(conf.Command, envVars, conf.Args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create stdio client for MCP server: %w", err)
 	}
