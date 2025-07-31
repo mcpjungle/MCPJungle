@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/spf13/cobra"
 	"strings"
 )
@@ -86,8 +87,28 @@ func runListServers(cmd *cobra.Command, args []string) error {
 	}
 	for i, s := range servers {
 		fmt.Printf("%d. %s\n", i+1, s.Name)
-		fmt.Println(s.URL)
-		fmt.Println(s.Description)
+
+		if s.Description != "" {
+			fmt.Println(s.Description)
+		}
+
+		fmt.Println("Transport: " + s.Transport)
+
+		t, _ := types.ValidateTransport(s.Transport)
+		if t == types.TransportStreamableHTTP {
+			fmt.Println("URL: " + s.URL)
+		} else {
+			if len(s.Args) > 0 {
+				fmt.Println("Command: " + s.Command + " " + strings.Join(s.Args, " "))
+			} else {
+				fmt.Println("Command: " + s.Command)
+			}
+
+			if len(s.Env) > 0 {
+				fmt.Printf("Environment variables: %s\n", s.Env)
+			}
+		}
+
 		if i < len(servers)-1 {
 			fmt.Println()
 		}
