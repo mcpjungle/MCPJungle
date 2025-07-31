@@ -77,7 +77,7 @@ func isLoopbackURL(rawURL string) bool {
 	return false
 }
 
-// createMcpServerConn creates a new MCP server connection and returns the client.
+// createMcpServerConn creates a new connection with a streamable http MCP server and returns the client.
 func createMcpServerConn(ctx context.Context, s *model.McpServer) (*client.Client, error) {
 	conf, err := s.GetStreamableHTTPConfig()
 	if err != nil {
@@ -140,4 +140,31 @@ func convertToolModelToMcpObject(t *model.Tool) (mcp.Tool, error) {
 	// NOTE: if more fields are added to the tool in DB, they should be set here as well
 
 	return mcpTool, nil
+}
+
+func runStdioServer(ctx context.Context, s *model.McpServer) (*client.Client, error) {
+	conf, err := s.GetStdioConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stdio config for MCP server %s: %w", s.Name, err)
+	}
+
+	c, err := client.NewStdioMCPClient(conf.Command, conf.Env, conf.Args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create stdio client for MCP server: %w", err)
+	}
+
+	initRequest := mcp.InitializeRequest{}
+	initRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
+	initRequest.Params.ClientInfo = mcp.Implementation{
+		Name:    "mcpjungle mcp client for stdio",
+		Version: "0.1",
+	}
+	initRequest.Params.Capabilities = mcp.ClientCapabilities{}
+
+	_, err = c.Initialize(ctx, initRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize connection with MCP server: %w", err)
+	}
+
+	return c, nil
 }

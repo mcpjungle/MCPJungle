@@ -3,7 +3,9 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"github.com/mark3labs/mcp-go/client"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
 // RegisterMcpServer registers a new MCP server in the database.
@@ -11,25 +13,40 @@ import (
 // Tool registration is on best-effort basis and does not fail the server registration.
 // Registered tools are also added to the MCP proxy server.
 func (m *MCPService) RegisterMcpServer(ctx context.Context, s *model.McpServer) error {
-	if err := validateServerName(s.Name); err != nil {
+	var err error
+
+	if err = validateServerName(s.Name); err != nil {
 		return err
 	}
 
-	// TODO: validate the URL to ensure it is a valid HTTP/HTTPS URL (streamable http compliant)
+	var mcpClient *client.Client
 
-	// test that the server is reachable and is MCP-compliant
-	c, err := createMcpServerConn(ctx, s)
-	if err != nil {
-		return fmt.Errorf("failed to connect to MCP server %s: %w", s.Name, err)
+	if s.Transport == types.TransportStreamableHTTP {
+
+		// TODO: validate the URL to ensure it is a valid HTTP/HTTPS URL (streamable http compliant)
+		// test that the server is reachable and is MCP-compliant
+		mcpClient, err = createMcpServerConn(ctx, s)
+		if err != nil {
+			return fmt.Errorf("failed to connect to streamable http MCP server %s: %w", s.Name, err)
+		}
+		defer mcpClient.Close()
+
+	} else {
+
+		mcpClient, err = runStdioServer(ctx, s)
+		if err != nil {
+			return fmt.Errorf("failed to run stdio MCP server %s: %w", s.Name, err)
+		}
+		defer mcpClient.Close()
+
 	}
-	defer c.Close()
 
 	// register the server in the DB
 	if err := m.db.Create(s).Error; err != nil {
 		return fmt.Errorf("failed to register mcp server: %w", err)
 	}
 
-	if err = m.registerServerTools(ctx, s, c); err != nil {
+	if err = m.registerServerTools(ctx, s, mcpClient); err != nil {
 		return fmt.Errorf("failed to register tools for MCP server %s: %w", s.Name, err)
 	}
 	return nil
