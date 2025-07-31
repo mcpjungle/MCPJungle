@@ -4,21 +4,28 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"net/http"
 )
 
 func registerServerHandler(mcpService *mcp.MCPService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var req model.McpServer
-		if err := c.ShouldBindJSON(&req); err != nil {
+		var input types.RegisterServerInput
+		if err := c.ShouldBindJSON(&input); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		if err := mcpService.RegisterMcpServer(c, &req); err != nil {
+		server := model.McpServer{
+			Name:        input.Name,
+			URL:         input.URL,
+			Description: input.Description,
+			BearerToken: input.BearerToken,
+		}
+		if err := mcpService.RegisterMcpServer(c, &server); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusCreated, req)
+		c.JSON(http.StatusCreated, server)
 	}
 }
 

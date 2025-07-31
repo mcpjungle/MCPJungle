@@ -3,7 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/mcpjungle/mcpjungle/client"
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/spf13/cobra"
 	"os"
 )
@@ -79,11 +79,11 @@ func init() {
 }
 
 func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
-	var input client.RegisterServerInput
+	var input types.RegisterServerInput
 
 	if registerCmdServerConfigFilePath == "" {
 		// If no config file is provided, use the flags to create the input for server registration
-		input = client.RegisterServerInput{
+		input = types.RegisterServerInput{
 			Name:        registerCmdServerName,
 			URL:         registerCmdServerURL,
 			Description: registerCmdServerDesc,

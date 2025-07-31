@@ -4,21 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"io"
 	"net/http"
 )
 
-// McpClient represents an MCP client that is authorized to access the MCPJungle MCP Proxy server.
-type McpClient struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-
-	// AllowList is a comma-separated list of MCP Servers that this client
-	// is allowed to access from MCPJungle.
-	AllowList []string `json:"allow_list"`
-}
-
-func (c *Client) ListMcpClients() ([]McpClient, error) {
+func (c *Client) ListMcpClients() ([]types.McpClient, error) {
 	u, _ := c.constructAPIEndpoint("/clients")
 
 	req, err := c.newRequest(http.MethodGet, u, nil)
@@ -37,7 +28,7 @@ func (c *Client) ListMcpClients() ([]McpClient, error) {
 		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
 	}
 
-	var clients []McpClient
+	var clients []types.McpClient
 	if err := json.NewDecoder(resp.Body).Decode(&clients); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
@@ -67,7 +58,7 @@ func (c *Client) DeleteMcpClient(name string) error {
 	return nil
 }
 
-func (c *Client) CreateMcpClient(mcpClient *McpClient) (string, error) {
+func (c *Client) CreateMcpClient(mcpClient *types.McpClient) (string, error) {
 	u, _ := c.constructAPIEndpoint("/clients")
 
 	body, err := json.Marshal(mcpClient)

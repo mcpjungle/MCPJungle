@@ -7,7 +7,7 @@ import (
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
-	"github.com/mcpjungle/mcpjungle/internal/types"
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"log"
 )
 

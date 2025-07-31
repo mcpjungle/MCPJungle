@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/mcpjungle/mcpjungle/client"
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/spf13/cobra"
 	"strings"
 )
@@ -58,7 +58,7 @@ func runCreateMcpClient(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	c := &client.McpClient{
+	c := &types.McpClient{
 		Name:        args[0],
 		Description: createMcpClientCmdDescription,
 		AllowList:   allowList,
