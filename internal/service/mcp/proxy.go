@@ -3,10 +3,8 @@ package mcp
 import (
 	"context"
 	"fmt"
-	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
-	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
 // initMCPProxyServer initializes the MCP proxy server.
@@ -63,30 +61,11 @@ func (m *MCPService) mcpProxyToolCallHandler(ctx context.Context, request mcp.Ca
 		)
 	}
 
-	var mcpClient *client.Client
-
-	if server.Transport == types.TransportStreamableHTTP {
-
-		mcpClient, err = createMcpServerConn(ctx, server)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"failed to create connection to MCP server %s: %w", serverName, err,
-			)
-		}
-		defer mcpClient.Close()
-
-	} else {
-
-		// A new sub-process is spun up for each tool call to a STDIO mcp server.
-		// This causes a serious performance hit, but is easy to implment so it is used for now.
-		// TODO: Think of a better solution, ie, re-use connections to stdio MCP servers.
-		mcpClient, err = runStdioServer(ctx, server)
-		if err != nil {
-			return nil, fmt.Errorf("failed to run stdio MCP server %s: %w", serverName, err)
-		}
-		defer mcpClient.Close()
-
+	mcpClient, err := newMcpServerSession(ctx, server)
+	if err != nil {
+		return nil, err
 	}
+	defer mcpClient.Close()
 
 	// Ensure the tool name is set correctly, ie, without the server name prefix
 	request.Params.Name = toolName

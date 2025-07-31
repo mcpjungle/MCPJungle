@@ -3,9 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
-	"github.com/mark3labs/mcp-go/client"
 	"github.com/mcpjungle/mcpjungle/internal/model"
-	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
 // RegisterMcpServer registers a new MCP server in the database.
@@ -18,28 +16,14 @@ func (m *MCPService) RegisterMcpServer(ctx context.Context, s *model.McpServer) 
 	if err = validateServerName(s.Name); err != nil {
 		return err
 	}
+	// TODO: if transport is http, validate the URL
+	//  if stdio, verify that command is not empty string
 
-	var mcpClient *client.Client
-
-	if s.Transport == types.TransportStreamableHTTP {
-
-		// TODO: validate the URL to ensure it is a valid HTTP/HTTPS URL (streamable http compliant)
-		// test that the server is reachable and is MCP-compliant
-		mcpClient, err = createMcpServerConn(ctx, s)
-		if err != nil {
-			return fmt.Errorf("failed to connect to streamable http MCP server %s: %w", s.Name, err)
-		}
-		defer mcpClient.Close()
-
-	} else {
-
-		mcpClient, err = runStdioServer(ctx, s)
-		if err != nil {
-			return fmt.Errorf("failed to run stdio MCP server %s: %w", s.Name, err)
-		}
-		defer mcpClient.Close()
-
+	mcpClient, err := newMcpServerSession(ctx, s)
+	if err != nil {
+		return err
 	}
+	defer mcpClient.Close()
 
 	// register the server in the DB
 	if err := m.db.Create(s).Error; err != nil {

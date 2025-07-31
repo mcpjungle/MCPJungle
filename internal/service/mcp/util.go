@@ -9,6 +9,7 @@ import (
 	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"net"
 	"net/url"
 	"regexp"
@@ -77,6 +78,27 @@ func isLoopbackURL(rawURL string) bool {
 	return false
 }
 
+// convertToolModelToMcpObject converts a tool model from the database to a mcp.Tool object
+func convertToolModelToMcpObject(t *model.Tool) (mcp.Tool, error) {
+	mcpTool := mcp.Tool{
+		Name:        t.Name,
+		Description: t.Description,
+	}
+
+	var inputSchema mcp.ToolInputSchema
+	if err := json.Unmarshal(t.InputSchema, &inputSchema); err != nil {
+		return mcp.Tool{}, fmt.Errorf(
+			"failed to unmarshal input schema %s for tool %s: %w", t.InputSchema, t.Name, err,
+		)
+	}
+	mcpTool.InputSchema = inputSchema
+
+	// TODO: Add other attributes to the tool, such as annotations
+	// NOTE: if more fields are added to the tool in DB, they should be set here as well
+
+	return mcpTool, nil
+}
+
 // createMcpServerConn creates a new connection with a streamable http MCP server and returns the client.
 func createMcpServerConn(ctx context.Context, s *model.McpServer) (*client.Client, error) {
 	conf, err := s.GetStreamableHTTPConfig()
@@ -121,27 +143,6 @@ func createMcpServerConn(ctx context.Context, s *model.McpServer) (*client.Clien
 	return c, nil
 }
 
-// convertToolModelToMcpObject converts a tool model from the database to a mcp.Tool object
-func convertToolModelToMcpObject(t *model.Tool) (mcp.Tool, error) {
-	mcpTool := mcp.Tool{
-		Name:        t.Name,
-		Description: t.Description,
-	}
-
-	var inputSchema mcp.ToolInputSchema
-	if err := json.Unmarshal(t.InputSchema, &inputSchema); err != nil {
-		return mcp.Tool{}, fmt.Errorf(
-			"failed to unmarshal input schema %s for tool %s: %w", t.InputSchema, t.Name, err,
-		)
-	}
-	mcpTool.InputSchema = inputSchema
-
-	// TODO: Add other attributes to the tool, such as annotations
-	// NOTE: if more fields are added to the tool in DB, they should be set here as well
-
-	return mcpTool, nil
-}
-
 // runStdioServer runs a stdio MCP server and returns the client.
 func runStdioServer(ctx context.Context, s *model.McpServer) (*client.Client, error) {
 	conf, err := s.GetStdioConfig()
@@ -176,4 +177,26 @@ func runStdioServer(ctx context.Context, s *model.McpServer) (*client.Client, er
 	}
 
 	return c, nil
+}
+
+func newMcpServerSession(ctx context.Context, s *model.McpServer) (*client.Client, error) {
+	if s.Transport == types.TransportStreamableHTTP {
+		mcpClient, err := createMcpServerConn(ctx, s)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"failed to create connection to streamable http MCP server %s: %w", s.Name, err,
+			)
+		}
+		return mcpClient, nil
+	}
+
+	// A new sub-process is spun up for each call to a STDIO mcp server.
+	// This is especially a problem for the MCP proxy server, which is expected to call tools frequently.
+	// This causes a serious performance hit, but is easy to implement so it is used for now.
+	// TODO: Think of a better solution, ie, re-use connections to stdio MCP servers.
+	mcpClient, err := runStdioServer(ctx, s)
+	if err != nil {
+		return nil, fmt.Errorf("failed to run stdio MCP server %s: %w", s.Name, err)
+	}
+	return mcpClient, nil
 }
