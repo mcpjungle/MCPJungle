@@ -22,7 +22,9 @@ var registerMCPServerCmd = &cobra.Command{
 	Short: "Register an MCP Server",
 	Long: "Register a MCP Server with the registry.\n" +
 		"The recommended way is to specify the json configuration file for your server.\n" +
-		"A server's name is unique across mcpjungle and must not contain any whitespaces, special characters or multiple consecutive underscores '__'.",
+		"A config file is required if you want to register an stdio-based mcp server.\n" +
+		"The flags only allow you to register a streamable http server.\n" +
+		"\nNOTE: A server's name is unique across mcpjungle and must not contain\nany whitespaces, special characters or multiple consecutive underscores '__'.",
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		// Skip flag validation if config file is provided
 		if registerCmdServerConfigFilePath != "" {
@@ -63,7 +65,7 @@ func init() {
 		&registerCmdBearerToken,
 		"bearer-token",
 		"",
-		"If provided, MCPJungle will use this token to authenticate with the MCP server for all requests."+
+		"If provided, MCPJungle will use this token to authenticate with the http MCP server for all requests."+
 			" This is useful if the MCP server requires static tokens (eg- your API token) for authentication.",
 	)
 	registerMCPServerCmd.Flags().StringVarP(
@@ -101,6 +103,7 @@ func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
 		// If no config file is provided, use the flags to create the input for server registration
 		input = types.RegisterServerInput{
 			Name:        registerCmdServerName,
+			Transport:   string(types.TransportStreamableHTTP),
 			URL:         registerCmdServerURL,
 			Description: registerCmdServerDesc,
 			BearerToken: registerCmdBearerToken,
