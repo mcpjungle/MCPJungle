@@ -30,8 +30,8 @@ $ goreleaser release --snapshot --clean
 1. Create a Git Tag with the new version
 
 ```bash
-git tag -a v0.1.0 -m "Release version 0.1.0"
-git push origin v0.1.0
+git tag -a 0.1.0 -m "Release version 0.1.0"
+git push origin 0.1.0
 ```
 
 2. Release

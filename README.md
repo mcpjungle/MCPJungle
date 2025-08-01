@@ -60,6 +60,10 @@ For running the MCPJungle server locally, docker compose is the recommended way:
 ```shell
 curl -O https://raw.githubusercontent.com/mcpjungle/MCPJungle/refs/heads/main/docker-compose.yaml
 docker-compose up -d
+
+# If you want mcpjungle to run STDIO-based MCP servers that rely on `npx` or `uvx`, use the `stdio` tagged docker image.
+# If your stdio server(s) rely on any other tools, you will have to create a custom docker image that includes those dependencies.
+MCPJUNGLE_IMAGE_TAG=latest-stdio docker-compose up -d
 ```
 
 Otherwise, you can run the server directly using the binary:

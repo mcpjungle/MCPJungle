@@ -56,7 +56,8 @@ brews:
       name: "homebrew-mcpjungle"
 
 dockers:
-  - image_templates:
+  - dockerfile: Dockerfile
+    image_templates:
       - "mcpjungle/mcpjungle:{{ .Tag }}-amd64"
       - "mcpjungle/mcpjungle:latest-amd64"
     use: buildx
@@ -64,9 +65,31 @@ dockers:
       - "--pull"
       - "--platform=linux/amd64"
     goarch: amd64
-  - image_templates:
+
+  - dockerfile: Dockerfile
+    image_templates:
       - "mcpjungle/mcpjungle:{{ .Tag }}-arm64"
       - "mcpjungle/mcpjungle:latest-arm64"
+    use: buildx
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/arm64"
+    goarch: arm64
+
+  - dockerfile: stdio.Dockerfile
+    image_templates:
+      - "mcpjungle/mcpjungle:{{ .Tag }}-stdio-amd64"
+      - "mcpjungle/mcpjungle:latest-stdio-amd64"
+    use: buildx
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/amd64"
+    goarch: amd64
+
+  - dockerfile: stdio.Dockerfile
+    image_templates:
+      - "mcpjungle/mcpjungle:{{ .Tag }}-stdio-arm64"
+      - "mcpjungle/mcpjungle:latest-stdio-arm64"
     use: buildx
     build_flag_templates:
       - "--pull"
@@ -78,7 +101,18 @@ docker_manifests:
     image_templates:
       - "mcpjungle/mcpjungle:{{ .Tag }}-amd64"
       - "mcpjungle/mcpjungle:{{ .Tag }}-arm64"
+
   - name_template: "mcpjungle/mcpjungle:latest"
     image_templates:
       - "mcpjungle/mcpjungle:latest-amd64"
       - "mcpjungle/mcpjungle:latest-arm64"
+
+  - name_template: "mcpjungle/mcpjungle:{{ .Tag }}-stdio"
+    image_templates:
+      - "mcpjungle/mcpjungle:{{ .Tag }}-stdio-amd64"
+      - "mcpjungle/mcpjungle:{{ .Tag }}-stdio-arm64"
+
+  - name_template: "mcpjungle/mcpjungle:latest-stdio"
+    image_templates:
+      - "mcpjungle/mcpjungle:latest-stdio-amd64"
+      - "mcpjungle/mcpjungle:latest-stdio-arm64"
