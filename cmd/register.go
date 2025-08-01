@@ -20,8 +20,9 @@ var (
 var registerMCPServerCmd = &cobra.Command{
 	Use:   "register",
 	Short: "Register an MCP Server",
-	Long: "Register a MCP Server with the registry.\nA server name is unique across the registry and " +
-		"must not contain any whitespaces, special characters or multiple consecutive underscores '__'.",
+	Long: "Register a MCP Server with the registry.\n" +
+		"The recommended way is to specify the json configuration file for your server.\n" +
+		"A server's name is unique across mcpjungle and must not contain any whitespaces, special characters or multiple consecutive underscores '__'.",
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		// Skip flag validation if config file is provided
 		if registerCmdServerConfigFilePath != "" {
@@ -29,7 +30,7 @@ var registerMCPServerCmd = &cobra.Command{
 		}
 		// Otherwise, validate required flags
 		if registerCmdServerName == "" {
-			return fmt.Errorf("required flag \"name\" not set")
+			return fmt.Errorf("either supply a configuration file or set the required flag \"name\"")
 		}
 		if registerCmdServerURL == "" {
 			return fmt.Errorf("required flag \"url\" not set")
@@ -50,7 +51,7 @@ func init() {
 		&registerCmdServerURL,
 		"url",
 		"",
-		"URL of the MCP server (eg- http://localhost:8000/mcp)",
+		"URL of the streamable http MCP server (eg- http://localhost:8000/mcp)",
 	)
 	registerMCPServerCmd.Flags().StringVar(
 		&registerCmdServerDesc,
@@ -78,6 +79,21 @@ func init() {
 	rootCmd.AddCommand(registerMCPServerCmd)
 }
 
+func readMcpServerConfig(filePath string) (types.RegisterServerInput, error) {
+	var input types.RegisterServerInput
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return input, fmt.Errorf("failed to read config file %s: %w", registerCmdServerConfigFilePath, err)
+	}
+	// Parse JSON config
+	if err := json.Unmarshal(data, &input); err != nil {
+		return input, fmt.Errorf("failed to parse config file: %w", err)
+	}
+
+	return input, nil
+}
+
 func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
 	var input types.RegisterServerInput
 
@@ -91,19 +107,10 @@ func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
 		}
 	} else {
 		// If a config file is provided, read the configuration from the file
-		data, err := os.ReadFile(registerCmdServerConfigFilePath)
+		var err error
+		input, err = readMcpServerConfig(registerCmdServerConfigFilePath)
 		if err != nil {
-			return fmt.Errorf("failed to read config file %s: %w", registerCmdServerConfigFilePath, err)
-		}
-
-		// Parse JSON config
-		if err := json.Unmarshal(data, &input); err != nil {
-			return fmt.Errorf("failed to parse config file: %w", err)
-		}
-
-		// Validate required fields
-		if input.Name == "" {
-			return fmt.Errorf("missing required field 'name' in config file")
+			return err
 		}
 	}
 

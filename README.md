@@ -118,9 +118,12 @@ Here's an example configuration file for a STDIO-based MCP server:
 {
   "name": "filesystem",
   "transport": "stdio",
+  "description": "filesystem mcp server",
   "command": "npx",
   "args": ["-y", "@modelcontextprotocol/server-filesystem", "./data"],
-  "description": "filesystem"
+  "env": {
+    "FOO": "BAR"
+  }
 }
 ```
 

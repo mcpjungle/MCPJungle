@@ -25,6 +25,7 @@ type McpServer struct {
 }
 
 // RegisterServerInput is the input structure for registering a new MCP server with mcpjungle.
+// It is also the basis for the JSON configuration file used to register a new MCP server.
 type RegisterServerInput struct {
 	// Name is the unique name of an MCP server registered in mcpjungle
 	Name string `json:"name"`

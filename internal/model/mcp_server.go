@@ -29,6 +29,7 @@ type StdioConfig struct {
 	Env map[string]string `json:"env,omitempty"`
 }
 
+// McpServer represents a MCP server registered in mcpjungle
 type McpServer struct {
 	gorm.Model
 
@@ -38,9 +39,11 @@ type McpServer struct {
 	Description string `json:"description"`
 
 	// Config describes the transport-specific configuration for the MCP server.
+	// It contains the JSON representation of either StreamableHTTPConfig or StdioConfig.
 	Config datatypes.JSON `json:"config" gorm:"type:jsonb;not null"`
 }
 
+// NewStreamableHTTPServer creates a new MCP server with streamable HTTP transport configuration.
 func NewStreamableHTTPServer(name, description, url, bearerToken string) (*McpServer, error) {
 	if url == "" {
 		return nil, errors.New("url is required for streamable HTTP transport")
@@ -61,6 +64,7 @@ func NewStreamableHTTPServer(name, description, url, bearerToken string) (*McpSe
 	}, nil
 }
 
+// NewStdioServer creates a new MCP server with stdio transport configuration.
 func NewStdioServer(name, description, command string, args []string, env map[string]string) (*McpServer, error) {
 	if command == "" {
 		return nil, errors.New("command is required for stdio transport")

@@ -30,6 +30,9 @@ var validServerName = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 // When a tool is invoked, the text before the first __ is treated as the server name.
 // eg- In `aws__ec2__create_sg`, `aws` is the MCP server's name and `ec2__create_sg` is the tool.
 func validateServerName(name string) error {
+	if name == "" {
+		return fmt.Errorf("invalid server name: '%s' must not be empty", name)
+	}
 	if !validServerName.MatchString(name) {
 		return fmt.Errorf("invalid server name: '%s' must follow the regular expression %s", name, validServerName)
 	}
@@ -99,8 +102,8 @@ func convertToolModelToMcpObject(t *model.Tool) (mcp.Tool, error) {
 	return mcpTool, nil
 }
 
-// createMcpServerConn creates a new connection with a streamable http MCP server and returns the client.
-func createMcpServerConn(ctx context.Context, s *model.McpServer) (*client.Client, error) {
+// createHTTPMcpServerConn creates a new connection with a streamable http MCP server and returns the client.
+func createHTTPMcpServerConn(ctx context.Context, s *model.McpServer) (*client.Client, error) {
 	conf, err := s.GetStreamableHTTPConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get streamable HTTP config for MCP server %s: %w", s.Name, err)
@@ -181,7 +184,7 @@ func runStdioServer(ctx context.Context, s *model.McpServer) (*client.Client, er
 
 func newMcpServerSession(ctx context.Context, s *model.McpServer) (*client.Client, error) {
 	if s.Transport == types.TransportStreamableHTTP {
-		mcpClient, err := createMcpServerConn(ctx, s)
+		mcpClient, err := createHTTPMcpServerConn(ctx, s)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"failed to create connection to streamable http MCP server %s: %w", s.Name, err,

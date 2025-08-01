@@ -5,7 +5,7 @@ import "github.com/spf13/cobra"
 var disableCmd = &cobra.Command{
 	Use:   "disable [name]",
 	Args:  cobra.ExactArgs(1),
-	Short: "Disable an MCP server or tool globally",
+	Short: "Disable one or more MCP tools globally",
 	Long: "Specify the name of a tool or MCP server to disable it in the mcp proxy.\n" +
 		"If a server is specified, all tools provided by that server will be disabled.\n" +
 		"If a tool is disabled, it cannot be viewed or called by mcp clients.",
