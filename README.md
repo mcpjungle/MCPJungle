@@ -84,7 +84,7 @@ If you use docker-compose, the DB is automatically created and managed for you.
 ### Client
 Once the server is up, you can use the CLI to interact with it.
 
-Let's say you're already running a MCP server locally at `http://127.0.0.1:8000/mcp` which provides basic math tools like `add`, `subtract`, etc.
+Let's say you're already running a streamable http-based MCP server locally at `http://127.0.0.1:8000/mcp` which provides basic math tools like `add`, `subtract`, etc.
 
 You can register this MCP server with MCPJungle:
 ```bash
@@ -100,7 +100,37 @@ The registry will now start tracking this MCP server and load its tools.
 
 ![register a MCP server in MCPJungle](./assets/register-mcp-server.png)
 
-**Note**: MCPJungle currently only supports MCP Servers using the [Streamable HTTP Transport](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http).
+You can also provide a configuration file to register the MCP server:
+```bash
+$ cat ./calculator.json
+{
+  "name": "calculator",
+  "transport": "streamable_http",
+  "description": "Provides some basic math tools",
+  "url": "http://127.0.0.1:8000/mcp"
+}
+
+$ mcpjungle register -c ./calculator.json
+```
+
+Here's an example configuration file for a STDIO-based MCP server:
+```json
+{
+  "name": "filesystem",
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "./data"],
+  "description": "filesystem"
+}
+```
+
+The format is the same as Claude's MCP server configuration.
+
+> [!NOTE]
+> MCPJungle currently supports MCP servers using [stdio](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#stdio) and [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) Transports.
+> 
+> If you're running the mcpjungle server inside Docker, you may have to create a custom image if you want to register stdio-based MCP servers.
+> mcpjungle's docker image contains a minimal base image and the mcpjungle binary. If your stdio server requires dependencies like nodejs (`npx`), python (`uvx`), etc., you will have to create a custom image that includes these dependencies.
 
 All tools provided by this server are now accessible via MCPJungle:
 
@@ -112,7 +142,6 @@ $ mcpjungle usage calculator__multiply
 
 # Call a tool
 $ mcpjungle invoke calculator__multiply --input '{"a": 100, "b": 50}'
-
 ```
 
 ![Call a tool via MCPJungle Proxy MCP server](./assets/tool-call.png)
@@ -188,7 +217,7 @@ A disabled tool is still accessible via mcpjungle's HTTP API, so you can still m
 > When a new server is registered in MCPJungle, all its tools are **enabled** by default.
 
 ### Authentication
-MCPJungle currently supports authentication if your MCP Server accepts static tokens for auth.
+MCPJungle currently supports authentication if your Streamable HTTP MCP Server accepts static tokens for auth.
 
 This is useful when using SaaS-provided MCP Servers like HuggingFace, Stripe, etc. which require your API token for authentication.
 
@@ -196,6 +225,17 @@ You can supply your token while registering the MCP server:
 ```bash
 # If you specify the `--bearer-token` flag, MCPJungle will add the `Authorization: Bearer <token>` header to all requests made to this MCP server.
 $ mcpjungle register --name huggingface --description "HuggingFace MCP Server" --url https://huggingface.co/mcp --bearer-token <your-hf-api-token>
+```
+
+Or from your configuration file
+```bash
+{
+	"name": "huggingface",
+	"transport": "streamable_http",
+	"url": "https://huggingface.co/mcp",
+	"description": "hugging face mcp server",
+	"bearer_token": "<your-hf-api-token>"
+}
 ```
 
 Support for Oauth flow is coming soon!
@@ -271,6 +311,25 @@ A client that has access to a particular server this way can view and call all t
 
 > [!NOTE]
 > If you don't specify the `--allow` flag, the MCP client will not be able to access any MCP servers.
+
+## Current limitations 🚧
+
+We're actively working to remove these limitations from MCPJungle.
+
+But if any of these is causing trouble for you, feel free to open an issue to describe your problem, and we'll help fix it! 
+
+1. MCPJungle doesn't maintain any long-running connections to the registered MCP Servers.
+When you call a tool in a STDIO server, mcpjungle creates a new connection and starts a new sub-process with the server.
+
+After servicing your request, it terminates this sub-process.
+
+So a new stdio server process is started for every tool call.
+
+This has some performance overhead but ensures that there are no memory leaks.
+It also means that if you rely on stateful connections with your MCP server, mcpjungle can currently not provide that.
+
+2. MCPJungle currently does not support OAuth flow for authentication.
+This is a work in progress.
 
 ## Contributing 💻
 
