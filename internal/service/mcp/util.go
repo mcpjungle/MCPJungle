@@ -15,7 +15,11 @@ import (
 	"regexp"
 	"strings"
 	"syscall"
+	"time"
 )
+
+// serverInitRequestTimeout is the timeout (in seconds) for the initialization request to the MCP server
+const serverInitRequestTimeout = 10
 
 // serverToolNameSep is the separator used to combine server name and tool name.
 // This combination produces the canonical name that uniquely identifies a tool across MCPJungle.
@@ -131,8 +135,14 @@ func createHTTPMcpServerConn(ctx context.Context, s *model.McpServer) (*client.C
 	}
 	initRequest.Params.Capabilities = mcp.ClientCapabilities{}
 
-	_, err = c.Initialize(ctx, initRequest)
+	initCtx, cancel := context.WithTimeout(ctx, serverInitRequestTimeout*time.Second)
+	defer cancel()
+
+	_, err = c.Initialize(initCtx, initRequest)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, fmt.Errorf("initialization request to MCP server timed out after %d seconds", serverInitRequestTimeout)
+		}
 		if errors.Is(err, syscall.ECONNREFUSED) && isLoopbackURL(conf.URL) {
 			return nil, fmt.Errorf(
 				"connection to the MCP server %s was refused. "+
@@ -174,8 +184,14 @@ func runStdioServer(ctx context.Context, s *model.McpServer) (*client.Client, er
 	}
 	initRequest.Params.Capabilities = mcp.ClientCapabilities{}
 
-	_, err = c.Initialize(ctx, initRequest)
+	initCtx, cancel := context.WithTimeout(ctx, serverInitRequestTimeout*time.Second)
+	defer cancel()
+
+	_, err = c.Initialize(initCtx, initRequest)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, fmt.Errorf("initialization request to MCP server timed out after %d seconds", serverInitRequestTimeout)
+		}
 		return nil, fmt.Errorf("failed to initialize connection with MCP server: %w", err)
 	}
 
