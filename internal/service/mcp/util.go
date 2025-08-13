@@ -10,6 +10,8 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
+	"io"
+	"log"
 	"net"
 	"net/url"
 	"regexp"
@@ -156,6 +158,29 @@ func createHTTPMcpServerConn(ctx context.Context, s *model.McpServer) (*client.C
 	return c, nil
 }
 
+// captureStdioServerStderr captures the stderr output of a stdio MCP server in the background
+// and writes it to mcpjungle server logs.
+// This is useful for troubleshooting and visibility into the stdio server's behaviour.
+func captureStdioServerStderr(name string, c *client.Client) {
+	stdioTransport := c.GetTransport().(*transport.Stdio)
+
+	go func() {
+		buf := make([]byte, 4096) // 4KB buffer for reading stderr
+		for {
+			n, err := stdioTransport.Stderr().Read(buf)
+			if err != nil {
+				if err != io.EOF {
+					log.Printf("['%s' MCP STDERR] Error reading stderr: %v", name, err)
+				}
+				break
+			}
+			if n > 0 {
+				log.Printf("['%s' MCP STDERR] %s", name, string(buf[:n]))
+			}
+		}
+	}()
+}
+
 // runStdioServer runs a stdio MCP server and returns the client.
 func runStdioServer(ctx context.Context, s *model.McpServer) (*client.Client, error) {
 	conf, err := s.GetStdioConfig()
@@ -176,6 +201,10 @@ func runStdioServer(ctx context.Context, s *model.McpServer) (*client.Client, er
 		return nil, fmt.Errorf("failed to create stdio client for MCP server: %w", err)
 	}
 
+	// currently, we only capture the stderr output in the mcpjungle server logs.
+	// TODO: Propagate the stderr output to the client as well to provide them quicker feedback on errors.
+	captureStdioServerStderr(s.Name, c)
+
 	initRequest := mcp.InitializeRequest{}
 	initRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
 	initRequest.Params.ClientInfo = mcp.Implementation{
@@ -190,7 +219,11 @@ func runStdioServer(ctx context.Context, s *model.McpServer) (*client.Client, er
 	_, err = c.Initialize(initCtx, initRequest)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, fmt.Errorf("initialization request to MCP server timed out after %d seconds", serverInitRequestTimeout)
+			return nil, fmt.Errorf(
+				"initialization request to MCP server timed out after %d seconds,"+
+					" check mcpungle server logs for any errors from this MCP server",
+				serverInitRequestTimeout,
+			)
 		}
 		return nil, fmt.Errorf("failed to initialize connection with MCP server: %w", err)
 	}
