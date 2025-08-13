@@ -14,6 +14,7 @@ import (
 	"log"
 	"net"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"syscall"
@@ -169,10 +170,12 @@ func captureStdioServerStderr(name string, c *client.Client) {
 		for {
 			n, err := stdioTransport.Stderr().Read(buf)
 			if err != nil {
-				if err != io.EOF {
+				if err == io.EOF || errors.Is(err, os.ErrClosed) {
+					log.Printf("['%s' MCP Server] [DEBUG] server process has exited gracefully", name)
+				} else {
 					log.Printf("['%s' MCP STDERR] Error reading stderr: %v", name, err)
 				}
-				log.Printf("['%s' MCP Server] [DEBUG] shutting down goroutine", name)
+				log.Printf("['%s' MCP server] [DEBUG] exiting goroutine", name)
 				break
 			}
 			if n > 0 {

@@ -307,7 +307,7 @@ The config file format for registering a STDIO-based MCP server is:
 }
 ```
 
-> [!NOTE]
+> [!TIP]
 > If your STDIO server fails or throws errors for some reason, check the mcpjungle server's logs to view its `stderr` output.
 
 **Limitation** 🚧
