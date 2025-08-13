@@ -172,6 +172,7 @@ func captureStdioServerStderr(name string, c *client.Client) {
 				if err != io.EOF {
 					log.Printf("['%s' MCP STDERR] Error reading stderr: %v", name, err)
 				}
+				log.Printf("['%s' MCP Server] [DEBUG] shutting down goroutine", name)
 				break
 			}
 			if n > 0 {
