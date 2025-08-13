@@ -307,6 +307,9 @@ The config file format for registering a STDIO-based MCP server is:
 }
 ```
 
+> [!NOTE]
+> If your STDIO server fails or throws errors for some reason, check the mcpjungle server's logs to view its `stderr` output.
+
 **Limitation** 🚧
 
 MCPJungle creates a new connection when a tool is called. This means a new sub-process for a STDIO mcp server is started for every tool call.
