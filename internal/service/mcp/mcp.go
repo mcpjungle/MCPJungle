@@ -22,11 +22,8 @@ func NewMCPService(db *gorm.DB, mcpProxyServer *server.MCPServer) (*MCPService, 
 		db:             db,
 		mcpProxyServer: mcpProxyServer,
 	}
-
-	err := s.initMCPProxyServer()
-	if err != nil {
+	if err := s.initMCPProxyServer(); err != nil {
 		return nil, fmt.Errorf("failed to initialize MCP proxy server: %w", err)
 	}
-
 	return s, nil
 }

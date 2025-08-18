@@ -27,13 +27,9 @@ func init() {
 
 func runDeleteMcpClient(cmd *cobra.Command, args []string) error {
 	name := args[0]
-
-	err := apiClient.DeleteMcpClient(name)
-	if err != nil {
+	if err := apiClient.DeleteMcpClient(name); err != nil {
 		return fmt.Errorf("failed to delete the client: %w", err)
 	}
-
 	fmt.Printf("MCP client '%s' deleted successfully (if it existed)!\n", name)
-
 	return nil
 }
