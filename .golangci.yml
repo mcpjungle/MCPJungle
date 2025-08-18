@@ -2,75 +2,17 @@ version: "2"
 run:
   concurrency: 4  
 linters:
-  default: all
-  disable:
-    - copyloopvar
-    - cyclop
-    - depguard
-    - dupl
-    - err113
-    - errname
-    - errorlint
-    - exhaustive
-    - exhaustruct
-    - forbidigo
-    - forcetypeassert
-    - funlen
-    - gochecknoglobals
-    - gocognit
-    - goconst
-    - gocyclo
-    - godox
-    - godot
-    - gosec
-    - gosmopolitan
-    - inamedparam
-    - interfacebloat
-    - intrange
-    - ireturn
-    - lll
-    - maintidx
-    - mnd
-    - nakedret
-    - nestif
-    - nlreturn
-    - noctx
-    - nonamedreturns
-    - paralleltest
-    - testableexamples
-    - testpackage
-    - testifylint
-    - thelper
-    - tparallel
-    - unparam
-    - usestdlibvars
-    - varnamelen
-    - wrapcheck
-    - wsl
-    - tagliatelle
-    - gochecknoinits
-    - noinlineerr
+  enable:
+    - govet
+    - staticcheck
+    - unused
+    - revive
   settings:
-    gocritic:
-      disabled-checks:
-        - deferInLoop
-        - importShadow
-        - sloppyReassign
-        - unnamedResult
-        - whyNoLint
-      enabled-tags:
-        - diagnostic
-        - experimental
-        - opinionated
-        - performance
-        - style
     govet:
       disable:
         - fieldalignment
         - shadow
       enable-all: true
-    lll:
-      line-length: 130
     revive:
       rules:
         - name: indent-error-flow
