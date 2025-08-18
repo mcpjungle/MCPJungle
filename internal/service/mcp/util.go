@@ -105,9 +105,7 @@ func convertToolModelToMcpObject(t *model.Tool) (mcp.Tool, error) {
 	}
 
 	var inputSchema mcp.ToolInputSchema
-
-	err := json.Unmarshal(t.InputSchema, &inputSchema)
-	if err != nil {
+	if err := json.Unmarshal(t.InputSchema, &inputSchema); err != nil {
 		return mcp.Tool{}, fmt.Errorf(
 			"failed to unmarshal input schema %s for tool %s: %w", t.InputSchema, t.Name, err,
 		)

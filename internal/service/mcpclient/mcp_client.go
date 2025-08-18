@@ -22,12 +22,9 @@ func NewMCPClientService(db *gorm.DB) *McpClientService {
 // ListClients retrieves all MCP clients known to mcpjungle from the database
 func (m *McpClientService) ListClients() ([]*model.McpClient, error) {
 	var clients []*model.McpClient
-
-	err := m.db.Find(&clients).Error
-	if err != nil {
+	if err := m.db.Find(&clients).Error; err != nil {
 		return nil, err
 	}
-
 	return clients, nil
 }
 
@@ -51,16 +48,12 @@ func (m *McpClientService) CreateClient(client *model.McpClient) (*model.McpClie
 // It returns an error if no such client is found.
 func (m *McpClientService) GetClientByToken(token string) (*model.McpClient, error) {
 	var client model.McpClient
-
-	err := m.db.Where("access_token = ?", token).First(&client).Error
-	if err != nil {
+	if err := m.db.Where("access_token = ?", token).First(&client).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errors.New("client not found")
 		}
-
 		return nil, err
 	}
-
 	return &client, nil
 }
 

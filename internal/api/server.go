@@ -113,11 +113,9 @@ func (s *Server) InitDev() error {
 
 // Start runs the Gin server (blocking call)
 func (s *Server) Start() error {
-	err := s.router.Run(":" + s.port)
-	if err != nil {
+	if err := s.router.Run(":" + s.port); err != nil {
 		return fmt.Errorf("failed to run the server: %w", err)
 	}
-
 	return nil
 }
 

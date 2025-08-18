@@ -16,23 +16,17 @@ import (
 // ListTools returns all tools registered in the registry.
 func (m *MCPService) ListTools() ([]model.Tool, error) {
 	var tools []model.Tool
-
-	err := m.db.Find(&tools).Error
-	if err != nil {
+	if err := m.db.Find(&tools).Error; err != nil {
 		return nil, err
 	}
 	// prepend server name to tool names to ensure we only return the unique names of tools to user
 	for i := range tools {
 		var s model.McpServer
-
-		err := m.db.First(&s, "id = ?", tools[i].ServerID).Error
-		if err != nil {
+		if err := m.db.First(&s, "id = ?", tools[i].ServerID).Error; err != nil {
 			return nil, fmt.Errorf("failed to get server for tool %s: %w", tools[i].Name, err)
 		}
-
 		tools[i].Name = mergeServerToolNames(s.Name, tools[i].Name)
 	}
-
 	return tools, nil
 }
 
@@ -231,9 +225,7 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 		}
 
 		tools[i].Enabled = enabled
-
-		err := m.db.Save(&tools[i]).Error
-		if err != nil {
+		if err := m.db.Save(&tools[i]).Error; err != nil {
 			return nil, fmt.Errorf("failed to set tool %s enabled=%t: %w", tools[i].Name, enabled, err)
 		}
 

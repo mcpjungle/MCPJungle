@@ -63,23 +63,17 @@ func (m *MCPService) DeregisterMcpServer(name string) error {
 // ListMcpServers returns all registered MCP servers.
 func (m *MCPService) ListMcpServers() ([]model.McpServer, error) {
 	var servers []model.McpServer
-
-	err := m.db.Find(&servers).Error
-	if err != nil {
+	if err := m.db.Find(&servers).Error; err != nil {
 		return nil, err
 	}
-
 	return servers, nil
 }
 
 // GetMcpServer fetches a server from the database by name.
 func (m *MCPService) GetMcpServer(name string) (*model.McpServer, error) {
 	var serverModel model.McpServer
-
-	err := m.db.Where("name = ?", name).First(&serverModel).Error
-	if err != nil {
+	if err := m.db.Where("name = ?", name).First(&serverModel).Error; err != nil {
 		return nil, err
 	}
-
 	return &serverModel, nil
 }
