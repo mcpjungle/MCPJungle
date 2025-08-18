@@ -130,7 +130,7 @@ func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
 	tools, err := apiClient.ListTools(s.Name)
 	if err != nil {
 		// if we fail to fetch tool list, fail silently because this is not a must-have output
-		return err
+		return nil
 	}
 
 	fmt.Println()
