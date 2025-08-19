@@ -14,7 +14,8 @@ var versionCmd = &cobra.Command{
 		fmt.Printf("MCPJungle Version %s\n", Version)
 	},
 	Annotations: map[string]string{
-		"group": "basic",
+		"group": string(subCommandGroupBasic),
+		"order": "7",
 	},
 }
 

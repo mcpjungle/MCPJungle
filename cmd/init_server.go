@@ -13,7 +13,8 @@ var initServerCmd = &cobra.Command{
 		"Initialization is required before you can use the server.\n",
 	RunE: runInitServer,
 	Annotations: map[string]string{
-		"group": "advanced",
+		"group": string(subCommandGroupAdvanced),
+		"order": "5",
 	},
 }
 

@@ -18,7 +18,8 @@ var invokeToolCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE:  runInvokeTool,
 	Annotations: map[string]string{
-		"group": "basic",
+		"group": string(subCommandGroupBasic),
+		"order": "5",
 	},
 }
 

@@ -14,7 +14,8 @@ var usageCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE:  runGetToolUsage,
 	Annotations: map[string]string{
-		"group": "basic",
+		"group": string(subCommandGroupBasic),
+		"order": "4",
 	},
 }
 

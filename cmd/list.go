@@ -11,7 +11,8 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List resources",
 	Annotations: map[string]string{
-		"group": "basic",
+		"group": string(subCommandGroupBasic),
+		"order": "3",
 	},
 }
 

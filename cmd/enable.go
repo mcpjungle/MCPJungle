@@ -14,7 +14,8 @@ var enableCmd = &cobra.Command{
 		"If a tool is enabled, it can be viewed and called by mcp clients.",
 	RunE: runEnableTools,
 	Annotations: map[string]string{
-		"group": "basic",
+		"group": string(subCommandGroupAdvanced),
+		"order": "2",
 	},
 }
 

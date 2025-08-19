@@ -38,7 +38,8 @@ var startServerCmd = &cobra.Command{
 		"The server is started in Development mode by default, which is ideal for individual users.\n",
 	RunE: runStartServer,
 	Annotations: map[string]string{
-		"group": "basic",
+		"group": string(subCommandGroupBasic),
+		"order": "1",
 	},
 }
 

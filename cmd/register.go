@@ -41,7 +41,8 @@ var registerMCPServerCmd = &cobra.Command{
 	},
 	RunE: runRegisterMCPServer,
 	Annotations: map[string]string{
-		"group": "basic",
+		"group": string(subCommandGroupBasic),
+		"order": "2",
 	},
 }
 

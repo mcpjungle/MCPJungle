@@ -11,7 +11,8 @@ var disableCmd = &cobra.Command{
 		"If a tool is disabled, it cannot be viewed or called by mcp clients.",
 	RunE: runDisableTools,
 	Annotations: map[string]string{
-		"group": "basic",
+		"group": string(subCommandGroupAdvanced),
+		"order": "1",
 	},
 }
 

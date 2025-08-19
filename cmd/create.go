@@ -11,7 +11,8 @@ var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Create resources",
 	Annotations: map[string]string{
-		"group": "advanced",
+		"group": string(subCommandGroupAdvanced),
+		"order": "3",
 	},
 }
 
