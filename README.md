@@ -8,6 +8,8 @@
   <a href="https://discord.gg/CapV4Z3krk" style="text-decoration: none;">
     <img src="https://img.shields.io/badge/Discord-MCPJungle-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord" style="max-width: 100%;">
   </a>
+
+[![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/duaraghav8/MCPJungle)](https://archestra.ai/mcp-catalog/duaraghav8__mcpjungle)
 </p>
 
 MCPJungle is a single source-of-truth registry for all [Model Context Protocol](https://modelcontextprotocol.io/introduction) Servers running in your Organisation.
