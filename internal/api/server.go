@@ -3,15 +3,18 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/mark3labs/mcp-go/server"
+
+	"github.com/mcpjungle/mcpjungle/internal/docs"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp_client"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
-	"net/http"
-	"strings"
 )
 
 const V0PathPrefix = "/api/v0"
@@ -222,6 +225,9 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 			c.JSON(200, gin.H{"status": "ok"})
 		},
 	)
+
+	// Mount Swagger UI and JSON
+	docs.Mount(r)
 
 	r.POST("/init", registerInitServerHandler(opts.ConfigService, opts.UserService))
 

@@ -43,6 +43,10 @@ $ goreleaser release --snapshot --clean
 - For fully offline or air-gapped builds, regenerate vendors locally with `go mod vendor` if needed, but do not commit the changes.
 - CI/Docker builds must use module-aware mode and fetch dependencies via the Go proxy. If necessary, set `GOPROXY="https://proxy.golang.org,direct"`.
 
+### Swagger UI / OpenAPI
+- Swagger UI is hosted by the dev server at `http://localhost:8080/docs/index.html`.
+- The raw OpenAPI document is served at `http://localhost:8080/openapi.json`.
+
 ### Create a new release
 1. Create a Git Tag with the new version
 
