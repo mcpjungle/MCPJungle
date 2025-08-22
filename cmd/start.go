@@ -2,19 +2,21 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/joho/godotenv"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/api"
 	"github.com/mcpjungle/mcpjungle/internal/db"
 	"github.com/mcpjungle/mcpjungle/internal/migrations"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/internal/service/audit"
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp_client"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
 	"github.com/spf13/cobra"
-	"os"
-	"strings"
 )
 
 const (
@@ -89,6 +91,24 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		port = BindPortDefault
 	}
 
+	// create the audit service for tool call logging
+	auditConfig := audit.Config{
+		Environment: os.Getenv("ENV"),
+		LogLevel:    os.Getenv("LOG_LEVEL"),
+	}
+	if auditConfig.Environment == "" {
+		auditConfig.Environment = "development"
+	}
+	if auditConfig.LogLevel == "" {
+		auditConfig.LogLevel = "info"
+	}
+
+	auditService, err := audit.NewAuditService(auditConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create audit service: %v", err)
+	}
+	defer auditService.Close()
+
 	// create the MCP proxy server
 	mcpProxyServer := server.NewMCPServer(
 		"MCPJungle Proxy MCP Server",
@@ -96,7 +116,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		server.WithToolCapabilities(true),
 	)
 
-	mcpService, err := mcp.NewMCPService(dbConn, mcpProxyServer)
+	mcpService, err := mcp.NewMCPService(dbConn, mcpProxyServer, auditService)
 	if err != nil {
 		return fmt.Errorf("failed to create MCP service: %v", err)
 	}

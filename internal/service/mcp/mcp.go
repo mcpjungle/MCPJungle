@@ -2,7 +2,9 @@ package mcp
 
 import (
 	"fmt"
+
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/mcpjungle/mcpjungle/internal/service/audit"
 	"gorm.io/gorm"
 )
 
@@ -11,14 +13,16 @@ import (
 type MCPService struct {
 	db             *gorm.DB
 	mcpProxyServer *server.MCPServer
+	auditLogger    audit.Logger
 }
 
 // NewMCPService creates a new instance of MCPService.
 // It initializes the MCP proxy server by loading all registered tools from the database.
-func NewMCPService(db *gorm.DB, mcpProxyServer *server.MCPServer) (*MCPService, error) {
+func NewMCPService(db *gorm.DB, mcpProxyServer *server.MCPServer, auditLogger audit.Logger) (*MCPService, error) {
 	s := &MCPService{
 		db:             db,
 		mcpProxyServer: mcpProxyServer,
+		auditLogger:    auditLogger,
 	}
 	if err := s.initMCPProxyServer(); err != nil {
 		return nil, fmt.Errorf("failed to initialize MCP proxy server: %w", err)

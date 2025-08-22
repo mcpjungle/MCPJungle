@@ -4,11 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
+	"log"
+
+	"github.com/google/uuid"
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/internal/service/audit"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
-	"log"
 )
 
 // ListTools returns all tools registered in the registry.
@@ -74,12 +79,37 @@ func (m *MCPService) GetTool(name string) (*model.Tool, error) {
 
 // InvokeTool invokes a tool from a registered MCP server and returns its response.
 func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[string]any) (*types.ToolInvokeResult, error) {
+	startTime := time.Now()
+
+	// Generate unique request ID for this tool call
+	requestID := uuid.New().String()
+
 	serverName, toolName, ok := splitServerToolName(name)
 	if !ok {
 		return nil, fmt.Errorf("invalid input: tool name does not contain a %s separator", serverToolNameSep)
 	}
+
+	clientName := "mcpjungle"
+
+	// Log the start of the tool call
+	m.auditLogger.LogToolCallStart(ctx, audit.ToolCallStartEvent{
+		RequestID:  requestID,
+		ClientName: clientName,
+		ServerName: serverName,
+		ToolName:   toolName,
+	})
+
 	serverModel, err := m.GetMcpServer(serverName)
 	if err != nil {
+		m.auditLogger.LogToolCall(ctx, audit.ToolCallEvent{
+			RequestID:    requestID,
+			ClientName:   clientName,
+			ServerName:   serverName,
+			ToolName:     toolName,
+			Success:      false,
+			Duration:     time.Since(startTime),
+			ErrorMessage: fmt.Sprintf("failed to get server details: %v", err),
+		})
 		return nil, fmt.Errorf(
 			"failed to get details about MCP server %s from DB: %w",
 			serverName,
@@ -89,6 +119,15 @@ func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[strin
 
 	mcpClient, err := newMcpServerSession(ctx, serverModel)
 	if err != nil {
+		m.auditLogger.LogToolCall(ctx, audit.ToolCallEvent{
+			RequestID:    requestID,
+			ClientName:   clientName,
+			ServerName:   serverName,
+			ToolName:     toolName,
+			Success:      false,
+			Duration:     time.Since(startTime),
+			ErrorMessage: fmt.Sprintf("failed to create MCP session: %v", err),
+		})
 		return nil, err
 	}
 	defer mcpClient.Close()
@@ -98,6 +137,23 @@ func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[strin
 	callToolReq.Params.Arguments = args
 
 	callToolResp, err := mcpClient.CallTool(ctx, callToolReq)
+
+	// Log the completed tool call
+	event := audit.ToolCallEvent{
+		RequestID:  requestID,
+		ClientName: clientName,
+		ServerName: serverName,
+		ToolName:   toolName,
+		Success:    err == nil,
+		Duration:   time.Since(startTime),
+	}
+
+	if err != nil {
+		event.ErrorMessage = fmt.Sprintf("tool call failed: %v", err)
+	}
+
+	m.auditLogger.LogToolCall(ctx, event)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to call tool %s on MCP server %s: %w", toolName, serverName, err)
 	}
@@ -132,6 +188,7 @@ func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[strin
 		IsError: callToolResp.IsError,
 		Content: contentList,
 	}
+
 	return result, nil
 }
 
