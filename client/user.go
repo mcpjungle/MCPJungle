@@ -94,7 +94,7 @@ func (c *Client) ListUsers() ([]*types.User, error) {
 
 // Whoami sends a request to get information about the user associated with the provided access token
 func (c *Client) Whoami(accessToken string) (*types.User, error) {
-	u, _ := c.constructAPIEndpoint("/whoami")
+	u, _ := c.constructAPIEndpoint("/users/whoami")
 
 	req, err := c.newRequest(http.MethodGet, u, nil)
 	if err != nil {

@@ -138,6 +138,8 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 		userAPI.GET("/tools", listToolsHandler(opts.MCPService))
 		userAPI.POST("/tools/invoke", invokeToolHandler(opts.MCPService))
 		userAPI.GET("/tool", getToolHandler(opts.MCPService))
+
+		userAPI.GET("/users/whoami", requireProdMode, whoAmIHandler())
 	}
 
 	// endpoints only accessible by an admin user in production mode or anyone in development mode

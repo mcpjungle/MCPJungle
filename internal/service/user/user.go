@@ -49,7 +49,7 @@ func (u *UserService) GetUserByAccessToken(token string) (*model.User, error) {
 }
 
 // CreateUser creates a new user with the specified username.
-// A user is a standard, authenticated, human user who has lesser privileges than an admin user.
+// This method currently only supports creating a standard user, ie, user with the "user" role.
 func (u *UserService) CreateUser(username string) (*model.User, error) {
 	token, err := internal.GenerateAccessToken()
 	if err != nil {

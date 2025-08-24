@@ -5,7 +5,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// User represents a user in the MCPJungle system
+// User represents an authenticated, human user in production mode.
+// A user can be an admin or a regular user.
+// There are no users if mcpjungle is running in development mode.
 type User struct {
 	gorm.Model
 

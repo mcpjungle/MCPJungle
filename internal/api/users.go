@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"net/http"
@@ -65,5 +66,27 @@ func deleteUserHandler(userService *user.UserService) gin.HandlerFunc {
 		}
 
 		c.Status(http.StatusNoContent)
+	}
+}
+
+func whoAmIHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		currentUser, exists := c.Get("user")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+
+		u, ok := currentUser.(*model.User)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user from context"})
+			return
+		}
+
+		resp := types.User{
+			Username: u.Username,
+			Role:     string(u.Role),
+		}
+		c.JSON(http.StatusOK, resp)
 	}
 }
