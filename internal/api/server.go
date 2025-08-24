@@ -113,6 +113,8 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 	r.POST("/init", registerInitServerHandler(opts.ConfigService, opts.UserService))
 
 	requireInit := requireInitialized(opts.ConfigService)
+	requireProdMode := requireServerMode(opts.ConfigService, model.ModeProd)
+
 	verifyUserAuth := verifyUserAuthForAPIAccess(opts.ConfigService, opts.UserService)
 	checkMcpClientAuth := checkAuthForMcpProxyAccess(opts.ConfigService, opts.MCPClientService)
 
@@ -147,25 +149,36 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 		adminAPI.POST("/tools/enable", enableToolsHandler(opts.MCPService))
 		adminAPI.POST("/tools/disable", disableToolsHandler(opts.MCPService))
 
+		// endpoints for managing MCP clients
 		adminAPI.GET(
 			"/clients",
-			requireServerMode(opts.ConfigService, model.ModeProd),
+			requireProdMode,
 			listMcpClientsHandler(opts.MCPClientService),
 		)
 		adminAPI.POST(
 			"/clients",
-			requireServerMode(opts.ConfigService, model.ModeProd),
+			requireProdMode,
 			createMcpClientHandler(opts.MCPClientService),
 		)
 		adminAPI.DELETE(
 			"/clients/:name",
-			requireServerMode(opts.ConfigService, model.ModeProd),
+			requireProdMode,
 			deleteMcpClientHandler(opts.MCPClientService),
 		)
 
-		adminAPI.POST("/users", createUserHandler(opts.UserService))
-		adminAPI.GET("/users", listUsersHandler(opts.UserService))
-		adminAPI.DELETE("/users/:username", deleteUserHandler(opts.UserService))
+		// endpoints for managing (human) users
+		adminAPI.POST("/users",
+			requireProdMode,
+			createUserHandler(opts.UserService),
+		)
+		adminAPI.GET("/users",
+			requireProdMode,
+			listUsersHandler(opts.UserService),
+		)
+		adminAPI.DELETE("/users/:username",
+			requireProdMode,
+			deleteUserHandler(opts.UserService),
+		)
 	}
 
 	return r, nil
