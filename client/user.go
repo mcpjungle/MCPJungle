@@ -65,3 +65,30 @@ func (c *Client) DeleteUser(username string) error {
 
 	return nil
 }
+
+// ListUsers sends a request to list all users in mcpjungle
+func (c *Client) ListUsers() ([]*types.User, error) {
+	u, _ := url.JoinPath(c.baseURL, "/users")
+
+	req, err := http.NewRequest(http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request to %s: %w", u, err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request to %s: %w", u, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+	}
+
+	var users []*types.User
+	if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return users, nil
+}
