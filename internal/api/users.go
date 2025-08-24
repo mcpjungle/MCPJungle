@@ -21,7 +21,12 @@ func createUserHandler(userService *user.UserService) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusCreated, newUser)
+		resp := &types.CreateUserResponse{
+			Username:    newUser.Username,
+			Role:        string(newUser.Role),
+			AccessToken: newUser.AccessToken,
+		}
+		c.JSON(http.StatusCreated, resp)
 	}
 }
 

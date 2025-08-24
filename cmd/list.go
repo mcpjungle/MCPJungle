@@ -171,7 +171,12 @@ func runListUsers(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 	for i, u := range users {
-		cmd.Printf("%d. %s\n", i+1, u.Username)
+		if u.Role == string(types.UserRoleAdmin) {
+			cmd.Printf("%d. %s  [ADMIN]\n", i+1, u.Username)
+		} else {
+			cmd.Printf("%d. %s\n", i+1, u.Username)
+		}
+
 		if i < len(users)-1 {
 			cmd.Println()
 		}

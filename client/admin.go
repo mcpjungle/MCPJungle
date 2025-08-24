@@ -45,7 +45,3 @@ func (c *Client) InitServer() (*InitServerResponse, error) {
 	}
 	return &initResp, nil
 }
-
-type CreateUserResponse struct {
-	UserAccessToken string `json:"user_access_token"`
-}

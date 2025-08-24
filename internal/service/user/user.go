@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/mcpjungle/mcpjungle/internal"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"gorm.io/gorm"
 )
 
@@ -25,7 +26,7 @@ func (u *UserService) CreateAdminUser() (*model.User, error) {
 	}
 	user := model.User{
 		Username:    "admin",
-		Role:        model.UserRoleAdmin,
+		Role:        types.UserRoleAdmin,
 		AccessToken: token,
 	}
 	if err := u.db.Create(&user).Error; err != nil {
@@ -43,7 +44,7 @@ func (u *UserService) VerifyAdminToken(token string) (*model.User, error) {
 		}
 		return nil, fmt.Errorf("failed to verify admin token: %w", err)
 	}
-	if user.Role != model.UserRoleAdmin {
+	if user.Role != types.UserRoleAdmin {
 		return nil, fmt.Errorf("user is not an admin")
 	}
 	return &user, nil
@@ -58,7 +59,7 @@ func (u *UserService) CreateUser(username string) (*model.User, error) {
 	}
 	user := model.User{
 		Username:    username,
-		Role:        model.UserRoleUser,
+		Role:        types.UserRoleUser,
 		AccessToken: token,
 	}
 	if err := u.db.Create(&user).Error; err != nil {
@@ -77,8 +78,23 @@ func (u *UserService) ListUsers() ([]model.User, error) {
 }
 
 // DeleteUser removes a user with the specified username from the database.
+// If a user's role is admin, the deletion will be rejected.
 func (u *UserService) DeleteUser(username string) error {
-	if err := u.db.Where("username = ?", username).Delete(&model.User{}).Error; err != nil {
+	var user model.User
+	err := u.db.Where("username = ?", username).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("user with username %s not found", username)
+		}
+		return fmt.Errorf("failed to find user: %w", err)
+	}
+
+	if user.Role == types.UserRoleAdmin {
+		return fmt.Errorf("cannot delete an admin user")
+	}
+
+	err = u.db.Unscoped().Where("username = ?", username).Delete(&model.User{}).Error
+	if err != nil {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
 	return nil

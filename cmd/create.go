@@ -111,13 +111,15 @@ func runCreateUser(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if resp.UserAccessToken == "" {
+	if resp.AccessToken == "" {
 		return fmt.Errorf("server returned an empty access token, this was unexpected")
 	}
 
 	cmd.Printf("User '%s' created successfully\n", u.Username)
-	cmd.Printf("Access token: %s\n", resp.UserAccessToken)
-	cmd.Println("The user should now run `mcpjungle login <access_token>` to set up their client configuration.")
+	cmd.Println("The user should now run the following command to log into mcpjungle:")
+	cmd.Println()
+	cmd.Printf("    mcpjungle login %s\n", resp.AccessToken)
+	cmd.Println()
 
 	return nil
 }

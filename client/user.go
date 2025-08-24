@@ -7,19 +7,18 @@ import (
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"io"
 	"net/http"
-	"net/url"
 )
 
 // CreateUser sends a request to create a new authenticated, human user in mcpjungle
-func (c *Client) CreateUser(user *types.CreateUserRequest) (*CreateUserResponse, error) {
-	u, _ := url.JoinPath(c.baseURL, "/users")
+func (c *Client) CreateUser(user *types.CreateUserRequest) (*types.CreateUserResponse, error) {
+	u, _ := c.constructAPIEndpoint("/users")
 
 	body, err := json.Marshal(user)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, u, bytes.NewBuffer(body))
+	req, err := c.newRequest(http.MethodPost, u, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request to %s: %w", u, err)
 	}
@@ -31,12 +30,12 @@ func (c *Client) CreateUser(user *types.CreateUserRequest) (*CreateUserResponse,
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
 	}
 
-	var createResp CreateUserResponse
+	var createResp types.CreateUserResponse
 	if err := json.NewDecoder(resp.Body).Decode(&createResp); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
@@ -45,9 +44,9 @@ func (c *Client) CreateUser(user *types.CreateUserRequest) (*CreateUserResponse,
 
 // DeleteUser sends a request to delete a user from mcpjungle
 func (c *Client) DeleteUser(username string) error {
-	u, _ := url.JoinPath(c.baseURL, "/users", username)
+	u, _ := c.constructAPIEndpoint("/users/" + username)
 
-	req, err := http.NewRequest(http.MethodDelete, u, nil)
+	req, err := c.newRequest(http.MethodDelete, u, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request to %s: %w", u, err)
 	}
@@ -58,7 +57,7 @@ func (c *Client) DeleteUser(username string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
 	}
@@ -68,9 +67,9 @@ func (c *Client) DeleteUser(username string) error {
 
 // ListUsers sends a request to list all users in mcpjungle
 func (c *Client) ListUsers() ([]*types.User, error) {
-	u, _ := url.JoinPath(c.baseURL, "/users")
+	u, _ := c.constructAPIEndpoint("/users")
 
-	req, err := http.NewRequest(http.MethodGet, u, nil)
+	req, err := c.newRequest(http.MethodGet, u, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request to %s: %w", u, err)
 	}
