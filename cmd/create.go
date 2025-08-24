@@ -28,6 +28,17 @@ var createMcpClientCmd = &cobra.Command{
 	RunE: runCreateMcpClient,
 }
 
+var createUserCmd = &cobra.Command{
+	Use:   "user [username]",
+	Args:  cobra.ExactArgs(1),
+	Short: "Create a new user (Production mode)",
+	Long: "Create a new standard user in MCPJungle.\n" +
+		"A user can make authenticated requests to the MCPJungle API server and perform limited actions like:\n" +
+		"- List and view MCP servers & tools\n" +
+		"- Check tool usage and invoke them",
+	RunE: runCreateUser,
+}
+
 var (
 	createMcpClientCmdAllowedServers string
 	createMcpClientCmdDescription    string
@@ -49,6 +60,8 @@ func init() {
 	)
 
 	createCmd.AddCommand(createMcpClientCmd)
+	createCmd.AddCommand(createUserCmd)
+
 	rootCmd.AddCommand(createCmd)
 }
 
@@ -86,6 +99,25 @@ func runCreateMcpClient(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("\nAccess token: %s\n", token)
 	fmt.Println("Your client should send this token in the `Authorization: Bearer {token}` HTTP header.")
+
+	return nil
+}
+
+func runCreateUser(cmd *cobra.Command, args []string) error {
+	u := &types.User{
+		Username: args[0],
+	}
+	resp, err := apiClient.CreateUser(u)
+	if err != nil {
+		return err
+	}
+	if resp.UserAccessToken == "" {
+		return fmt.Errorf("server returned an empty access token, this was unexpected")
+	}
+
+	cmd.Printf("User '%s' created successfully\n", u.Username)
+	cmd.Printf("Access token: %s\n", resp.UserAccessToken)
+	cmd.Println("The user should now run `mcpjungle login <access_token>` to set up their client configuration.")
 
 	return nil
 }
