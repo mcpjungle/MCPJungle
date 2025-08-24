@@ -10,6 +10,7 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp_client"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"net/http"
 	"strings"
 )
@@ -113,9 +114,9 @@ func requireInitialized(configService *config.ServerConfigService) gin.HandlerFu
 	}
 }
 
-// checkAuthForAPIAccess is middleware that checks for a valid admin token if the server is in production mode.
-// In development mode, it allows all requests without authentication.
-func checkAuthForAPIAccess(configService *config.ServerConfigService, userService *user.UserService) gin.HandlerFunc {
+// verifyUserAuth is middleware that checks for a valid user token if the server is in production mode.
+// this middleware doesn't care about the role of the user, it just verifies that they're authenticated.
+func verifyUserAuthForAPIAccess(configService *config.ServerConfigService, userService *user.UserService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		cfg, err := configService.GetConfig()
 		if err != nil {
@@ -124,22 +125,69 @@ func checkAuthForAPIAccess(configService *config.ServerConfigService, userServic
 			)
 			return
 		}
+
+		c.Set("mode", cfg.Mode)
+
+		// no auth is required in case of dev mode
 		if cfg.Mode == model.ModeDev {
 			c.Next()
 			return
 		}
+
 		authHeader := c.GetHeader("Authorization")
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 		if token == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing access token"})
 			return
 		}
-		_, err = userService.VerifyAdminToken(token)
+
+		// Verify that the token is valid and corresponds to a user
+		authenticatedUser, err := userService.GetUserByAccessToken(token)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid access token"})
 			return
 		}
+
+		// Store user in context for potential role checks in subsequent handlers
+		c.Set("user", authenticatedUser)
 		c.Next()
+	}
+}
+
+// requireAdminUser is middleware that ensures the authenticated user has an admin role when in production mode.
+// It assumes that verifyUserAuthForAPIAccess middleware has already run and set the user in context.
+func requireAdminUser() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		mode, exists := c.Get("mode")
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "server mode not found in context"})
+			return
+		}
+
+		m, ok := mode.(model.ServerMode)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "invalid server mode in context"})
+			return
+		}
+		if m == model.ModeDev {
+			// no admin check is required in dev mode
+			c.Next()
+			return
+		}
+
+		authenticatedUser, exists := c.Get("user")
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "user is not authenticated"})
+			return
+		}
+
+		u, ok := authenticatedUser.(model.User)
+		if ok && u.Role == types.UserRoleAdmin {
+			c.Next()
+			return
+		}
+
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "user is not authorized to perform this action"})
 	}
 }
 
@@ -226,7 +274,7 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 	r.POST("/init", registerInitServerHandler(opts.ConfigService, opts.UserService))
 
 	requireInit := requireInitialized(opts.ConfigService)
-	checkUserAuth := checkAuthForAPIAccess(opts.ConfigService, opts.UserService)
+	verifyUserAuth := verifyUserAuthForAPIAccess(opts.ConfigService, opts.UserService)
 	checkMcpClientAuth := checkAuthForMcpProxyAccess(opts.ConfigService, opts.MCPClientService)
 
 	// Set up the MCP proxy server on /mcp
@@ -239,38 +287,46 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 	)
 
 	// Setup API endpoints
-	apiV0 := r.Group(V0PathPrefix, requireInit, checkUserAuth)
+	apiV0 := r.Group(V0PathPrefix, requireInit)
+
+	// endpoints accessible by a standard user in production mode or anyone in development mode
+	userAPI := apiV0.Group("/", verifyUserAuth)
 	{
-		apiV0.POST("/servers", registerServerHandler(opts.MCPService))
-		apiV0.DELETE("/servers/:name", deregisterServerHandler(opts.MCPService))
-		apiV0.GET("/servers", listServersHandler(opts.MCPService))
+		userAPI.GET("/servers", listServersHandler(opts.MCPService))
 
-		apiV0.GET("/tools", listToolsHandler(opts.MCPService))
-		apiV0.POST("/tools/invoke", invokeToolHandler(opts.MCPService))
-		apiV0.POST("/tools/enable", enableToolsHandler(opts.MCPService))
-		apiV0.POST("/tools/disable", disableToolsHandler(opts.MCPService))
+		userAPI.GET("/tools", listToolsHandler(opts.MCPService))
+		userAPI.POST("/tools/invoke", invokeToolHandler(opts.MCPService))
+		userAPI.GET("/tool", getToolHandler(opts.MCPService))
+	}
 
-		apiV0.GET("/tool", getToolHandler(opts.MCPService))
+	// endpoints only accessible by an admin user in production mode or anyone in development mode
+	adminAPI := apiV0.Group("/", verifyUserAuth, requireAdminUser())
+	{
+		adminAPI.POST("/servers", registerServerHandler(opts.MCPService))
+		adminAPI.DELETE("/servers/:name", deregisterServerHandler(opts.MCPService))
 
-		apiV0.GET(
+		adminAPI.POST("/tools/enable", enableToolsHandler(opts.MCPService))
+		adminAPI.POST("/tools/disable", disableToolsHandler(opts.MCPService))
+
+		adminAPI.GET(
 			"/clients",
 			requireServerMode(opts.ConfigService, model.ModeProd),
 			listMcpClientsHandler(opts.MCPClientService),
 		)
-		apiV0.POST(
+		adminAPI.POST(
 			"/clients",
 			requireServerMode(opts.ConfigService, model.ModeProd),
 			createMcpClientHandler(opts.MCPClientService),
 		)
-		apiV0.DELETE(
+		adminAPI.DELETE(
 			"/clients/:name",
 			requireServerMode(opts.ConfigService, model.ModeProd),
 			deleteMcpClientHandler(opts.MCPClientService),
 		)
 
-		apiV0.POST("/users", createUserHandler(opts.UserService))
-		apiV0.GET("/users", listUsersHandler(opts.UserService))
-		apiV0.DELETE("/users/:username", deleteUserHandler(opts.UserService))
+		adminAPI.POST("/users", createUserHandler(opts.UserService))
+		adminAPI.GET("/users", listUsersHandler(opts.UserService))
+		adminAPI.DELETE("/users/:username", deleteUserHandler(opts.UserService))
 	}
 
 	return r, nil

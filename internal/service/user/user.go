@@ -35,17 +35,15 @@ func (u *UserService) CreateAdminUser() (*model.User, error) {
 	return &user, nil
 }
 
-// VerifyAdminToken checks if the provided token belongs to an admin user
-func (u *UserService) VerifyAdminToken(token string) (*model.User, error) {
+// GetUserByAccessToken returns a user associated with the provided access token.
+// If no user is found, an error is returned.
+func (u *UserService) GetUserByAccessToken(token string) (*model.User, error) {
 	var user model.User
 	if err := u.db.Where("access_token = ?", token).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("admin user not found")
+			return nil, fmt.Errorf("user not found")
 		}
-		return nil, fmt.Errorf("failed to verify admin token: %w", err)
-	}
-	if user.Role != types.UserRoleAdmin {
-		return nil, fmt.Errorf("user is not an admin")
+		return nil, fmt.Errorf("failed to verify token: %w", err)
 	}
 	return &user, nil
 }
