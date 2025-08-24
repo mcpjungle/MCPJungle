@@ -5,7 +5,10 @@ import "gorm.io/gorm"
 // UserRole represents the role of a user in the MCPJungle system.
 type UserRole string
 
-const UserRoleAdmin UserRole = "admin"
+const (
+	UserRoleAdmin UserRole = "admin"
+	UserRoleUser  UserRole = "user"
+)
 
 // User represents a user in the MCPJungle system
 type User struct {

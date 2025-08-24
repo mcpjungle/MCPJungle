@@ -48,3 +48,38 @@ func (u *UserService) VerifyAdminToken(token string) (*model.User, error) {
 	}
 	return &user, nil
 }
+
+// CreateUser creates a new user with the specified username.
+// A user is a standard, authenticated, human user who has lesser privileges than an admin user.
+func (u *UserService) CreateUser(username string) (*model.User, error) {
+	token, err := internal.GenerateAccessToken()
+	if err != nil {
+		return nil, err
+	}
+	user := model.User{
+		Username:    username,
+		Role:        model.UserRoleUser,
+		AccessToken: token,
+	}
+	if err := u.db.Create(&user).Error; err != nil {
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+	return &user, nil
+}
+
+// ListUsers retrieves all users from the database.
+func (u *UserService) ListUsers() ([]model.User, error) {
+	var users []model.User
+	if err := u.db.Find(&users).Error; err != nil {
+		return nil, fmt.Errorf("failed to list users: %w", err)
+	}
+	return users, nil
+}
+
+// DeleteUser removes a user with the specified username from the database.
+func (u *UserService) DeleteUser(username string) error {
+	if err := u.db.Where("username = ?", username).Delete(&model.User{}).Error; err != nil {
+		return fmt.Errorf("failed to delete user: %w", err)
+	}
+	return nil
+}

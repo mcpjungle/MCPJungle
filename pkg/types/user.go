@@ -5,4 +5,9 @@ package types
 // They can consume mcpjungle but not necessarily manage it.
 type User struct {
 	Username string `json:"username"`
+	Role     string `json:"role"`
+}
+
+type CreateUserRequest struct {
+	Username string `json:"username"`
 }

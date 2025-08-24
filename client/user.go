@@ -11,7 +11,7 @@ import (
 )
 
 // CreateUser sends a request to create a new authenticated, human user in mcpjungle
-func (c *Client) CreateUser(user *types.User) (*CreateUserResponse, error) {
+func (c *Client) CreateUser(user *types.CreateUserRequest) (*CreateUserResponse, error) {
 	u, _ := url.JoinPath(c.baseURL, "/users")
 
 	body, err := json.Marshal(user)
