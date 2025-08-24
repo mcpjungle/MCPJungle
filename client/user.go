@@ -91,3 +91,31 @@ func (c *Client) ListUsers() ([]*types.User, error) {
 	}
 	return users, nil
 }
+
+// Whoami sends a request to get information about the user associated with the provided access token
+func (c *Client) Whoami(accessToken string) (*types.User, error) {
+	u, _ := c.constructAPIEndpoint("/whoami")
+
+	req, err := c.newRequest(http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request to %s: %w", u, err)
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request to %s: %w", u, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+	}
+
+	var user types.User
+	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return &user, nil
+}
