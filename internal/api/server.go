@@ -149,7 +149,7 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 		adminAPI.POST("/tools/enable", enableToolsHandler(opts.MCPService))
 		adminAPI.POST("/tools/disable", disableToolsHandler(opts.MCPService))
 
-		// endpoints for managing MCP clients
+		// endpoints for managing MCP clients (production mode only)
 		adminAPI.GET(
 			"/clients",
 			requireProdMode,
@@ -166,7 +166,7 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 			deleteMcpClientHandler(opts.MCPClientService),
 		)
 
-		// endpoints for managing (human) users
+		// endpoints for managing human users (production mode only)
 		adminAPI.POST("/users",
 			requireProdMode,
 			createUserHandler(opts.UserService),

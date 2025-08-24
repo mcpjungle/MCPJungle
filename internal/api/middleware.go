@@ -57,7 +57,7 @@ func verifyUserAuthForAPIAccess(userService *user.UserService) gin.HandlerFunc {
 		// Verify that the token is valid and corresponds to a user
 		authenticatedUser, err := userService.GetUserByAccessToken(token)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid access token"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid access token: " + err.Error()})
 			return
 		}
 
@@ -93,7 +93,7 @@ func requireAdminUser() gin.HandlerFunc {
 			return
 		}
 
-		u, ok := authenticatedUser.(model.User)
+		u, ok := authenticatedUser.(*model.User)
 		if ok && u.Role == types.UserRoleAdmin {
 			c.Next()
 			return
