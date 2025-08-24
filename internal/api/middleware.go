@@ -18,29 +18,31 @@ func requireInitialized(configService *config.ServerConfigService) gin.HandlerFu
 	return func(c *gin.Context) {
 		cfg, err := configService.GetConfig()
 		if err != nil || !cfg.Initialized {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "server not initialized"})
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "server is not initialized"})
 			return
 		}
+		// propagate the server mode in context for other middleware/handlers to use
+		c.Set("mode", cfg.Mode)
 		c.Next()
 	}
 }
 
-// verifyUserAuth is middleware that checks for a valid user token if the server is in production mode.
+// verifyUserAuthForAPIAccess is middleware that checks for a valid user token if the server is in production mode.
 // this middleware doesn't care about the role of the user, it just verifies that they're authenticated.
-func verifyUserAuthForAPIAccess(configService *config.ServerConfigService, userService *user.UserService) gin.HandlerFunc {
+func verifyUserAuthForAPIAccess(userService *user.UserService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		cfg, err := configService.GetConfig()
-		if err != nil {
-			c.AbortWithStatusJSON(
-				http.StatusServiceUnavailable, gin.H{"error": "failed to fetch server config while checking auth"},
-			)
+		mode, exists := c.Get("mode")
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "server mode not found in context"})
 			return
 		}
-
-		c.Set("mode", cfg.Mode)
-
-		// no auth is required in case of dev mode
-		if cfg.Mode == model.ModeDev {
+		m, ok := mode.(model.ServerMode)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "invalid server mode in context"})
+			return
+		}
+		if m == model.ModeDev {
+			// no auth is required in case of dev mode
 			c.Next()
 			return
 		}
@@ -74,7 +76,6 @@ func requireAdminUser() gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "server mode not found in context"})
 			return
 		}
-
 		m, ok := mode.(model.ServerMode)
 		if !ok {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "invalid server mode in context"})
@@ -102,28 +103,54 @@ func requireAdminUser() gin.HandlerFunc {
 	}
 }
 
+// requireServerMode is middleware that checks if the server is in a specific mode.
+// If not, the request is rejected with a 403 Forbidden status.
+func requireServerMode(m model.ServerMode) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		mode, exists := c.Get("mode")
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "server mode not found in context"})
+			return
+		}
+		currentMode, ok := mode.(model.ServerMode)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "invalid server mode in context"})
+			return
+		}
+		if currentMode != m {
+			c.AbortWithStatusJSON(
+				http.StatusForbidden,
+				gin.H{"error": fmt.Sprintf("this request is only allowed in %s mode", m)},
+			)
+			return
+		}
+		c.Next()
+	}
+}
+
 // checkAuthForMcpProxyAccess is middleware for MCP proxy that checks for a valid MCP client token
 // if the server is in production mode.
 // In development mode, mcp clients do not require auth to access the MCP proxy.
-func checkAuthForMcpProxyAccess(
-	configService *config.ServerConfigService,
-	mcpClientService *mcp_client.McpClientService,
-) gin.HandlerFunc {
+func checkAuthForMcpProxyAccess(mcpClientService *mcp_client.McpClientService) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		cfg, err := configService.GetConfig()
-		if err != nil {
-			c.AbortWithStatusJSON(
-				http.StatusServiceUnavailable, gin.H{"error": "failed to fetch server config while checking mcp auth"},
-			)
+		mode, exists := c.Get("mode")
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "server mode not found in context"})
+			return
+		}
+		m, ok := mode.(model.ServerMode)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "invalid server mode in context"})
 			return
 		}
 
 		// the gin context doesn't get passed down to the MCP proxy server, so we need to
 		// set values in the underlying request's context to be able to access them from proxy.
-		ctx := context.WithValue(c.Request.Context(), "mode", cfg.Mode)
+		ctx := context.WithValue(c.Request.Context(), "mode", m)
 		c.Request = c.Request.WithContext(ctx)
 
-		if cfg.Mode == model.ModeDev {
+		if m == model.ModeDev {
+			// no auth is required in case of dev mode
 			c.Next()
 			return
 		}
@@ -144,28 +171,6 @@ func checkAuthForMcpProxyAccess(
 		ctx = context.WithValue(c.Request.Context(), "client", client)
 		c.Request = c.Request.WithContext(ctx)
 
-		c.Next()
-	}
-}
-
-// requireServerMode is middleware that checks if the server is in a specific mode.
-// If not, the request is rejected with a 403 Forbidden status.
-func requireServerMode(configService *config.ServerConfigService, m model.ServerMode) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		cfg, err := configService.GetConfig()
-		if err != nil {
-			c.AbortWithStatusJSON(
-				http.StatusServiceUnavailable, gin.H{"error": "failed to fetch server config while checking mode"},
-			)
-			return
-		}
-		if cfg.Mode != m {
-			c.AbortWithStatusJSON(
-				http.StatusForbidden,
-				gin.H{"error": fmt.Sprintf("this request is only allowed in %s mode", m)},
-			)
-			return
-		}
 		c.Next()
 	}
 }

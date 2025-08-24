@@ -112,26 +112,26 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 
 	r.POST("/init", registerInitServerHandler(opts.ConfigService, opts.UserService))
 
-	requireInit := requireInitialized(opts.ConfigService)
-	requireProdMode := requireServerMode(opts.ConfigService, model.ModeProd)
-
-	verifyUserAuth := verifyUserAuthForAPIAccess(opts.ConfigService, opts.UserService)
-	checkMcpClientAuth := checkAuthForMcpProxyAccess(opts.ConfigService, opts.MCPClientService)
+	requireProdMode := requireServerMode(model.ModeProd)
 
 	// Set up the MCP proxy server on /mcp
 	streamableHttpServer := server.NewStreamableHTTPServer(opts.MCPProxyServer)
 	r.Any(
 		"/mcp",
-		requireInit,
-		checkMcpClientAuth,
+		requireInitialized(opts.ConfigService),
+		checkAuthForMcpProxyAccess(opts.MCPClientService),
 		gin.WrapH(streamableHttpServer),
 	)
 
-	// Setup API endpoints
-	apiV0 := r.Group(V0PathPrefix, requireInit)
+	// Setup /v0 API endpoints
+	apiV0 := r.Group(
+		V0PathPrefix,
+		requireInitialized(opts.ConfigService),
+		verifyUserAuthForAPIAccess(opts.UserService),
+	)
 
 	// endpoints accessible by a standard user in production mode or anyone in development mode
-	userAPI := apiV0.Group("/", verifyUserAuth)
+	userAPI := apiV0.Group("/")
 	{
 		userAPI.GET("/servers", listServersHandler(opts.MCPService))
 
@@ -141,7 +141,7 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 	}
 
 	// endpoints only accessible by an admin user in production mode or anyone in development mode
-	adminAPI := apiV0.Group("/", verifyUserAuth, requireAdminUser())
+	adminAPI := apiV0.Group("/", requireAdminUser())
 	{
 		adminAPI.POST("/servers", registerServerHandler(opts.MCPService))
 		adminAPI.DELETE("/servers/:name", deregisterServerHandler(opts.MCPService))
