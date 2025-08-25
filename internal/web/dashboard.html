@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - MCP Jungle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="/static/css/app.css">
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/polling.js"></script>
+</head>
+
+<body class="bg-gray-50" x-data="dashboardApp()">
+    <div class="min-h-screen">
+        <!-- Navigation Header -->
+        <nav class="bg-white shadow-sm border-b border-gray-200" x-data="navigationComponent()">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex">
+                        <div class="flex-shrink-0 flex items-center">
+                            <h1 class="text-xl font-bold text-gray-900">MCP Jungle</h1>
+                        </div>
+                        <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                            <a href="/dashboard" :class="isActive('/dashboard') ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                Dashboard
+                            </a>
+                            <a href="/servers" :class="isActive('/servers') ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                Servers
+                            </a>
+                            <a href="/tools" :class="isActive('/tools') ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                Tools
+                            </a>
+                            <a href="/config" :class="isActive('/config') ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                Config
+                            </a>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <span :class="connectionStatus === 'connected' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">
+                                <span x-text="connectionStatus === 'connected' ? 'Online' : 'Offline'"></span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Error notifications -->
+        <div class="fixed top-4 right-4 z-50" x-data="errorHandler()">
+            <template x-for="error in errors" :key="error.id">
+                <div class="mb-2 max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden">
+                    <div class="p-4">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <svg class="h-6 w-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <div class="ml-3 w-0 flex-1 pt-0.5">
+                                <p class="text-sm font-medium text-gray-900" x-text="error.message"></p>
+                            </div>
+                            <div class="ml-4 flex-shrink-0 flex">
+                                <button @click="removeError(error.id)" class="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none">
+                                    <span class="sr-only">Close</span>
+                                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <div class="px-4 py-6 sm:px-0">
+                <!-- Page Header -->
+                <div class="mb-8">
+                    <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+                    <p class="mt-1 text-sm text-gray-600">System overview and statistics</p>
+                </div>
+
+                <!-- Stats Overview -->
+                <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+                    <!-- Server Count -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                                    </svg>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Servers</dt>
+                                        <dd class="flex items-baseline">
+                                            <div class="text-2xl font-semibold text-gray-900" x-text="stats.serverCount || 0"></div>
+                                            <div class="ml-2 flex items-baseline text-sm font-semibold" :class="stats.serverCount > 0 ? 'text-green-600' : 'text-gray-500'">
+                                                <span x-text="stats.serverCount > 0 ? 'Active' : 'None'"></span>
+                                            </div>
+                                        </dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 px-5 py-3">
+                            <div class="text-sm">
+                                <a href="/servers" class="font-medium text-blue-700 hover:text-blue-900">View all servers</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tool Count -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Tools</dt>
+                                        <dd class="flex items-baseline">
+                                            <div class="text-2xl font-semibold text-gray-900" x-text="stats.toolCount || 0"></div>
+                                            <div class="ml-2 flex items-baseline text-sm font-semibold" :class="stats.toolCount > 0 ? 'text-green-600' : 'text-gray-500'">
+                                                <span x-text="stats.toolCount > 0 ? 'Available' : 'None'"></span>
+                                            </div>
+                                        </dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 px-5 py-3">
+                            <div class="text-sm">
+                                <a href="/tools" class="font-medium text-blue-700 hover:text-blue-900">Browse tools</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Status -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">System</dt>
+                                        <dd class="flex items-baseline">
+                                            <div class="text-2xl font-semibold text-gray-900" x-text="stats.mode || 'Unknown'"></div>
+                                            <div class="ml-2 flex items-baseline text-sm font-semibold" :class="stats.initialized ? 'text-green-600' : 'text-yellow-600'">
+                                                <span x-text="stats.initialized ? 'Ready' : 'Setup Required'"></span>
+                                            </div>
+                                        </dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 px-5 py-3">
+                            <div class="text-sm">
+                                <a href="/config" class="font-medium text-blue-700 hover:text-blue-900">View configuration</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Last Updated -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Last Updated</dt>
+                                        <dd class="flex items-baseline">
+                                            <div class="text-sm font-semibold text-gray-900" x-text="lastUpdated"></div>
+                                            <div class="ml-2 flex items-baseline text-sm font-semibold">
+                                                <div class="spinner" x-show="loading" style="display: none;"></div>
+                                            </div>
+                                        </dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 px-5 py-3">
+                            <div class="text-sm">
+                                <button @click="refreshData()" class="font-medium text-blue-700 hover:text-blue-900">Refresh now</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity / Server List -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Server Status -->
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Server Status</h3>
+                            <div x-show="loading" class="flex justify-center py-4">
+                                <div class="spinner"></div>
+                            </div>
+                            <div x-show="!loading && servers.length === 0" class="text-center py-4">
+                                <p class="text-gray-500">No servers registered</p>
+                                <a href="/servers" class="mt-2 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200">
+                                    Add Server
+                                </a>
+                            </div>
+                            <div x-show="!loading && servers.length > 0" class="space-y-3">
+                                <template x-for="server in servers.slice(0, 5)" :key="server.name">
+                                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0">
+                                                <div class="h-2 w-2 rounded-full" :class="getServerStatusColor(server)"></div>
+                                            </div>
+                                            <div class="ml-3">
+                                                <p class="text-sm font-medium text-gray-900" x-text="server.name"></p>
+                                                <p class="text-sm text-gray-500" x-text="server.description || 'No description'"></p>
+                                            </div>
+                                        </div>
+                                        <div class="text-sm text-gray-500">
+                                            <span x-text="getServerStatus(server)"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                            <div x-show="servers.length > 5" class="mt-4 text-center">
+                                <a href="/servers" class="text-sm font-medium text-blue-700 hover:text-blue-900">
+                                    View all <span x-text="servers.length"></span> servers
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Quick Actions</h3>
+                            <div class="space-y-3">
+                                <a href="/servers" class="block p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
+                                    <div class="flex items-center">
+                                        <svg class="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                        </svg>
+                                        <span class="ml-3 text-sm font-medium text-blue-900">Add New Server</span>
+                                    </div>
+                                </a>
+                                <a href="/tools" class="block p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
+                                    <div class="flex items-center">
+                                        <svg class="h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                        </svg>
+                                        <span class="ml-3 text-sm font-medium text-purple-900">Browse Tools</span>
+                                    </div>
+                                </a>
+                                <a href="/config" class="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                    <div class="flex items-center">
+                                        <svg class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                        <span class="ml-3 text-sm font-medium text-gray-900">System Configuration</span>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function dashboardApp() {
+            return {
+                stats: {
+                    serverCount: 0,
+                    toolCount: 0,
+                    mode: 'Unknown',
+                    initialized: false
+                },
+                servers: [],
+                loading: false,
+                connectionStatus: 'connected',
+                lastUpdated: 'Never',
+                pollingInterval: null,
+
+                init() {
+                    this.loadData();
+                    this.startPolling();
+                },
+
+                async loadData() {
+                    this.loading = true;
+                    try {
+                        await Promise.all([
+                            this.loadServers(),
+                            this.loadTools(),
+                            this.loadSystemInfo()
+                        ]);
+                        this.connectionStatus = 'connected';
+                        this.lastUpdated = new Date().toLocaleTimeString();
+                    } catch (error) {
+                        console.error('Failed to load dashboard data:', error);
+                        this.connectionStatus = 'disconnected';
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                async loadServers() {
+                    try {
+                        const servers = await API.get('/servers');
+                        this.servers = servers || [];
+                        this.stats.serverCount = this.servers.length;
+                    } catch (error) {
+                        console.error('Failed to load servers:', error);
+                        this.servers = [];
+                        this.stats.serverCount = 0;
+                    }
+                },
+
+                async loadTools() {
+                    try {
+                        const tools = await API.get('/tools');
+                        this.stats.toolCount = tools ? tools.length : 0;
+                    } catch (error) {
+                        console.error('Failed to load tools:', error);
+                        this.stats.toolCount = 0;
+                    }
+                },
+
+                async loadSystemInfo() {
+                    // Since there's no specific system info endpoint, we'll make assumptions
+                    // In a real implementation, you might have a /system or /status endpoint
+                    this.stats.mode = 'dev'; // Default assumption
+                    this.stats.initialized = true; // If we can make API calls, system is likely initialized
+                },
+
+                startPolling() {
+                    // Use smart polling for servers
+                    const serversPoller = smartPoller.createApiPoller('dashboard-servers', '/api/v0/servers', {
+                        interval: 30000
+                    });
+
+                    serversPoller.on('success', (data) => {
+                        this.servers = data || [];
+                        this.stats.serverCount = this.servers.length;
+                        this.connectionStatus = 'connected';
+                        this.lastUpdated = new Date().toLocaleTimeString();
+                    });
+
+                    serversPoller.on('error', (error) => {
+                        console.error('Failed to load servers:', error);
+                        this.connectionStatus = 'disconnected';
+                    });
+
+                    serversPoller.start();
+
+                    // Use smart polling for tools
+                    const toolsPoller = smartPoller.createApiPoller('dashboard-tools', '/api/v0/tools', {
+                        interval: 45000 // Less frequent for tools
+                    });
+
+                    toolsPoller.on('success', (data) => {
+                        this.stats.toolCount = data ? data.length : 0;
+                    });
+
+                    toolsPoller.on('error', (error) => {
+                        console.error('Failed to load tools:', error);
+                    });
+
+                    toolsPoller.start();
+
+                    // Monitor connection status
+                    connectionPoller.onStatusChange((status) => {
+                        this.connectionStatus = status;
+                    });
+                },
+
+                async refreshData() {
+                    await this.loadData();
+                },
+
+                getServerStatus(server) {
+                    // Since we don't have real-time status, we'll show basic info
+                    return 'Registered';
+                },
+
+                getServerStatusColor(server) {
+                    // Default to green for registered servers
+                    return 'bg-green-400';
+                },
+
+                destroy() {
+                    if (this.pollingInterval) {
+                        clearInterval(this.pollingInterval);
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,445 @@
+/* Custom styles for MCP Jungle Web UI */
+
+/* Loading spinner */
+.spinner {
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #3498db;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Status indicators */
+.status-running {
+    @apply bg-green-100 text-green-800;
+}
+
+.status-stopped {
+    @apply bg-red-100 text-red-800;
+}
+
+.status-error {
+    @apply bg-yellow-100 text-yellow-800;
+}
+
+.status-unknown {
+    @apply bg-gray-100 text-gray-800;
+}
+
+/* Form enhancements */
+.form-input {
+    @apply block w-full px-3 py-2 border-2 border-gray-300 rounded-md shadow-sm bg-white;
+    @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+    @apply transition-colors duration-200;
+    @apply hover:border-gray-400;
+}
+
+.form-input:focus {
+    @apply border-blue-500 ring-2 ring-blue-200;
+}
+
+.form-input::placeholder {
+    @apply text-gray-400;
+}
+
+.form-label {
+    @apply block text-sm font-medium text-gray-700 mb-2;
+}
+
+.form-group {
+    @apply mb-4;
+}
+
+/* Button styles */
+.btn-primary {
+    @apply bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-2.5 px-4 rounded-md;
+    @apply border border-blue-700 hover:border-blue-800 shadow-sm hover:shadow-md;
+    @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+    @apply transition-all duration-150 ease-in-out;
+    @apply cursor-pointer select-none;
+}
+
+.btn-secondary {
+    @apply bg-white hover:bg-gray-50 active:bg-gray-100 text-gray-700 font-semibold py-2.5 px-4 rounded-md;
+    @apply border border-gray-300 hover:border-gray-400 shadow-sm hover:shadow-md;
+    @apply focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2;
+    @apply transition-all duration-150 ease-in-out;
+    @apply cursor-pointer select-none;
+}
+
+.btn-danger {
+    @apply bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-semibold py-2.5 px-4 rounded-md;
+    @apply border border-red-700 hover:border-red-800 shadow-sm hover:shadow-md;
+    @apply focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2;
+    @apply transition-all duration-150 ease-in-out;
+    @apply cursor-pointer select-none;
+}
+
+/* Card styles */
+.card {
+    @apply bg-white overflow-hidden shadow rounded-lg;
+}
+
+.card-header {
+    @apply px-4 py-5 sm:px-6;
+}
+
+.card-body {
+    @apply px-4 py-5 sm:p-6;
+}
+
+/* Navigation active state */
+.nav-active {
+    @apply bg-blue-100 text-blue-700;
+}
+
+/* E
+nhanced notification styles */
+.notification-enter {
+    transform: translateX(100%);
+    opacity: 0;
+}
+
+.notification-enter-active {
+    transform: translateX(0);
+    opacity: 1;
+    transition: all 0.3s ease-out;
+}
+
+.notification-exit {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.notification-exit-active {
+    transform: translateX(100%);
+    opacity: 0;
+    transition: all 0.3s ease-in;
+}
+
+/* Form validation styles */
+.form-error {
+    @apply border-red-300 focus:border-red-500 focus:ring-red-500;
+}
+
+.form-success {
+    @apply border-green-300 focus:border-green-500 focus:ring-green-500;
+}
+
+.error-message {
+    @apply text-red-600 text-sm mt-1;
+}
+
+.success-message {
+    @apply text-green-600 text-sm mt-1;
+}
+
+/* Loading states */
+.loading-overlay {
+    @apply absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10;
+}
+
+.loading-skeleton {
+    @apply animate-pulse bg-gray-200 rounded;
+}
+
+/* Connection status indicator */
+.connection-indicator {
+    @apply fixed bottom-4 left-4 z-40;
+}
+
+.connection-online {
+    @apply bg-green-100 text-green-800 border-green-200;
+}
+
+.connection-offline {
+    @apply bg-red-100 text-red-800 border-red-200;
+}
+
+/* Enhanced button states */
+.btn-loading {
+    @apply opacity-75 cursor-not-allowed;
+}
+
+.btn-loading .spinner {
+    @apply inline-block mr-2;
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-danger:disabled {
+    @apply opacity-50 cursor-not-allowed;
+}
+
+.btn-primary:disabled:hover,
+.btn-secondary:disabled:hover,
+.btn-danger:disabled:hover {
+    @apply transform-none shadow-sm;
+}
+
+/* Modal enhancements */
+.modal-backdrop {
+    @apply fixed inset-0 bg-gray-600 bg-opacity-50 z-50;
+}
+
+.modal-content {
+    @apply relative bg-white rounded-lg shadow-xl max-w-lg w-full mx-4;
+}
+
+.modal-enter {
+    opacity: 0;
+    transform: scale(0.95);
+}
+
+.modal-enter-active {
+    opacity: 1;
+    transform: scale(1);
+    transition: all 0.2s ease-out;
+}
+
+.modal-exit {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.modal-exit-active {
+    opacity: 0;
+    transform: scale(0.95);
+    transition: all 0.2s ease-in;
+}
+
+/* Accessibility improvements */
+.sr-only {
+    @apply absolute w-px h-px p-0 -m-px overflow-hidden whitespace-nowrap border-0;
+}
+
+.focus-visible {
+    @apply outline-none ring-2 ring-blue-500 ring-offset-2;
+}
+
+/* Responsive table */
+@media (max-width: 640px) {
+    .table-responsive {
+        @apply block overflow-x-auto whitespace-nowrap;
+    }
+}
+
+/* Status badges */
+.status-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.status-online {
+    @apply bg-green-100 text-green-800;
+}
+
+.status-offline {
+    @apply bg-red-100 text-red-800;
+}
+
+.status-pending {
+    @apply bg-yellow-100 text-yellow-800;
+}
+
+.status-unknown {
+    @apply bg-gray-100 text-gray-800;
+}
+
+/* Acces
+sibility enhancements */
+
+/* Focus management */
+*:focus {
+    outline: 2px solid #3B82F6;
+    outline-offset: 2px;
+}
+
+/* Skip to main content link */
+.skip-link {
+    @apply absolute -top-10 left-6 bg-blue-600 text-white px-4 py-2 rounded-md z-50;
+    @apply focus:top-6 transition-all duration-200;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .btn-primary {
+        @apply border-2 border-blue-800;
+    }
+
+    .btn-secondary {
+        @apply border-2 border-gray-800;
+    }
+
+    .btn-danger {
+        @apply border-2 border-red-800;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .spinner {
+        animation: none;
+        border: 2px solid #3498db;
+    }
+}
+
+/* Screen reader only content */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Keyboard navigation improvements */
+.keyboard-nav button:focus,
+.keyboard-nav a:focus,
+.keyboard-nav input:focus,
+.keyboard-nav select:focus,
+.keyboard-nav textarea:focus {
+    @apply ring-2 ring-blue-500 ring-offset-2;
+}
+
+/* Better color contrast for links */
+a {
+    @apply underline-offset-2;
+}
+
+a:hover {
+    @apply underline;
+}
+
+/* Form accessibility */
+.form-group {
+    @apply mb-4;
+}
+
+.form-label {
+    @apply block text-sm font-medium text-gray-700 mb-1;
+}
+
+.form-input:invalid {
+    @apply border-red-300 focus:border-red-500 focus:ring-red-500;
+}
+
+.form-input:valid {
+    @apply border-green-300 focus:border-green-500 focus:ring-green-500;
+}
+
+/* Error and success states */
+.error-text {
+    @apply text-red-600 text-sm mt-1;
+}
+
+.success-text {
+    @apply text-green-600 text-sm mt-1;
+}
+
+/* Modal accessibility */
+.modal-overlay {
+    @apply fixed inset-0 bg-gray-600 bg-opacity-50 z-50;
+}
+
+.modal-content {
+    @apply relative bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 p-6;
+}
+
+/* Table accessibility */
+.table-responsive {
+    @apply overflow-x-auto;
+}
+
+.table-responsive table {
+    @apply min-w-full;
+}
+
+.table-responsive th {
+    @apply text-left font-medium;
+}
+
+/* Button accessibility */
+button:disabled,
+.btn:disabled {
+    @apply opacity-50 cursor-not-allowed;
+}
+
+button[aria-pressed="true"] {
+    @apply bg-blue-600 text-white;
+}
+
+/* Status indicators with better contrast */
+.status-indicator {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.status-success {
+    @apply bg-green-100 text-green-800 border border-green-200;
+}
+
+.status-error {
+    @apply bg-red-100 text-red-800 border border-red-200;
+}
+
+.status-warning {
+    @apply bg-yellow-100 text-yellow-800 border border-yellow-200;
+}
+
+.status-info {
+    @apply bg-blue-100 text-blue-800 border border-blue-200;
+}
+
+/* Mobile accessibility improvements */
+@media (max-width: 640px) {
+
+    /* Larger touch targets */
+    button,
+    .btn,
+    a {
+        min-height: 44px;
+        min-width: 44px;
+        @apply flex items-center justify-center;
+    }
+
+    /* Better spacing for mobile */
+    .mobile-spacing {
+        @apply space-y-4;
+    }
+}
+
+/* Print styles */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+
+    .print-only {
+        display: block !important;
+    }
+
+    * {
+        color: black !important;
+        background: white !important;
+    }
+}

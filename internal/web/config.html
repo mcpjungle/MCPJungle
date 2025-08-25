@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuration - MCP Jungle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="/static/css/app.css">
+    <script src="/static/js/app.js"></script>
+</head>
+
+<body class="bg-gray-50" x-data="configApp()">
+    <div class="min-h-screen">
+        <!-- Navigation Header -->
+        <nav class="bg-white shadow-sm border-b border-gray-200" x-data="navigationComponent()">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex">
+                        <div class="flex-shrink-0 flex items-center">
+                            <h1 class="text-xl font-bold text-gray-900">MCP Jungle</h1>
+                        </div>
+                        <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                            <a href="/dashboard" :class="isActive('/dashboard') ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                Dashboard
+                            </a>
+                            <a href="/servers" :class="isActive('/servers') ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                Servers
+                            </a>
+                            <a href="/tools" :class="isActive('/tools') ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                Tools
+                            </a>
+                            <a href="/config" :class="isActive('/config') ? 'border-blue-500 text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                Config
+                            </a>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <span :class="connectionStatus === 'connected' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">
+                                <span x-text="connectionStatus === 'connected' ? 'Online' : 'Offline'"></span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Error notifications -->
+        <div class="fixed top-4 right-4 z-50" x-data="errorHandler()">
+            <template x-for="error in errors" :key="error.id">
+                <div class="mb-2 max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-black ring-opacity-5 overflow-hidden">
+                    <div class="p-4">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <svg class="h-6 w-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <div class="ml-3 w-0 flex-1 pt-0.5">
+                                <p class="text-sm font-medium text-gray-900" x-text="error.message"></p>
+                            </div>
+                            <div class="ml-4 flex-shrink-0 flex">
+                                <button @click="removeError(error.id)" class="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none">
+                                    <span class="sr-only">Close</span>
+                                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <div class="px-4 py-6 sm:px-0">
+                <!-- Page Header -->
+                <div class="mb-8">
+                    <h1 class="text-2xl font-bold text-gray-900">System Configuration</h1>
+                    <p class="mt-1 text-sm text-gray-600">System settings and information</p>
+                </div>
+
+                <div class="space-y-6">
+                    <!-- System Status -->
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">System Status</h3>
+                            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                                <div class="bg-gray-50 px-4 py-5 rounded-lg">
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Initialization Status</dt>
+                                    <dd class="mt-1 flex items-center">
+                                        <div :class="systemInfo.initialized ? 'bg-green-400' : 'bg-yellow-400'" class="flex-shrink-0 h-2 w-2 rounded-full mr-2"></div>
+                                        <span class="text-sm font-semibold text-gray-900" x-text="systemInfo.initialized ? 'Initialized' : 'Setup Required'"></span>
+                                    </dd>
+                                </div>
+
+                                <div class="bg-gray-50 px-4 py-5 rounded-lg">
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Server Mode</dt>
+                                    <dd class="mt-1 text-sm font-semibold text-gray-900" x-text="systemInfo.mode || 'Unknown'"></dd>
+                                </div>
+
+                                <div class="bg-gray-50 px-4 py-5 rounded-lg">
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Connection Status</dt>
+                                    <dd class="mt-1 flex items-center">
+                                        <div :class="connectionStatus === 'connected' ? 'bg-green-400' : 'bg-red-400'" class="flex-shrink-0 h-2 w-2 rounded-full mr-2"></div>
+                                        <span class="text-sm font-semibold text-gray-900" x-text="connectionStatus === 'connected' ? 'Connected' : 'Disconnected'"></span>
+                                    </dd>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Information -->
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">System Information</h3>
+                            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-500">Application</dt>
+                                    <dd class="mt-1 text-sm text-gray-900">MCP Jungle</dd>
+                                </div>
+
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-500">Version</dt>
+                                    <dd class="mt-1 text-sm text-gray-900" x-text="systemInfo.version || 'Unknown'"></dd>
+                                </div>
+
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-500">Build Date</dt>
+                                    <dd class="mt-1 text-sm text-gray-900" x-text="systemInfo.buildDate || 'Unknown'"></dd>
+                                </div>
+
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-500">Go Version</dt>
+                                    <dd class="mt-1 text-sm text-gray-900" x-text="systemInfo.goVersion || 'Unknown'"></dd>
+                                </div>
+
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-500">Platform</dt>
+                                    <dd class="mt-1 text-sm text-gray-900" x-text="systemInfo.platform || 'Unknown'"></dd>
+                                </div>
+
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-500">Uptime</dt>
+                                    <dd class="mt-1 text-sm text-gray-900" x-text="formatUptime(systemInfo.uptime)"></dd>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Statistics -->
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Statistics</h3>
+                            <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-blue-600" x-text="stats.serverCount || 0"></div>
+                                    <div class="text-sm text-gray-500">Registered Servers</div>
+                                </div>
+
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-purple-600" x-text="stats.toolCount || 0"></div>
+                                    <div class="text-sm text-gray-500">Available Tools</div>
+                                </div>
+
+                                <div class="text-center">
+                                    <div class="text-2xl font-bold text-green-600" x-text="stats.clientCount || 0"></div>
+                                    <div class="text-sm text-gray-500">Connected Clients</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Client Management (Production Mode Only) -->
+                    <div x-show="systemInfo.mode === 'prod'" class="bg-white shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg leading-6 font-medium text-gray-900">MCP Clients</h3>
+                                <button @click="showAddClientModal = true" class="btn-primary">
+                                    Add Client
+                                </button>
+                            </div>
+
+                            <div x-show="loadingClients" class="flex justify-center py-4">
+                                <div class="spinner"></div>
+                            </div>
+
+                            <div x-show="!loadingClients && clients.length === 0" class="text-center py-8">
+                                <p class="text-gray-500">No MCP clients configured</p>
+                            </div>
+
+                            <div x-show="!loadingClients && clients.length > 0" class="overflow-hidden">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <template x-for="client in clients" :key="client.name">
+                                            <tr>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" x-text="client.name"></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" x-text="formatDate(client.created_at)"></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                    <button @click="confirmDeleteClient(client)" class="text-red-600 hover:text-red-900">
+                                                        Delete
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- API Endpoints -->
+                    <div class="bg-white shadow rounded-lg">
+                        <div class="px-4 py-5 sm:p-6">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">API Endpoints</h3>
+                            <div class="space-y-3">
+                                <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                                    <span class="text-sm font-medium text-gray-900">Health Check</span>
+                                    <code class="text-sm bg-gray-100 px-2 py-1 rounded">GET /health</code>
+                                </div>
+                                <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                                    <span class="text-sm font-medium text-gray-900">List Servers</span>
+                                    <code class="text-sm bg-gray-100 px-2 py-1 rounded">GET /api/v0/servers</code>
+                                </div>
+                                <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                                    <span class="text-sm font-medium text-gray-900">List Tools</span>
+                                    <code class="text-sm bg-gray-100 px-2 py-1 rounded">GET /api/v0/tools</code>
+                                </div>
+                                <div class="flex justify-between items-center py-2 border-b border-gray-200">
+                                    <span class="text-sm font-medium text-gray-900">Invoke Tool</span>
+                                    <code class="text-sm bg-gray-100 px-2 py-1 rounded">POST /api/v0/tools/invoke</code>
+                                </div>
+                                <div class="flex justify-between items-center py-2">
+                                    <span class="text-sm font-medium text-gray-900">MCP Proxy</span>
+                                    <code class="text-sm bg-gray-100 px-2 py-1 rounded">ANY /mcp</code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Add Client Modal -->
+        <div x-show="showAddClientModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" x-transition>
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Add MCP Client</h3>
+                    <form @submit.prevent="addClient()">
+                        <div class="mb-4">
+                            <label class="form-label">Client Name</label>
+                            <input type="text" x-model="clientForm.name" class="form-input" required>
+                        </div>
+                        <div class="flex justify-end space-x-3">
+                            <button type="button" @click="showAddClientModal = false" class="btn-secondary">
+                                Cancel
+                            </button>
+                            <button type="submit" :disabled="submitting" class="btn-primary">
+                                <span x-show="submitting" class="spinner mr-2"></span>
+                                Add Client
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Client Confirmation Modal -->
+        <div x-show="showDeleteClientModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" x-transition>
+            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+                <div class="mt-3 text-center">
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                        <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mt-4">Delete Client</h3>
+                    <div class="mt-2 px-7 py-3">
+                        <p class="text-sm text-gray-500">
+                            Are you sure you want to delete the client "<span x-text="clientToDelete?.name"></span>"?
+                            This action cannot be undone.
+                        </p>
+                    </div>
+                    <div class="flex justify-center space-x-3 mt-4">
+                        <button @click="showDeleteClientModal = false" class="btn-secondary">
+                            Cancel
+                        </button>
+                        <button @click="deleteClient()" :disabled="submitting" class="btn-danger">
+                            <span x-show="submitting" class="spinner mr-2"></span>
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function configApp() {
+            return {
+                systemInfo: {
+                    initialized: true,
+                    mode: 'dev',
+                    version: 'Unknown',
+                    buildDate: 'Unknown',
+                    goVersion: 'Unknown',
+                    platform: 'Unknown',
+                    uptime: 0
+                },
+                stats: {
+                    serverCount: 0,
+                    toolCount: 0,
+                    clientCount: 0
+                },
+                clients: [],
+                loading: false,
+                loadingClients: false,
+                submitting: false,
+                connectionStatus: 'connected',
+                showAddClientModal: false,
+                showDeleteClientModal: false,
+                clientToDelete: null,
+                clientForm: {
+                    name: ''
+                },
+
+                init() {
+                    this.loadSystemInfo();
+                    this.loadStats();
+                    if (this.systemInfo.mode === 'prod') {
+                        this.loadClients();
+                    }
+                },
+
+                async loadSystemInfo() {
+                    // Since there's no specific system info endpoint, we'll make assumptions
+                    // In a real implementation, you might have a /system or /status endpoint
+                    try {
+                        // Try to determine if system is initialized by making an API call
+                        await API.get('/servers');
+                        this.systemInfo.initialized = true;
+                        this.connectionStatus = 'connected';
+                    } catch (error) {
+                        if (error.message.includes('server not initialized')) {
+                            this.systemInfo.initialized = false;
+                        }
+                        this.connectionStatus = 'disconnected';
+                    }
+
+                    // Set some default system info
+                    this.systemInfo.version = '1.0.0';
+                    this.systemInfo.buildDate = new Date().toISOString().split('T')[0];
+                    this.systemInfo.goVersion = 'Go 1.21+';
+                    this.systemInfo.platform = navigator.platform;
+                    this.systemInfo.uptime = Date.now();
+                },
+
+                async loadStats() {
+                    try {
+                        const [servers, tools] = await Promise.all([
+                            API.get('/servers').catch(() => []),
+                            API.get('/tools').catch(() => [])
+                        ]);
+
+                        this.stats.serverCount = servers ? servers.length : 0;
+                        this.stats.toolCount = tools ? tools.length : 0;
+                    } catch (error) {
+                        console.error('Failed to load stats:', error);
+                    }
+                },
+
+                async loadClients() {
+                    if (this.systemInfo.mode !== 'prod') return;
+
+                    this.loadingClients = true;
+                    try {
+                        const clients = await API.get('/clients');
+                        this.clients = clients || [];
+                        this.stats.clientCount = this.clients.length;
+                    } catch (error) {
+                        console.error('Failed to load clients:', error);
+                        this.showError('Failed to load clients: ' + error.message);
+                    } finally {
+                        this.loadingClients = false;
+                    }
+                },
+
+                async addClient() {
+                    this.submitting = true;
+                    try {
+                        const newClient = await API.post('/clients', this.clientForm);
+                        this.clients.push(newClient);
+                        this.stats.clientCount = this.clients.length;
+                        this.showAddClientModal = false;
+                        this.clientForm.name = '';
+                        this.showSuccess('Client added successfully');
+                    } catch (error) {
+                        console.error('Failed to add client:', error);
+                        this.showError('Failed to add client: ' + error.message);
+                    } finally {
+                        this.submitting = false;
+                    }
+                },
+
+                confirmDeleteClient(client) {
+                    this.clientToDelete = client;
+                    this.showDeleteClientModal = true;
+                },
+
+                async deleteClient() {
+                    if (!this.clientToDelete) return;
+
+                    this.submitting = true;
+                    try {
+                        await API.delete(`/clients/${encodeURIComponent(this.clientToDelete.name)}`);
+                        this.clients = this.clients.filter(c => c.name !== this.clientToDelete.name);
+                        this.stats.clientCount = this.clients.length;
+                        this.showDeleteClientModal = false;
+                        this.clientToDelete = null;
+                        this.showSuccess('Client deleted successfully');
+                    } catch (error) {
+                        console.error('Failed to delete client:', error);
+                        this.showError('Failed to delete client: ' + error.message);
+                    } finally {
+                        this.submitting = false;
+                    }
+                },
+
+                formatUptime(startTime) {
+                    if (!startTime) return 'Unknown';
+                    const uptime = Date.now() - startTime;
+                    const seconds = Math.floor(uptime / 1000);
+                    const minutes = Math.floor(seconds / 60);
+                    const hours = Math.floor(minutes / 60);
+                    const days = Math.floor(hours / 24);
+
+                    if (days > 0) return `${days}d ${hours % 24}h`;
+                    if (hours > 0) return `${hours}h ${minutes % 60}m`;
+                    if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+                    return `${seconds}s`;
+                },
+
+                formatDate(dateString) {
+                    if (!dateString) return 'Unknown';
+                    return new Date(dateString).toLocaleDateString();
+                },
+
+                showError(message) {
+                    // This would integrate with the global error handler
+                    console.error(message);
+                },
+
+                showSuccess(message) {
+                    // This would integrate with a success notification system
+                    console.log(message);
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>

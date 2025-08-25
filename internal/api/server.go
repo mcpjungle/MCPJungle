@@ -10,6 +10,7 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp_client"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
+	"github.com/mcpjungle/mcpjungle/internal/web"
 	"net/http"
 	"strings"
 )
@@ -211,10 +212,44 @@ func requireServerMode(configService *config.ServerConfigService, m model.Server
 	}
 }
 
+// securityHeaders middleware adds security headers to all responses
+func securityHeaders() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Content Security Policy - Allow specific trusted CDNs
+		c.Header("Content-Security-Policy",
+			"default-src 'self'; "+
+			"script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.tailwindcss.com; "+
+			"style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; "+
+			"connect-src 'self'; "+
+			"img-src 'self' data:; "+
+			"font-src 'self'; "+
+			"object-src 'none'; "+
+			"base-uri 'self'; "+
+			"form-action 'self'")
+
+		// Other security headers
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Header("X-Frame-Options", "DENY")
+		c.Header("X-XSS-Protection", "1; mode=block")
+		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
+		c.Header("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+
+		// HSTS for HTTPS (only add if using HTTPS)
+		if c.Request.TLS != nil {
+			c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+
+		c.Next()
+	}
+}
+
 // newRouter sets up the Gin router with the MCP proxy server and API endpoints.
 func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
+
+	// Add security headers to all responses
+	r.Use(securityHeaders())
 
 	r.GET(
 		"/health",
@@ -222,6 +257,70 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 			c.JSON(200, gin.H{"status": "ok"})
 		},
 	)
+
+	// Serve static web UI files
+	// Serve embedded static files
+	staticFS, err := web.GetStaticFS()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get static filesystem: %w", err)
+	}
+	r.StaticFS("/static", http.FS(staticFS))
+	
+	// Serve embedded HTML files
+	r.GET("/", func(c *gin.Context) {
+		data, err := web.EmbeddedFiles.ReadFile("index.html")
+		if err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		c.Data(http.StatusOK, "text/html; charset=utf-8", data)
+	})
+	
+	r.GET("/dashboard", func(c *gin.Context) {
+		data, err := web.EmbeddedFiles.ReadFile("dashboard.html")
+		if err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		c.Data(http.StatusOK, "text/html; charset=utf-8", data)
+	})
+	
+	r.GET("/servers", func(c *gin.Context) {
+		data, err := web.EmbeddedFiles.ReadFile("servers.html")
+		if err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		c.Data(http.StatusOK, "text/html; charset=utf-8", data)
+	})
+	
+	r.GET("/tools", func(c *gin.Context) {
+		data, err := web.EmbeddedFiles.ReadFile("tools.html")
+		if err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		c.Data(http.StatusOK, "text/html; charset=utf-8", data)
+	})
+	
+	r.GET("/config", func(c *gin.Context) {
+		data, err := web.EmbeddedFiles.ReadFile("config.html")
+		if err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		c.Data(http.StatusOK, "text/html; charset=utf-8", data)
+	})
+
+	// 404 handler for unmatched routes
+	r.NoRoute(func(c *gin.Context) {
+		data, err := web.EmbeddedFiles.ReadFile("404.html")
+		if err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		c.Data(http.StatusNotFound, "text/html; charset=utf-8", data)
+	})
 
 	r.POST("/init", registerInitServerHandler(opts.ConfigService, opts.UserService))
 

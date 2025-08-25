@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Servers - MCP Jungle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/app.css">
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/components/notifications.js"></script>
+    <script src="/static/js/auth.js"></script>
+    <script>
+        // Ensure all functions are available before Alpine.js loads
+        document.addEventListener('DOMContentLoaded', function () {
+            // Check if required functions are available
+            if (typeof API === 'undefined') {
+                console.error('API is not defined. Check if app.js loaded properly.');
+            }
+            if (typeof notificationComponent === 'undefined') {
+                console.error('notificationComponent is not defined. Check if notifications.js loaded properly.');
+            }
+            if (typeof createGlobalNotifications === 'undefined') {
+                console.error('createGlobalNotifications is not defined. Check if app.js loaded properly.');
+            }
+
+            // Initialize global notifications
+            if (typeof createGlobalNotifications === 'function') {
+                window.globalNotifications = createGlobalNotifications();
+            }
+        });
+    </script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+
+<body class="bg-gray-50" x-data="serversApp()">
+    <div class="min-h-screen">
+        <!-- Navigation Header -->
+        <nav class="bg-white shadow-sm border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex">
+                        <div class="flex-shrink-0 flex items-center">
+                            <h1 class="text-xl font-bold text-gray-900">MCP Jungle</h1>
+                        </div>
+                        <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                            <a href="/dashboard" class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                                Dashboard
+                            </a>
+                            <a href="/servers" class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium border-blue-500 text-gray-900">
+                                Servers
+                            </a>
+                            <a href="/tools" class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                                Tools
+                            </a>
+                            <a href="/config" class="inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                                Config
+                            </a>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <span :class="connectionStatus === 'connected' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium">
+                                <span x-text="connectionStatus === 'connected' ? 'Online' : 'Offline'"></span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Notifications -->
+        <div class="fixed top-4 right-4 z-50" x-data="notificationComponent()">
+            <!-- Error notifications -->
+            <template x-for="error in notifications.errors" :key="error.id">
+                <div class="mb-2 max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-red-200 overflow-hidden notification-enter">
+                    <div class="p-4">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0" x-html="getNotificationIcon('error')"></div>
+                            <div class="ml-3 w-0 flex-1 pt-0.5">
+                                <p class="text-sm font-medium text-gray-900" x-text="error.message"></p>
+                            </div>
+                            <div class="ml-4 flex-shrink-0 flex">
+                                <button @click="notifications.removeError(error.id)" class="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none">
+                                    <span class="sr-only">Close</span>
+                                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Success notifications -->
+            <template x-for="success in notifications.successes" :key="success.id">
+                <div class="mb-2 max-w-sm w-full bg-white shadow-lg rounded-lg pointer-events-auto ring-1 ring-green-200 overflow-hidden notification-enter">
+                    <div class="p-4">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0" x-html="getNotificationIcon('success')"></div>
+                            <div class="ml-3 w-0 flex-1 pt-0.5">
+                                <p class="text-sm font-medium text-gray-900" x-text="success.message"></p>
+                            </div>
+                            <div class="ml-4 flex-shrink-0 flex">
+                                <button @click="notifications.removeSuccess(success.id)" class="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none">
+                                    <span class="sr-only">Close</span>
+                                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <div class="px-4 py-6 sm:px-0">
+                <!-- Page Header -->
+                <div class="mb-8 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">MCP Servers</h1>
+                        <p class="mt-1 text-sm text-gray-600">Manage your MCP server connections</p>
+                    </div>
+                    <button @click="showAddModal = true" class="inline-flex items-center px-3 py-1.5 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+                        <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Add Server
+                    </button>
+                </div>
+
+                <!-- Server List -->
+                <div class="bg-white shadow overflow-hidden sm:rounded-md">
+                    <div x-show="loading" class="flex justify-center py-8">
+                        <div class="spinner"></div>
+                    </div>
+
+                    <div x-show="!loading && servers.length === 0" class="text-center py-12">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                        </svg>
+                        <h3 class="mt-2 text-sm font-medium text-gray-900">No servers</h3>
+                        <p class="mt-1 text-sm text-gray-500">Get started by adding your first MCP server.</p>
+                        <div class="mt-6">
+                            <button @click="showAddModal = true" class="btn-primary">
+                                <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                </svg>
+                                Add Server
+                            </button>
+                        </div>
+                    </div>
+
+                    <ul x-show="!loading && servers.length > 0" class="divide-y divide-gray-200">
+                        <template x-for="server in servers" :key="server.name">
+                            <li class="px-6 py-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0">
+                                            <div class="h-3 w-3 rounded-full bg-green-400"></div>
+                                        </div>
+                                        <div class="ml-4">
+                                            <div class="flex items-center">
+                                                <h3 class="text-lg font-medium text-gray-900" x-text="server.name"></h3>
+                                                <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                    Registered
+                                                </span>
+                                            </div>
+                                            <p class="text-sm text-gray-500" x-text="server.description || 'No description'"></p>
+                                            <p class="text-sm text-gray-400" x-text="server.url"></p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center space-x-2">
+                                        <button @click="editServer(server)" class="inline-flex items-center px-3 py-1.5 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+                                            <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                            Edit
+                                        </button>
+                                        <button @click="confirmDelete(server)" class="inline-flex items-center px-3 py-1.5 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors">
+                                            <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </li>
+                        </template>
+                    </ul>
+                </div>
+            </div>
+        </main>
+
+        <!-- Add/Edit Server Modal -->
+        <div x-show="showAddModal || showEditModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" x-transition @keydown.escape="handleEscapeKey()">
+            <div class="relative top-10 mx-auto p-6 border border-gray-200 w-full max-w-2xl shadow-xl rounded-lg bg-white modal-content">
+                <div class="mb-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2" x-text="showEditModal ? 'Edit Server' : 'Add New Server'"></h3>
+                    <p class="text-sm text-gray-600">
+                        <span x-show="!showEditModal">Register a new MCP server to manage tools and resources.</span>
+                        <span x-show="showEditModal">Update the configuration for this MCP server.</span>
+                    </p>
+                </div>
+
+                <form @submit.prevent="showEditModal ? updateServer() : addServer()" class="space-y-4">
+                    <div class="form-group">
+                        <label class="form-label">
+                            Server Name
+                            <span class="text-red-500 ml-1" aria-label="required"></span>
+                        </label>
+                        <input type="text" x-model="serverForm.name" :disabled="showEditModal" class="block w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 :bg-gray-100 :cursor-not-allowed" placeholder="e.g., my-mcp-server" required :class="showEditModal ? 'bg-gray-100 cursor-not-allowed' : ''">
+                        <p class="mt-1 text-xs text-gray-500">A unique identifier for this server</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">
+                            Server URL
+                            <span class="text-red-500 ml-1" aria-label="required"></span>
+                        </label>
+                        <input type="url" x-model="serverForm.url" class="block w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="https://example.com/mcp" required>
+                        <p class="mt-1 text-xs text-gray-500">HTTP/HTTPS URL for the MCP server endpoint</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <textarea x-model="serverForm.description" rows="3" class="block w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" placeholder="Brief description of this server's purpose"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Bearer Token</label>
+                        <input type="password" x-model="serverForm.bearer_token" class="block w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Optional authentication token">
+                        <p class="mt-1 text-xs text-gray-500">Leave empty if no authentication is required</p>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                        <button type="button" @click="closeModal()" class="inline-flex items-center px-3 py-1.5 border border-300 text-sm font-medium rounded-md text-700 bg-50 hover:bg-100 focus:outline-none focus:ring-2 focus:ring-500 focus:ring-offset-2 transition-colors">
+                            <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Cancel
+                        </button>
+                        <button type="submit" :disabled="submitting" class="inline-flex items-center px-3 py-1.5 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors" :class="submitting ? 'btn-loading' : ''">
+                            <span x-show="submitting" class="spinner mr-2"></span>
+                            <svg x-show="!submitting && !showEditModal" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            <svg x-show="!submitting && showEditModal" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            <span x-text="showEditModal ? 'Update Server' : 'Add Server'"></span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Delete Confirmation Modal -->
+        <div x-show="showDeleteModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" x-transition>
+            <div class="relative top-20 mx-auto p-6 border border-gray-200 w-full max-w-md shadow-xl rounded-lg bg-white modal-content">
+                <div class="text-center">
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                        <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Delete Server</h3>
+                    <div class="mb-6">
+                        <p class="text-sm text-gray-600">
+                            Are you sure you want to delete the server "<span class="font-medium text-gray-900" x-text="serverToDelete?.name"></span>"?
+                        </p>
+                        <p class="text-sm text-red-600 mt-1">This action cannot be undone.</p>
+                    </div>
+                    <div class="flex justify-center space-x-3">
+                        <button @click="showDeleteModal = false" class="btn-secondary">
+                            <svg class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Cancel
+                        </button>
+                        <button @click="deleteServer()" :disabled="submitting" class="btn-danger" :class="submitting ? 'btn-loading' : ''">
+                            <span x-show="submitting" class="spinner mr-2"></span>
+                            <svg x-show="!submitting" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Delete Server
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function serversApp() {
+            return {
+                servers: [],
+                loading: false,
+                submitting: false,
+                connectionStatus: 'connected',
+                showAddModal: false,
+                showEditModal: false,
+                showDeleteModal: false,
+                serverToDelete: null,
+                serverForm: {
+                    name: '',
+                    description: '',
+                    url: '',
+                    bearer_token: ''
+                },
+                pollingInterval: null,
+
+                async init() {
+                    // Wait for auth manager to initialize
+                    if (window.authManager) {
+                        await new Promise(resolve => {
+                            if (authManager.isAuth() || authManager.getMode() === 'dev') {
+                                resolve();
+                            } else {
+                                // Wait for auth or check periodically
+                                const checkAuth = setInterval(() => {
+                                    if (authManager.isAuth() || authManager.getMode() === 'dev') {
+                                        clearInterval(checkAuth);
+                                        resolve();
+                                    }
+                                }, 100);
+                            }
+                        });
+                    }
+
+                    this.loadServers();
+                    this.startPolling();
+                },
+
+                async loadServers() {
+                    this.loading = true;
+                    try {
+                        const servers = await API.get('/servers');
+                        this.servers = servers || [];
+                        this.connectionStatus = 'connected';
+                    } catch (error) {
+                        console.error('Failed to load servers:', error);
+                        this.connectionStatus = 'disconnected';
+                        this.showError('Failed to load servers: ' + error.message);
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                async addServer() {
+                    this.submitting = true;
+                    try {
+                        const newServer = await API.post('/servers', this.serverForm);
+                        this.servers.push(newServer);
+                        this.closeModal();
+                        this.showSuccess('Server added successfully');
+                    } catch (error) {
+                        console.error('Failed to add server:', error);
+                        this.showError('Failed to add server: ' + error.message);
+                    } finally {
+                        this.submitting = false;
+                    }
+                },
+
+                editServer(server) {
+                    this.serverForm = { ...server };
+                    this.showEditModal = true;
+                },
+
+                async updateServer() {
+                    this.submitting = true;
+                    try {
+                        const updatedServer = await API.post('/servers', this.serverForm);
+                        const index = this.servers.findIndex(s => s.name === this.serverForm.name);
+                        if (index !== -1) {
+                            this.servers[index] = updatedServer;
+                        }
+                        this.closeModal();
+                        this.showSuccess('Server updated successfully');
+                    } catch (error) {
+                        console.error('Failed to update server:', error);
+                        this.showError('Failed to update server: ' + error.message);
+                    } finally {
+                        this.submitting = false;
+                    }
+                },
+
+                confirmDelete(server) {
+                    this.serverToDelete = server;
+                    this.showDeleteModal = true;
+                },
+
+                async deleteServer() {
+                    if (!this.serverToDelete) return;
+
+                    this.submitting = true;
+                    try {
+                        await API.delete(`/servers/${encodeURIComponent(this.serverToDelete.name)}`);
+                        this.servers = this.servers.filter(s => s.name !== this.serverToDelete.name);
+                        this.showDeleteModal = false;
+                        this.serverToDelete = null;
+                        this.showSuccess('Server deleted successfully');
+                    } catch (error) {
+                        console.error('Failed to delete server:', error);
+                        this.showError('Failed to delete server: ' + error.message);
+                    } finally {
+                        this.submitting = false;
+                    }
+                },
+
+                closeModal() {
+                    this.showAddModal = false;
+                    this.showEditModal = false;
+                    this.serverForm = {
+                        name: '',
+                        description: '',
+                        url: '',
+                        bearer_token: ''
+                    };
+                },
+
+                handleEscapeKey() {
+                    // Check if there are unsaved changes
+                    const hasUnsavedChanges = Object.values(this.serverForm).some(value =>
+                        value && typeof value === 'string' && value.trim() !== ''
+                    );
+
+                    if (hasUnsavedChanges) {
+                        const confirmed = confirm(
+                            'You have unsaved changes. Are you sure you want to close this dialog? Your changes will be lost.'
+                        );
+                        if (confirmed) {
+                            this.closeModal();
+                        }
+                    } else {
+                        this.closeModal();
+                    }
+                },
+
+                startPolling() {
+                    // Poll every 30 seconds
+                    this.pollingInterval = setInterval(() => {
+                        if (!document.hidden) { // Only poll when page is visible
+                            this.loadServers();
+                        }
+                    }, 30000);
+                },
+
+                showError(message) {
+                    if (window.notifications) {
+                        window.notifications.showError(message);
+                    } else {
+                        console.error(message);
+                    }
+                },
+
+                showSuccess(message) {
+                    if (window.notifications) {
+                        window.notifications.showSuccess(message);
+                    } else {
+                        console.log(message);
+                    }
+                },
+
+                destroy() {
+                    if (this.pollingInterval) {
+                        clearInterval(this.pollingInterval);
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
