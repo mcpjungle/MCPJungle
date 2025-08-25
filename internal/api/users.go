@@ -39,9 +39,9 @@ func listUsersHandler(userService *user.UserService) gin.HandlerFunc {
 			return
 		}
 
-		resp := make([]types.User, len(users))
+		resp := make([]*types.User, len(users))
 		for i, u := range users {
-			resp[i] = types.User{
+			resp[i] = &types.User{
 				Username: u.Username,
 				Role:     string(u.Role),
 			}
