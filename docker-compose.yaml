@@ -33,7 +33,10 @@ services:
     container_name: mcpjungle-server
     environment:
       DATABASE_URL: postgres://mcpjungle:mcpjungle@db:5432/mcpjungle
-      SERVER_MODE: $SERVER_MODE
+      PORT: 8080
+      SERVER_MODE: ${SERVER_MODE}
+      OTEL_ENABLED: ${OTEL_ENABLED}
+      METRICS_PATH: ${METRICS_PATH}
     ports:
       - "8080:8080"
     depends_on:
@@ -41,5 +44,37 @@ services:
         condition: service_healthy
     restart: always
 
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: mcpjungle-prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    volumes:
+      - prometheus_data:/prometheus
+    configs:
+      - source: prometheus_config
+        target: /etc/prometheus/prometheus.yml
+    depends_on:
+      - mcpjungle
+    restart: unless-stopped
+
+configs:
+  prometheus_config:
+    content: |
+      global:
+        scrape_interval: 15s
+        evaluation_interval: 30s
+
+      scrape_configs:
+        - job_name: 'mcpjungle'
+          static_configs:
+            - targets: ['mcpjungle:8080']
+          metrics_path: '/metrics'
+          scrape_interval: 15s
+
 volumes:
   db_data:
+  prometheus_data:

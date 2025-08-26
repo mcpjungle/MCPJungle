@@ -14,14 +14,14 @@ import (
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
-func createToolGroupHandler(toolGroupService *toolgroup.ToolGroupService) gin.HandlerFunc {
+func (s *Server) createToolGroupHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input model.ToolGroup
 		if err := c.ShouldBindJSON(&input); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		if err := toolGroupService.CreateToolGroup(&input); err != nil {
+		if err := s.toolGroupService.CreateToolGroup(&input); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -34,9 +34,9 @@ func createToolGroupHandler(toolGroupService *toolgroup.ToolGroupService) gin.Ha
 
 // listToolGroupsHandler handles returns a list of all tool groups.
 // This API only provides basic information about each tool group, ie, name and description.
-func listToolGroupsHandler(toolGroupService *toolgroup.ToolGroupService) gin.HandlerFunc {
+func (s *Server) listToolGroupsHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		groups, err := toolGroupService.ListToolGroups()
+		groups, err := s.toolGroupService.ListToolGroups()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -54,7 +54,7 @@ func listToolGroupsHandler(toolGroupService *toolgroup.ToolGroupService) gin.Han
 	}
 }
 
-func getToolGroupHandler(toolGroupService *toolgroup.ToolGroupService) gin.HandlerFunc {
+func (s *Server) getToolGroupHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		name := c.Param("name")
 		if name == "" {
@@ -62,7 +62,7 @@ func getToolGroupHandler(toolGroupService *toolgroup.ToolGroupService) gin.Handl
 			return
 		}
 
-		group, err := toolGroupService.GetToolGroup(name)
+		group, err := s.toolGroupService.GetToolGroup(name)
 		if err != nil {
 			if errors.Is(err, toolgroup.ErrToolGroupNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("tool group %s not found", name)})
@@ -93,7 +93,7 @@ func getToolGroupHandler(toolGroupService *toolgroup.ToolGroupService) gin.Handl
 	}
 }
 
-func deleteToolGroupHandler(toolGroupService *toolgroup.ToolGroupService) gin.HandlerFunc {
+func (s *Server) deleteToolGroupHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		name := c.Param("name")
 		if name == "" {
@@ -101,7 +101,7 @@ func deleteToolGroupHandler(toolGroupService *toolgroup.ToolGroupService) gin.Ha
 			return
 		}
 
-		err := toolGroupService.DeleteToolGroup(name)
+		err := s.toolGroupService.DeleteToolGroup(name)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -115,11 +115,11 @@ func deleteToolGroupHandler(toolGroupService *toolgroup.ToolGroupService) gin.Ha
 }
 
 // toolGroupMCPServerCallHandler handles incoming MCP requests from for a specific tool group.
-func toolGroupMCPServerCallHandler(toolGroupService *toolgroup.ToolGroupService) gin.HandlerFunc {
+func (s *Server) toolGroupMCPServerCallHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// get the Proxy MCP server for the specified tool group
 		groupName := c.Param("name")
-		groupMcpServer, exists := toolGroupService.GetToolGroupMCPServer(groupName)
+		groupMcpServer, exists := s.toolGroupService.GetToolGroupMCPServer(groupName)
 		if !exists {
 			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("tool group not found: %s", groupName)})
 			return

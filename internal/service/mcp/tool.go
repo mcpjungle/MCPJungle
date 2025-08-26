@@ -8,6 +8,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
+
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
@@ -295,6 +296,11 @@ func (m *MCPService) registerServerTools(ctx context.Context, s *model.McpServer
 	}
 	for _, tool := range resp.Tools {
 		canonicalToolName := mergeServerToolNames(s.Name, tool.GetName())
+
+		// Record tool discovery attempt
+		if m.metrics != nil {
+			m.metrics.RecordToolDiscovery(ctx, canonicalToolName)
+		}
 
 		// extracting json schema is currently on best-effort basis
 		// if it fails, we log the error and continue with the next tool

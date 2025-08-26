@@ -7,17 +7,15 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/mcpjungle/mcpjungle/internal/model"
-	"github.com/mcpjungle/mcpjungle/internal/service/config"
-	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
-	"github.com/mcpjungle/mcpjungle/internal/service/user"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
 // requireInitialized is middleware to reject requests to certain routes if the server is not initialized
-func requireInitialized(configService *config.ServerConfigService) gin.HandlerFunc {
+func (s *Server) requireInitialized() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		cfg, err := configService.GetConfig()
+		cfg, err := s.configService.GetConfig()
 		if err != nil || !cfg.Initialized {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "server is not initialized"})
 			return
@@ -30,7 +28,7 @@ func requireInitialized(configService *config.ServerConfigService) gin.HandlerFu
 
 // verifyUserAuthForAPIAccess is middleware that checks for a valid user token if the server is in production mode.
 // this middleware doesn't care about the role of the user, it just verifies that they're authenticated.
-func verifyUserAuthForAPIAccess(userService *user.UserService) gin.HandlerFunc {
+func (s *Server) verifyUserAuthForAPIAccess() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		mode, exists := c.Get("mode")
 		if !exists {
@@ -56,7 +54,7 @@ func verifyUserAuthForAPIAccess(userService *user.UserService) gin.HandlerFunc {
 		}
 
 		// Verify that the token is valid and corresponds to a user
-		authenticatedUser, err := userService.GetUserByAccessToken(token)
+		authenticatedUser, err := s.userService.GetUserByAccessToken(token)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid access token: " + err.Error()})
 			return
@@ -70,7 +68,7 @@ func verifyUserAuthForAPIAccess(userService *user.UserService) gin.HandlerFunc {
 
 // requireAdminUser is middleware that ensures the authenticated user has an admin role when in production mode.
 // It assumes that verifyUserAuthForAPIAccess middleware has already run and set the user in context.
-func requireAdminUser() gin.HandlerFunc {
+func (s *Server) requireAdminUser() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		mode, exists := c.Get("mode")
 		if !exists {
@@ -106,7 +104,7 @@ func requireAdminUser() gin.HandlerFunc {
 
 // requireServerMode is middleware that checks if the server is in a specific mode.
 // If not, the request is rejected with a 403 Forbidden status.
-func requireServerMode(m model.ServerMode) gin.HandlerFunc {
+func (s *Server) requireServerMode(m model.ServerMode) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		mode, exists := c.Get("mode")
 		if !exists {
@@ -132,7 +130,7 @@ func requireServerMode(m model.ServerMode) gin.HandlerFunc {
 // checkAuthForMcpProxyAccess is middleware for MCP proxy that checks for a valid MCP client token
 // if the server is in production mode.
 // In development mode, mcp clients do not require auth to access the MCP proxy.
-func checkAuthForMcpProxyAccess(mcpClientService *mcpclient.McpClientService) gin.HandlerFunc {
+func (s *Server) checkAuthForMcpProxyAccess() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		mode, exists := c.Get("mode")
 		if !exists {
@@ -162,7 +160,7 @@ func checkAuthForMcpProxyAccess(mcpClientService *mcpclient.McpClientService) gi
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing MCP client access token"})
 			return
 		}
-		client, err := mcpClientService.GetClientByToken(token)
+		client, err := s.mcpClientService.GetClientByToken(token)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid MCP client token"})
 			return

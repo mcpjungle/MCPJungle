@@ -8,6 +8,8 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"gorm.io/gorm"
+
+	"github.com/mcpjungle/mcpjungle/internal/metrics"
 )
 
 // MCPService coordinates operations amongst the registry database, mcp proxy server and upstream MCP servers.
@@ -26,11 +28,13 @@ type MCPService struct {
 	// toolAdditionCallback is a callback that gets invoked when one or more tools is added
 	// (registered or (re)enabled) in mcpjungle.
 	toolAdditionCallback ToolAdditionCallback
+
+	metrics *metrics.MCPMetrics
 }
 
 // NewMCPService creates a new instance of MCPService.
 // It initializes the MCP proxy server by loading all registered tools from the database.
-func NewMCPService(db *gorm.DB, mcpProxyServer *server.MCPServer) (*MCPService, error) {
+func NewMCPService(db *gorm.DB, mcpProxyServer *server.MCPServer, metrics *metrics.MCPMetrics) (*MCPService, error) {
 	s := &MCPService{
 		db:             db,
 		mcpProxyServer: mcpProxyServer,
@@ -41,6 +45,8 @@ func NewMCPService(db *gorm.DB, mcpProxyServer *server.MCPServer) (*MCPService, 
 		// initialize the callbacks to NOOP functions
 		toolDeletionCallback: func(toolNames ...string) {},
 		toolAdditionCallback: func(toolName string) error { return nil },
+
+		metrics: metrics,
 	}
 	if err := s.initMCPProxyServer(); err != nil {
 		return nil, fmt.Errorf("failed to initialize MCP proxy server: %w", err)

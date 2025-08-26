@@ -9,6 +9,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/api"
 	"github.com/mcpjungle/mcpjungle/internal/db"
+	"github.com/mcpjungle/mcpjungle/internal/metrics"
 	"github.com/mcpjungle/mcpjungle/internal/migrations"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
@@ -70,6 +71,19 @@ func init() {
 func runStartServer(cmd *cobra.Command, args []string) error {
 	_ = godotenv.Load()
 
+	// Initialize metrics
+	ctx := cmd.Context()
+	metricsConfig := metrics.LoadConfigFromEnv()
+	metricsProviders, err := metrics.InitOTel(ctx, metricsConfig)
+	if err != nil {
+		return fmt.Errorf("failed to initialize metrics: %v", err)
+	}
+	defer func() {
+		if err := metricsProviders.Shutdown(ctx); err != nil {
+			fmt.Printf("Warning: failed to shutdown metrics: %v\n", err)
+		}
+	}()
+
 	// connect to the DB and run migrations
 	dsn := os.Getenv(DBUrlEnvVar)
 	dbConn, err := db.NewDBConnection(dsn)
@@ -99,7 +113,16 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		server.WithToolCapabilities(true),
 	)
 
-	mcpService, err := mcp.NewMCPService(dbConn, mcpProxyServer)
+	// Create MCP metrics from the metrics providers
+	var mcpMetrics *metrics.MCPMetrics
+	if metricsProviders != nil && metricsProviders.Meter != nil {
+		mcpMetrics, err = metrics.NewMCPMetrics(metricsProviders.Meter)
+		if err != nil {
+			return fmt.Errorf("failed to create MCP metrics: %v", err)
+		}
+	}
+
+	mcpService, err := mcp.NewMCPService(dbConn, mcpProxyServer, mcpMetrics)
 	if err != nil {
 		return fmt.Errorf("failed to create MCP service: %v", err)
 	}
@@ -123,6 +146,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		ConfigService:    configService,
 		UserService:      userService,
 		ToolGroupService: toolGroupService,
+		OtelProviders:    metricsProviders,
 	}
 	s, err := api.NewServer(opts)
 	if err != nil {
