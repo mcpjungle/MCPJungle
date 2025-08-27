@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/spf13/cobra"
+	"os"
 	"strings"
 )
 
@@ -39,9 +41,22 @@ var createUserCmd = &cobra.Command{
 	RunE: runCreateUser,
 }
 
+var createToolGroupCmd = &cobra.Command{
+	Use:   "group",
+	Short: "Create a Group of MCP Tools",
+	Long: "Create a new Group of MCP Tools by supplying a configuration file.\n" +
+		"A group lets you expose only a handful of Tool that you choose.\n" +
+		"This limits the number of tools your MCP client sees, increasing calling accuracy of the LLM.\n" +
+		"Once you create a tool group, it is accessible as a streamable http MCP server at the following endpoint:\n" +
+		"    /v0/groups/{group_name}/mcp\n",
+	RunE: runCreateToolGroup,
+}
+
 var (
 	createMcpClientCmdAllowedServers string
 	createMcpClientCmdDescription    string
+
+	createToolGroupConfigFilePath string
 )
 
 func init() {
@@ -59,8 +74,18 @@ func init() {
 		"Description of the MCP client. This is optional and can be used to provide additional context.",
 	)
 
+	createToolGroupCmd.Flags().StringVarP(
+		&createToolGroupConfigFilePath,
+		"conf",
+		"c",
+		"",
+		"Path to a JSON configuration file for the Group.\n",
+	)
+	_ = createToolGroupCmd.MarkFlagRequired("conf")
+
 	createCmd.AddCommand(createMcpClientCmd)
 	createCmd.AddCommand(createUserCmd)
+	createCmd.AddCommand(createToolGroupCmd)
 
 	rootCmd.AddCommand(createCmd)
 }
@@ -120,6 +145,38 @@ func runCreateUser(cmd *cobra.Command, args []string) error {
 	cmd.Println()
 	cmd.Printf("    mcpjungle login %s\n", resp.AccessToken)
 	cmd.Println()
+
+	return nil
+}
+
+func readToolGroupConfig(filePath string) (*types.ToolGroup, error) {
+	var input types.ToolGroup
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return &input, fmt.Errorf("failed to read config file %s: %w", filePath, err)
+	}
+	if err := json.Unmarshal(data, &input); err != nil {
+		return &input, fmt.Errorf("failed to parse config file: %w", err)
+	}
+
+	return &input, nil
+}
+
+func runCreateToolGroup(cmd *cobra.Command, args []string) error {
+	group, err := readToolGroupConfig(createToolGroupConfigFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to read config file %s: %w", createToolGroupConfigFilePath, err)
+	}
+
+	resp, err := apiClient.CreateToolGroup(group)
+	if err != nil {
+		return fmt.Errorf("failed to create tool group: %w", err)
+	}
+
+	cmd.Printf("Tool Group %s created successfully\n", group.Name)
+	cmd.Println("It is now accessible at the following streamable http endpoint:\n")
+	cmd.Println("    " + resp.Endpoint + "\n")
 
 	return nil
 }
