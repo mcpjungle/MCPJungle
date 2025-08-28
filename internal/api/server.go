@@ -8,6 +8,7 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp_client"
+	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
 )
 
@@ -22,6 +23,7 @@ type ServerOptions struct {
 	MCPClientService *mcp_client.McpClientService
 	ConfigService    *config.ServerConfigService
 	UserService      *user.UserService
+	ToolGroupService *toolgroup.ToolGroupService
 }
 
 // Server represents the MCPJungle registry server that handles MCP proxy and API requests
@@ -181,6 +183,12 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 			requireProdMode,
 			deleteUserHandler(opts.UserService),
 		)
+
+		// endpoints for managing tool groups
+		adminAPI.POST("/tool-groups", createToolGroupHandler(opts.ToolGroupService))
+		adminAPI.GET("/tool-groups/:name", getToolGroupHandler(opts.ToolGroupService))
+		adminAPI.GET("/tool-groups", listToolGroupsHandler(opts.ToolGroupService))
+		adminAPI.DELETE("/tool-groups/:name", deleteToolGroupHandler(opts.ToolGroupService))
 	}
 
 	return r, nil

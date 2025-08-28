@@ -23,5 +23,8 @@ func Migrate(db *gorm.DB) error {
 	if err := db.AutoMigrate(&model.McpClient{}); err != nil {
 		return fmt.Errorf("auto‑migration failed for McpClient model: %v", err)
 	}
+	if err := db.AutoMigrate(&model.ToolGroup{}); err != nil {
+		return fmt.Errorf("auto‑migration failed for ToolGroup model: %v", err)
+	}
 	return nil
 }

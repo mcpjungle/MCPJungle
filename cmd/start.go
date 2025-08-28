@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"os"
 	"strings"
 
@@ -108,6 +109,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 
 	configService := config.NewServerConfigService(dbConn)
 	userService := user.NewUserService(dbConn)
+	toolGroupService := toolgroup.NewToolGroupService(dbConn)
 
 	// create the API server
 	opts := &api.ServerOptions{
@@ -117,6 +119,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		MCPClientService: mcpClientService,
 		ConfigService:    configService,
 		UserService:      userService,
+		ToolGroupService: toolGroupService,
 	}
 	s, err := api.NewServer(opts)
 	if err != nil {

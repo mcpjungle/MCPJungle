@@ -1,0 +1,104 @@
+package api
+
+import (
+	"encoding/json"
+	"github.com/gin-gonic/gin"
+	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
+	"github.com/mcpjungle/mcpjungle/pkg/types"
+	"net/http"
+)
+
+func createToolGroupHandler(toolGroupService *toolgroup.ToolGroupService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var input model.ToolGroup
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if err := toolGroupService.CreateToolGroup(&input); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		resp := &types.CreateToolGroupResponse{
+			Endpoint: "********* TODO *********",
+		}
+		c.JSON(http.StatusCreated, resp)
+	}
+}
+
+// listToolGroupsHandler handles returns a list of all tool groups.
+// This API only provides basic information about each tool group, ie, name and description.
+func listToolGroupsHandler(toolGroupService *toolgroup.ToolGroupService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		groups, err := toolGroupService.ListToolGroups()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		resp := make([]*types.ToolGroup, len(groups))
+		for i, g := range groups {
+			resp[i] = &types.ToolGroup{
+				Name:        g.Name,
+				Description: g.Description,
+			}
+		}
+
+		c.JSON(http.StatusOK, resp)
+	}
+}
+
+func getToolGroupHandler(toolGroupService *toolgroup.ToolGroupService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		name := c.Param("name")
+		if name == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
+			return
+		}
+
+		group, err := toolGroupService.GetToolGroup(name)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if group == nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "tool group not found"})
+			return
+		}
+
+		resp := &types.ToolGroup{
+			Name:        group.Name,
+			Description: group.Description,
+		}
+		// Convert datatypes.JSON to []string
+		if group.IncludedTools != nil {
+			var tools []string
+			if err := json.Unmarshal(group.IncludedTools, &tools); err != nil {
+				// TODO: Log error or handle it appropriately
+				tools = []string{}
+			}
+			resp.IncludedTools = tools
+		}
+
+		c.JSON(http.StatusOK, resp)
+	}
+}
+
+func deleteToolGroupHandler(toolGroupService *toolgroup.ToolGroupService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		name := c.Param("name")
+		if name == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
+			return
+		}
+
+		err := toolGroupService.DeleteToolGroup(name)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.Status(http.StatusNoContent)
+	}
+}
