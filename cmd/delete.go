@@ -31,9 +31,22 @@ var deleteUserCmd = &cobra.Command{
 	RunE:  runDeleteUser,
 }
 
+var deleteToolGroupCmd = &cobra.Command{
+	Use:   "group [name]",
+	Args:  cobra.ExactArgs(1),
+	Short: "Delete a tool group",
+	Long: "Delete a tool group from mcpjungle.\n" +
+		"Once you delete a group, its endpoint is no longer available.\n" +
+		"So make sure no MCP clients are relying on the endpoint before you delete a group.\n" +
+		"NOTE: This command only deletes the group itself, not the tools included in it.\n" +
+		"Tools are only deleted when you deregister a MCP server from mcpjungle.",
+	RunE: runDeleteToolGroup,
+}
+
 func init() {
 	deleteCmd.AddCommand(deleteMcpClientCmd)
 	deleteCmd.AddCommand(deleteUserCmd)
+	deleteCmd.AddCommand(deleteToolGroupCmd)
 
 	rootCmd.AddCommand(deleteCmd)
 }
@@ -53,5 +66,14 @@ func runDeleteUser(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to delete the user: %w", err)
 	}
 	cmd.Printf("User '%s' deleted successfully (if they existed)\n", username)
+	return nil
+}
+
+func runDeleteToolGroup(cmd *cobra.Command, args []string) error {
+	name := args[0]
+	if err := apiClient.DeleteToolGroup(name); err != nil {
+		return fmt.Errorf("failed to delete the tool group: %w", err)
+	}
+	cmd.Printf("Tool group '%s' deleted successfully!\n", name)
 	return nil
 }

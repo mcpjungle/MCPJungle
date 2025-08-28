@@ -45,7 +45,7 @@ var createToolGroupCmd = &cobra.Command{
 	Use:   "group",
 	Short: "Create a Group of MCP Tools",
 	Long: "Create a new Group of MCP Tools by supplying a configuration file.\n" +
-		"A group lets you expose only a handful of Tool that you choose.\n" +
+		"A group lets you expose only a handful of Tools that you choose.\n" +
 		"This limits the number of tools your MCP client sees, increasing calling accuracy of the LLM.\n" +
 		"Once you create a tool group, it is accessible as a streamable http MCP server at the following endpoint:\n" +
 		"    /v0/groups/{group_name}/mcp\n",

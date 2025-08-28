@@ -9,7 +9,7 @@ import (
 	"net/http"
 )
 
-// CreateToolGroup send API request to create a new Tool Group.
+// CreateToolGroup sends API request to create a new Tool Group.
 func (c *Client) CreateToolGroup(group *types.ToolGroup) (*types.CreateToolGroupResponse, error) {
 	u, _ := c.constructAPIEndpoint("/tool-groups")
 
@@ -40,4 +40,27 @@ func (c *Client) CreateToolGroup(group *types.ToolGroup) (*types.CreateToolGroup
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 	return &createResp, nil
+}
+
+// DeleteToolGroup sends API request to delete a Tool Group by name.
+func (c *Client) DeleteToolGroup(name string) error {
+	u, _ := c.constructAPIEndpoint("/tool-groups/" + name)
+
+	req, err := c.newRequest(http.MethodDelete, u, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request to %s: %w", u, err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request to %s: %w", u, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+	}
+
+	return nil
 }
