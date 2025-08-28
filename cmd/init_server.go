@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
+
 	"github.com/mcpjungle/mcpjungle/cmd/config"
 	"github.com/spf13/cobra"
 )
@@ -30,7 +32,7 @@ func runInitServer(cmd *cobra.Command, args []string) error {
 	}
 
 	if resp.AdminAccessToken == "" {
-		return fmt.Errorf("server initialization failed: no admin access token received")
+		return errors.New("server initialization failed: no admin access token received")
 	}
 
 	// Create new client configuration

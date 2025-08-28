@@ -4,9 +4,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/spf13/cobra"
 	"os"
 	"time"
+
+	"github.com/spf13/cobra"
 )
 
 var invokeCmdInput string
@@ -140,7 +141,7 @@ func runInvokeTool(cmd *cobra.Command, args []string) error {
 				return err
 			}
 			filename := fmt.Sprintf("image_%d%s", time.Now().UnixNano(), ext)
-			if err := os.WriteFile(filename, imgData, 0644); err != nil {
+			if err := os.WriteFile(filename, imgData, 0o644); err != nil {
 				return fmt.Errorf("failed to write image to disk: %w", err)
 			}
 			fmt.Printf("[Image saved as %s]\n", filename)
@@ -151,7 +152,7 @@ func runInvokeTool(cmd *cobra.Command, args []string) error {
 				return err
 			}
 			filename := fmt.Sprintf("audio_%d%s", time.Now().UnixNano(), ext)
-			if err := os.WriteFile(filename, audioData, 0644); err != nil {
+			if err := os.WriteFile(filename, audioData, 0o644); err != nil {
 				return fmt.Errorf("failed to write audio to disk: %w", err)
 			}
 			fmt.Printf("[Audio saved as %s]\n", filename)

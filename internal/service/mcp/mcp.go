@@ -1,11 +1,13 @@
+// Package mcp provides MCP (Model Context Protocol) service functionality for the MCPJungle application.
 package mcp
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"gorm.io/gorm"
-	"sync"
 )
 
 // MCPService coordinates operations amongst the registry database, mcp proxy server and upstream MCP servers.

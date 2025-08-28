@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"io"
 	"net/http"
+
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
 // CreateUser sends a request to create a new authenticated, human user in mcpjungle

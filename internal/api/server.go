@@ -1,13 +1,15 @@
+// Package api provides HTTP API functionality for the MCPJungle server.
 package api
 
 import (
 	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
-	"github.com/mcpjungle/mcpjungle/internal/service/mcp_client"
+	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
 )
@@ -23,7 +25,7 @@ type ServerOptions struct {
 
 	MCPProxyServer   *server.MCPServer
 	MCPService       *mcp.MCPService
-	MCPClientService *mcp_client.McpClientService
+	MCPClientService *mcpclient.McpClientService
 	ConfigService    *config.ServerConfigService
 	UserService      *user.UserService
 	ToolGroupService *toolgroup.ToolGroupService
@@ -36,7 +38,7 @@ type Server struct {
 
 	mcpProxyServer   *server.MCPServer
 	mcpService       *mcp.MCPService
-	mcpClientService *mcp_client.McpClientService
+	mcpClientService *mcpclient.McpClientService
 
 	configService *config.ServerConfigService
 	userService   *user.UserService
@@ -120,12 +122,12 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 	requireProdMode := requireServerMode(model.ModeProd)
 
 	// Set up the MCP proxy server on /mcp
-	streamableHttpServer := server.NewStreamableHTTPServer(opts.MCPProxyServer)
+	streamableHTTPServer := server.NewStreamableHTTPServer(opts.MCPProxyServer)
 	r.Any(
 		"/mcp",
 		requireInitialized(opts.ConfigService),
 		checkAuthForMcpProxyAccess(opts.MCPClientService),
-		gin.WrapH(streamableHttpServer),
+		gin.WrapH(streamableHTTPServer),
 	)
 
 	r.Any(

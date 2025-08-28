@@ -1,8 +1,10 @@
+// Package config provides configuration service functionality for the MCPJungle application.
 package config
 
 import (
 	"errors"
 	"fmt"
+
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"gorm.io/gorm"
 )

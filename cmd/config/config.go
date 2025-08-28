@@ -1,9 +1,11 @@
+// Package config provides configuration management functionality for the MCPJungle application.
 package config
 
 import (
-	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
+
+	"gopkg.in/yaml.v3"
 )
 
 const ClientConfigFileName = ".mcpjungle.conf"

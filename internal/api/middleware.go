@@ -3,14 +3,21 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
-	"github.com/mcpjungle/mcpjungle/internal/service/mcp_client"
+	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
-	"net/http"
-	"strings"
+)
+
+// Context key types for type-safe context values
+type (
+	contextKeyMode   struct{}
+	contextKeyClient struct{}
 )
 
 // requireInitialized is middleware to reject requests to certain routes if the server is not initialized
@@ -131,7 +138,7 @@ func requireServerMode(m model.ServerMode) gin.HandlerFunc {
 // checkAuthForMcpProxyAccess is middleware for MCP proxy that checks for a valid MCP client token
 // if the server is in production mode.
 // In development mode, mcp clients do not require auth to access the MCP proxy.
-func checkAuthForMcpProxyAccess(mcpClientService *mcp_client.McpClientService) gin.HandlerFunc {
+func checkAuthForMcpProxyAccess(mcpClientService *mcpclient.McpClientService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		mode, exists := c.Get("mode")
 		if !exists {
@@ -146,7 +153,7 @@ func checkAuthForMcpProxyAccess(mcpClientService *mcp_client.McpClientService) g
 
 		// the gin context doesn't get passed down to the MCP proxy server, so we need to
 		// set values in the underlying request's context to be able to access them from proxy.
-		ctx := context.WithValue(c.Request.Context(), "mode", m)
+		ctx := context.WithValue(c.Request.Context(), contextKeyMode{}, m)
 		c.Request = c.Request.WithContext(ctx)
 
 		if m == model.ModeDev {
@@ -168,7 +175,7 @@ func checkAuthForMcpProxyAccess(mcpClientService *mcp_client.McpClientService) g
 		}
 
 		// inject the authenticated MCP client in context for the proxy to use
-		ctx = context.WithValue(c.Request.Context(), "client", client)
+		ctx = context.WithValue(c.Request.Context(), contextKeyClient{}, client)
 		c.Request = c.Request.WithContext(ctx)
 
 		c.Next()

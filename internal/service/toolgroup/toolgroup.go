@@ -1,14 +1,16 @@
+// Package toolgroup provides functionality to manage tool groups and their associated MCP proxy servers.
 package toolgroup
 
 import (
 	"errors"
 	"fmt"
+	"regexp"
+	"sync"
+
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"gorm.io/gorm"
-	"regexp"
-	"sync"
 )
 
 var ErrToolGroupNotFound = errors.New("tool group not found")

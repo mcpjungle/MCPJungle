@@ -3,10 +3,11 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/mcpjungle/mcpjungle/pkg/types"
-	"github.com/spf13/cobra"
 	"os"
 	"strings"
+
+	"github.com/mcpjungle/mcpjungle/pkg/types"
+	"github.com/spf13/cobra"
 )
 
 var createCmd = &cobra.Command{

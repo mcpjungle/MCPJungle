@@ -1,3 +1,4 @@
+// Package model provides data models for the MCPJungle application.
 package model
 
 import (

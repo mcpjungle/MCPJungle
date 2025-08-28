@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
-	"log"
 )
 
 // ToolDeletionCallback is a function type that can be registered to be called
@@ -340,7 +341,7 @@ func (m *MCPService) deregisterServerTools(s *model.McpServer) error {
 	}
 
 	// delete tools from MCP proxy server
-	toolNames := make([]string, len(tools), len(tools))
+	toolNames := make([]string, len(tools))
 	for i, tool := range tools {
 		toolNames[i] = tool.Name
 	}

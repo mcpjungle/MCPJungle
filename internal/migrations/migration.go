@@ -1,7 +1,9 @@
+// Package migrations provides database migration functionality for the MCPJungle application.
 package migrations
 
 import (
 	"fmt"
+
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"gorm.io/gorm"
 )

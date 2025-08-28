@@ -2,22 +2,21 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"os"
 	"strings"
 
 	"github.com/joho/godotenv"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/spf13/cobra"
-
 	"github.com/mcpjungle/mcpjungle/internal/api"
 	"github.com/mcpjungle/mcpjungle/internal/db"
 	"github.com/mcpjungle/mcpjungle/internal/migrations"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
-	"github.com/mcpjungle/mcpjungle/internal/service/mcp_client"
+	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
+	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
+	"github.com/spf13/cobra"
 )
 
 const (
@@ -105,7 +104,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create MCP service: %v", err)
 	}
 
-	mcpClientService := mcp_client.NewMCPClientService(dbConn)
+	mcpClientService := mcpclient.NewMCPClientService(dbConn)
 
 	configService := config.NewServerConfigService(dbConn)
 	userService := user.NewUserService(dbConn)
@@ -190,7 +189,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 	fmt.Print(asciiArt)
 	fmt.Printf("MCPJungle HTTP server listening on :%s\n\n", port)
 	if err := s.Start(); err != nil {
-		return fmt.Errorf("failed to run the server: %v\n", err)
+		return fmt.Errorf("failed to run the server: %v", err)
 	}
 
 	return nil

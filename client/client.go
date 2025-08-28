@@ -1,10 +1,12 @@
+// Package client provides HTTP client functionality for interacting with the MCPJungle API.
 package client
 
 import (
-	"github.com/mcpjungle/mcpjungle/internal/api"
 	"io"
 	"net/http"
 	"net/url"
+
+	"github.com/mcpjungle/mcpjungle/internal/api"
 )
 
 // Client represents a client for interacting with the MCPJungle HTTP API
