@@ -2,7 +2,9 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
@@ -100,5 +102,21 @@ func deleteToolGroupHandler(toolGroupService *toolgroup.ToolGroupService) gin.Ha
 		}
 
 		c.Status(http.StatusNoContent)
+	}
+}
+
+func toolGroupMCPServerCallHandler(toolGroupService *toolgroup.ToolGroupService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// get the Proxy MCP server for the specified tool group
+		groupName := c.Param("name")
+		groupMcpServer, exists := toolGroupService.GetToolGroupMCPServer(groupName)
+		if !exists {
+			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("tool group not found: %s", groupName)})
+			return
+		}
+
+		// serve the MCP request using the MCP server
+		streamableServer := server.NewStreamableHTTPServer(groupMcpServer)
+		streamableServer.ServeHTTP(c.Writer, c.Request)
 	}
 }

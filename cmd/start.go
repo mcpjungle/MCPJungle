@@ -109,7 +109,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 
 	configService := config.NewServerConfigService(dbConn)
 	userService := user.NewUserService(dbConn)
-	toolGroupService := toolgroup.NewToolGroupService(dbConn)
+	toolGroupService := toolgroup.NewToolGroupService(dbConn, mcpService)
 
 	// create the API server
 	opts := &api.ServerOptions{

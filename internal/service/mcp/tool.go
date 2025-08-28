@@ -72,6 +72,15 @@ func (m *MCPService) GetTool(name string) (*model.Tool, error) {
 	return &tool, nil
 }
 
+// GetToolInstance returns the in-memory mcp.Tool instance for the given tool name.
+// Returns the tool instance and a boolean indicating if it was found.
+func (m *MCPService) GetToolInstance(name string) (mcp.Tool, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	tool, exists := m.toolInstances[name]
+	return tool, exists
+}
+
 // InvokeTool invokes a tool from a registered MCP server and returns its response.
 func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[string]any) (*types.ToolInvokeResult, error) {
 	serverName, toolName, ok := splitServerToolName(name)
@@ -188,7 +197,7 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 			}
 			// set the tool name to its canonical form in the proxy
 			mcpTool.Name = entity
-			m.mcpProxyServer.AddTool(mcpTool, m.mcpProxyToolCallHandler)
+			m.mcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
 		} else {
 			// if the tool was disabled, remove it from the MCP proxy server
 			m.mcpProxyServer.DeleteTools(entity)
@@ -228,7 +237,7 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 			// set the tool name to its canonical form in the proxy
 			mcpTool.Name = canonicalToolName
 
-			m.mcpProxyServer.AddTool(mcpTool, m.mcpProxyToolCallHandler)
+			m.mcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
 		} else {
 			m.mcpProxyServer.DeleteTools(canonicalToolName)
 		}
@@ -267,7 +276,12 @@ func (m *MCPService) registerServerTools(ctx context.Context, s *model.McpServer
 			// Set tool name to include the server name prefix to make it recognizable by MCPJungle
 			// then add the tool to the MCP proxy server
 			tool.Name = canonicalToolName
-			m.mcpProxyServer.AddTool(tool, m.mcpProxyToolCallHandler)
+			m.mcpProxyServer.AddTool(tool, m.MCPProxyToolCallHandler)
+
+			// also add the tool to the in-memory tool instance tracker
+			m.mu.Lock()
+			m.toolInstances[tool.Name] = tool
+			m.mu.Unlock()
 		}
 	}
 	return nil

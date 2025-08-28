@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -16,4 +17,14 @@ type ToolGroup struct {
 	// IncludedTools contains a list of tool names that are included in this group.
 	// storing the list of tool names as a JSON array is a convenient way for now.
 	IncludedTools datatypes.JSON `json:"included_tools" gorm:"type:jsonb; not null"`
+}
+
+// GetTools unmarshals the IncludedTools JSON array into a slice of strings.
+func (g *ToolGroup) GetTools() ([]string, error) {
+	if g.IncludedTools == nil {
+		return []string{}, nil
+	}
+	var tools []string
+	err := json.Unmarshal(g.IncludedTools, &tools)
+	return tools, err
 }

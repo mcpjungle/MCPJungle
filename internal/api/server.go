@@ -125,6 +125,13 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 		gin.WrapH(streamableHttpServer),
 	)
 
+	r.Any(
+		"/v0/groups/:name/mcp",
+		requireInitialized(opts.ConfigService),
+		checkAuthForMcpProxyAccess(opts.MCPClientService),
+		toolGroupMCPServerCallHandler(opts.ToolGroupService),
+	)
+
 	// Setup /v0 API endpoints
 	apiV0 := r.Group(
 		V0PathPrefix,
