@@ -91,3 +91,30 @@ func (c *Client) ListToolGroups() ([]types.ToolGroup, error) {
 	}
 	return groups, nil
 }
+
+// GetToolGroup sends API request to get details of a specific Tool Group by name.
+func (c *Client) GetToolGroup(name string) (*types.ToolGroup, error) {
+	u, _ := c.constructAPIEndpoint("/tool-groups/" + name)
+
+	req, err := c.newRequest(http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request to %s: %w", u, err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request to %s: %w", u, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+	}
+
+	var group types.ToolGroup
+	if err := json.NewDecoder(resp.Body).Decode(&group); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return &group, nil
+}
