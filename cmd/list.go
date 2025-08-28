@@ -46,6 +46,12 @@ var listUsersCmd = &cobra.Command{
 	RunE:  runListUsers,
 }
 
+var listGroupsCmd = &cobra.Command{
+	Use:   "groups",
+	Short: "List tool groups",
+	RunE:  runListGroups,
+}
+
 func init() {
 	listToolsCmd.Flags().StringVar(
 		&listToolsCmdServerName,
@@ -58,6 +64,7 @@ func init() {
 	listCmd.AddCommand(listServersCmd)
 	listCmd.AddCommand(listMcpClientsCmd)
 	listCmd.AddCommand(listUsersCmd)
+	listCmd.AddCommand(listGroupsCmd)
 
 	rootCmd.AddCommand(listCmd)
 }
@@ -178,6 +185,30 @@ func runListUsers(cmd *cobra.Command, args []string) error {
 		}
 
 		if i < len(users)-1 {
+			cmd.Println()
+		}
+	}
+
+	return nil
+}
+
+func runListGroups(cmd *cobra.Command, args []string) error {
+	groups, err := apiClient.ListToolGroups()
+	if err != nil {
+		return fmt.Errorf("failed to list tool groups: %w", err)
+	}
+
+	if len(groups) == 0 {
+		cmd.Println("There are no tool groups in the registry")
+		return nil
+	}
+	for i, g := range groups {
+		cmd.Printf("%d. %s\n", i+1, g.Name)
+		if g.Description != "" {
+			cmd.Println(g.Description)
+		}
+
+		if i < len(groups)-1 {
 			cmd.Println()
 		}
 	}

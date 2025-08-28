@@ -64,3 +64,30 @@ func (c *Client) DeleteToolGroup(name string) error {
 
 	return nil
 }
+
+// ListToolGroups sends API request to list all Tool Groups.
+func (c *Client) ListToolGroups() ([]types.ToolGroup, error) {
+	u, _ := c.constructAPIEndpoint("/tool-groups")
+
+	req, err := c.newRequest(http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request to %s: %w", u, err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request to %s: %w", u, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+	}
+
+	var groups []types.ToolGroup
+	if err := json.NewDecoder(resp.Body).Decode(&groups); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return groups, nil
+}
