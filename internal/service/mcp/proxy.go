@@ -70,6 +70,7 @@ func (m *MCPService) initMCPProxyServer() error {
 		}
 
 		m.mcpProxyServer.AddTool(tool, m.MCPProxyToolCallHandler)
+		m.addToolInstance(tool)
 	}
 	return nil
 }

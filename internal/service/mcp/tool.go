@@ -198,9 +198,14 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 			// set the tool name to its canonical form in the proxy
 			mcpTool.Name = entity
 			m.mcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
+
+			// also add the tool to the in-memory tool instance tracker
+			m.addToolInstance(mcpTool)
 		} else {
 			// if the tool was disabled, remove it from the MCP proxy server
 			m.mcpProxyServer.DeleteTools(entity)
+			// also remove the tool from the in-memory tool instance tracker
+			m.deleteToolInstances(entity)
 		}
 
 		return []string{entity}, nil
@@ -238,8 +243,10 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 			mcpTool.Name = canonicalToolName
 
 			m.mcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
+			m.addToolInstance(mcpTool)
 		} else {
 			m.mcpProxyServer.DeleteTools(canonicalToolName)
+			m.deleteToolInstances(canonicalToolName)
 		}
 
 		changedToolNames = append(changedToolNames, canonicalToolName)
@@ -279,9 +286,7 @@ func (m *MCPService) registerServerTools(ctx context.Context, s *model.McpServer
 			m.mcpProxyServer.AddTool(tool, m.MCPProxyToolCallHandler)
 
 			// also add the tool to the in-memory tool instance tracker
-			m.mu.Lock()
-			m.toolInstances[tool.Name] = tool
-			m.mu.Unlock()
+			m.addToolInstance(tool)
 		}
 	}
 	return nil
@@ -309,5 +314,24 @@ func (m *MCPService) deregisterServerTools(s *model.McpServer) error {
 	}
 	m.mcpProxyServer.DeleteTools(toolNames...)
 
+	// delete tools from Tool instance tracker
+	m.deleteToolInstances(toolNames...)
+
 	return nil
+}
+
+// addToolInstance adds a tool instance to the in-memory tool instance tracker.
+func (m *MCPService) addToolInstance(tool mcp.Tool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.toolInstances[tool.GetName()] = tool
+}
+
+// deleteToolInstances deletes one or more tool instances from the in-memory tool instance tracker.
+func (m *MCPService) deleteToolInstances(toolNames ...string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, name := range toolNames {
+		delete(m.toolInstances, name)
+	}
 }

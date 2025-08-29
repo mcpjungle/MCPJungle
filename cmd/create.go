@@ -175,7 +175,7 @@ func runCreateToolGroup(cmd *cobra.Command, args []string) error {
 	}
 
 	cmd.Printf("Tool Group %s created successfully\n", group.Name)
-	cmd.Println("It is now accessible at the following streamable http endpoint:\n")
+	cmd.Print("It is now accessible at the following streamable http endpoint:\n\n")
 	cmd.Println("    " + resp.Endpoint + "\n")
 
 	return nil

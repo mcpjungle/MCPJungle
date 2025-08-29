@@ -14,7 +14,7 @@ type MCPService struct {
 	db             *gorm.DB
 	mcpProxyServer *server.MCPServer
 
-	// toolInstances maps tool names to their corresponding MCP tool instances
+	// toolInstances keeps track of all the in-memory mcp.Tool instances, keyed by their unique names.
 	toolInstances map[string]mcp.Tool
 	mu            sync.RWMutex
 }
