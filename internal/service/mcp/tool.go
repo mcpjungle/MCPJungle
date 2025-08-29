@@ -11,6 +11,11 @@ import (
 	"log"
 )
 
+// ToolDeletionCallback is a function type that can be registered to be called
+// whenever one or more tools are deleted (deregistered) or disabled.
+// The callback receives the names of the deleted tools as arguments.
+type ToolDeletionCallback func(toolNames ...string)
+
 // ListTools returns all tools registered in the registry.
 func (m *MCPService) ListTools() ([]model.Tool, error) {
 	var tools []model.Tool
@@ -144,6 +149,15 @@ func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[strin
 	return result, nil
 }
 
+// RegisterToolDeletionCallback registers a callback function to be called
+// whenever one or more tools are deleted (deregistered) or disabled.
+// The callback receives the names of the deleted tools as arguments.
+func (m *MCPService) RegisterToolDeletionCallback(callback ToolDeletionCallback) {
+	m.callbackMu.Lock()
+	defer m.callbackMu.Unlock()
+	m.toolDeletionCallbacks = append(m.toolDeletionCallbacks, callback)
+}
+
 // EnableTools enables one or more tools.
 // If the entity is a tool name, only that tool is enabled.
 // If the entity is a server name, all tools of that server are enabled.
@@ -206,6 +220,8 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 			m.mcpProxyServer.DeleteTools(entity)
 			// also remove the tool from the in-memory tool instance tracker
 			m.deleteToolInstances(entity)
+			// notify any registered callbacks about the tool deletion
+			m.notifyToolDeletion(entity)
 		}
 
 		return []string{entity}, nil
@@ -247,6 +263,7 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 		} else {
 			m.mcpProxyServer.DeleteTools(canonicalToolName)
 			m.deleteToolInstances(canonicalToolName)
+			m.notifyToolDeletion(canonicalToolName)
 		}
 
 		changedToolNames = append(changedToolNames, canonicalToolName)
@@ -317,6 +334,9 @@ func (m *MCPService) deregisterServerTools(s *model.McpServer) error {
 	// delete tools from Tool instance tracker
 	m.deleteToolInstances(toolNames...)
 
+	// notify any registered callbacks about the tool deletion
+	m.notifyToolDeletion(toolNames...)
+
 	return nil
 }
 
@@ -333,5 +353,15 @@ func (m *MCPService) deleteToolInstances(toolNames ...string) {
 	defer m.mu.Unlock()
 	for _, name := range toolNames {
 		delete(m.toolInstances, name)
+	}
+}
+
+// notifyToolDeletion calls all registered tool deletion callbacks with the given tool names.
+func (m *MCPService) notifyToolDeletion(toolNames ...string) {
+	m.callbackMu.RLock()
+	defer m.callbackMu.RUnlock()
+
+	for _, callback := range m.toolDeletionCallbacks {
+		callback(toolNames...)
 	}
 }

@@ -29,6 +29,10 @@ func NewToolGroupService(db *gorm.DB, mcpService *mcp.MCPService) (*ToolGroupSer
 		mcpServers: make(map[string]*server.MCPServer),
 		mu:         sync.RWMutex{},
 	}
+
+	// register callback to handle when a tool gets deleted
+	mcpService.RegisterToolDeletionCallback(s.handleToolDeletion)
+
 	if err := s.initToolGroupMCPServers(); err != nil {
 		return nil, fmt.Errorf("failed to initialize tool group MCP servers: %w", err)
 	}
@@ -160,4 +164,14 @@ func (s *ToolGroupService) initToolGroupMCPServers() error {
 		s.addToolGroupMCPServer(group.Name, mcpServer)
 	}
 	return nil
+}
+
+// handleToolDeletion is a callback that is called when one or more tools is deleted or disabled.
+// It removes the tools from all tool group MCP proxy servers.
+func (s *ToolGroupService) handleToolDeletion(tools ...string) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, mcpServer := range s.mcpServers {
+		mcpServer.DeleteTools(tools...)
+	}
 }

@@ -17,6 +17,11 @@ type MCPService struct {
 	// toolInstances keeps track of all the in-memory mcp.Tool instances, keyed by their unique names.
 	toolInstances map[string]mcp.Tool
 	mu            sync.RWMutex
+
+	// toolDeletionCallbacks holds a list of callbacks to be invoked when one or more tools is
+	// deregistered from mcpjungle.
+	toolDeletionCallbacks []ToolDeletionCallback
+	callbackMu            sync.RWMutex
 }
 
 // NewMCPService creates a new instance of MCPService.
