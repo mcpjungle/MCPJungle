@@ -90,6 +90,8 @@ func (s *ToolGroupService) ListToolGroups() ([]model.ToolGroup, error) {
 }
 
 func (s *ToolGroupService) DeleteToolGroup(name string) error {
+	s.deleteToolGroupMCPServer(name)
+
 	err := s.db.Unscoped().Where("name = ?", name).Delete(&model.ToolGroup{}).Error
 	if err != nil {
 		return fmt.Errorf("failed to delete toolgroup: %w", err)
@@ -122,6 +124,13 @@ func (s *ToolGroupService) addToolGroupMCPServer(name string, mcpServer *server.
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.mcpServers[name] = mcpServer
+}
+
+// deleteToolGroupMCPServer removes the MCP proxy server for a given tool group name.
+func (s *ToolGroupService) deleteToolGroupMCPServer(name string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.mcpServers, name)
 }
 
 // initToolGroupMCPServers initializes the MCP proxy servers for all existing tool groups in the database.
