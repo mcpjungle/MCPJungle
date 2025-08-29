@@ -24,7 +24,7 @@ func NewClient(baseURL string, accessToken string, httpClient *http.Client) *Cli
 
 // constructAPIEndpoint constructs the full API endpoint URL where a request must be sent
 func (c *Client) constructAPIEndpoint(suffixPath string) (string, error) {
-	return url.JoinPath(c.baseURL, api.V0PathPrefix, suffixPath)
+	return url.JoinPath(c.baseURL, api.V0ApiPathPrefix, suffixPath)
 }
 
 // newRequest creates a new HTTP request with the specified method, URL, and body.

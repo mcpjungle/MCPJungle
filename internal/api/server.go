@@ -12,7 +12,10 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
 )
 
-const V0PathPrefix = "/api/v0"
+const (
+	V0PathPrefix    = "/v0"
+	V0ApiPathPrefix = "/api" + V0PathPrefix
+)
 
 type ServerOptions struct {
 	// Port is the HTTP ports to bind the server to
@@ -126,7 +129,7 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 	)
 
 	r.Any(
-		"/v0/groups/:name/mcp",
+		V0PathPrefix+"/groups/:name/mcp",
 		requireInitialized(opts.ConfigService),
 		checkAuthForMcpProxyAccess(opts.MCPClientService),
 		toolGroupMCPServerCallHandler(opts.ToolGroupService),
@@ -134,7 +137,7 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 
 	// Setup /v0 API endpoints
 	apiV0 := r.Group(
-		V0PathPrefix,
+		V0ApiPathPrefix,
 		requireInitialized(opts.ConfigService),
 		verifyUserAuthForAPIAccess(opts.UserService),
 	)
