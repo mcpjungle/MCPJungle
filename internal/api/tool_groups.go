@@ -9,6 +9,7 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"net/http"
+	"net/url"
 )
 
 func createToolGroupHandler(toolGroupService *toolgroup.ToolGroupService) gin.HandlerFunc {
@@ -22,9 +23,21 @@ func createToolGroupHandler(toolGroupService *toolgroup.ToolGroupService) gin.Ha
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		resp := &types.CreateToolGroupResponse{
-			Endpoint: "********* TODO *********",
+
+		// Construct the endpoint for the created tool group
+		scheme := "http"
+		if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+			scheme = "https"
 		}
+		endpointURL := &url.URL{
+			Scheme: scheme,
+			Host:   c.Request.Host,
+			Path:   fmt.Sprintf("%s/groups/%s/mcp", V0PathPrefix, input.Name),
+		}
+		resp := &types.CreateToolGroupResponse{
+			Endpoint: endpointURL.String(),
+		}
+
 		c.JSON(http.StatusCreated, resp)
 	}
 }
