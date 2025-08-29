@@ -109,7 +109,11 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 
 	configService := config.NewServerConfigService(dbConn)
 	userService := user.NewUserService(dbConn)
-	toolGroupService := toolgroup.NewToolGroupService(dbConn, mcpService)
+
+	toolGroupService, err := toolgroup.NewToolGroupService(dbConn, mcpService)
+	if err != nil {
+		return fmt.Errorf("failed to create Tool Group service: %v", err)
+	}
 
 	// create the API server
 	opts := &api.ServerOptions{

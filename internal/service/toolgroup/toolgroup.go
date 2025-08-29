@@ -22,13 +22,17 @@ type ToolGroupService struct {
 	mu sync.RWMutex
 }
 
-func NewToolGroupService(db *gorm.DB, mcpService *mcp.MCPService) *ToolGroupService {
-	return &ToolGroupService{
+func NewToolGroupService(db *gorm.DB, mcpService *mcp.MCPService) (*ToolGroupService, error) {
+	s := &ToolGroupService{
 		db:         db,
 		mcpService: mcpService,
 		mcpServers: make(map[string]*server.MCPServer),
 		mu:         sync.RWMutex{},
 	}
+	if err := s.initToolGroupMCPServers(); err != nil {
+		return nil, fmt.Errorf("failed to initialize tool group MCP servers: %w", err)
+	}
+	return s, nil
 }
 
 // CreateToolGroup creates a new tool group in the database and a Proxy MCP server that just exposes the specified tools.
@@ -42,16 +46,12 @@ func (s *ToolGroupService) CreateToolGroup(group *model.ToolGroup) error {
 	}
 
 	// create the proxy MCP server that exposes only specified tools
-	mcpServer := server.NewMCPServer(
-		fmt.Sprintf("MCPJungle proxy MCP server for tool group: %s", group.Name),
-		"0.1.0",
-		server.WithToolCapabilities(true),
-	)
+	mcpServer := s.newMCPServer(group.Name)
 	// populate the MCP server with the specified tools
 	for _, name := range toolNames {
 		tool, exists := s.mcpService.GetToolInstance(name)
 		if !exists {
-			return fmt.Errorf("tool %s does not exist in the tool tracker", name)
+			return fmt.Errorf("tool %s does not exist in the tool instances tracker", name)
 		}
 		mcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
 	}
@@ -106,6 +106,15 @@ func (s *ToolGroupService) GetToolGroupMCPServer(name string) (*server.MCPServer
 	return mcpServer, exists
 }
 
+// newMCPServer creates a new MCP proxy server for a given tool group name.
+func (s *ToolGroupService) newMCPServer(groupName string) *server.MCPServer {
+	return server.NewMCPServer(
+		fmt.Sprintf("MCPJungle proxy MCP server for tool group: %s", groupName),
+		"0.1.0",
+		server.WithToolCapabilities(true),
+	)
+}
+
 // addToolGroupMCPServer adds or updates the MCP proxy server for a given tool group name.
 // If a group with the same name already exists, it will be replaced.
 // This method is safe to call concurrently.
@@ -113,4 +122,33 @@ func (s *ToolGroupService) addToolGroupMCPServer(name string, mcpServer *server.
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.mcpServers[name] = mcpServer
+}
+
+// initToolGroupMCPServers initializes the MCP proxy servers for all existing tool groups in the database.
+func (s *ToolGroupService) initToolGroupMCPServers() error {
+	groups, err := s.ListToolGroups()
+	if err != nil {
+		return fmt.Errorf("failed to list tool groups from DB: %w", err)
+	}
+	for _, group := range groups {
+		toolNames, err := group.GetTools()
+		if err != nil {
+			return fmt.Errorf("failed to parse toolNames for group %s: %w", group.Name, err)
+		}
+		// TODO: Log a warning if a group has no tools, ie, len(toolNames) == 0
+
+		mcpServer := s.newMCPServer(group.Name)
+		for _, name := range toolNames {
+			tool, exists := s.mcpService.GetToolInstance(name)
+			if !exists {
+				// it is possible that a tool group contains a tool that does not exist.
+				// this should not prevent server startup, so just skip instead of returning an error.
+				// TODO: Add a warning log here.
+				continue
+			}
+			mcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+		}
+		s.addToolGroupMCPServer(group.Name, mcpServer)
+	}
+	return nil
 }
