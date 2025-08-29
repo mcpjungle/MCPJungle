@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -231,53 +230,11 @@ func TestZapLoggerMethods(t *testing.T) {
 		t.Error("WithFields() returned nil")
 	}
 
-	// Test WithContext
-	ctx := context.Background()
-	loggerWithContext := logger.WithContext(ctx)
-	if loggerWithContext == nil {
-		t.Error("WithContext() returned nil")
-	}
-
 	// Test Sync - ignore sync errors on stdout in test environment
 	err = logger.Sync()
 	// Sync errors on stdout are common in test environments, so we don't fail the test
 	if err != nil && !strings.Contains(err.Error(), "sync") {
 		t.Errorf("Sync() unexpected error = %v", err)
-	}
-}
-
-func TestWithContextWithValues(t *testing.T) {
-	logger, err := NewDevelopment()
-	if err != nil {
-		t.Fatalf("Failed to create logger: %v", err)
-	}
-
-	// Create context with various values
-	ctx := context.Background()
-	ctx = WithRequestID(ctx, "req-123")
-	ctx = WithUserID(ctx, "user-456")
-	ctx = WithCorrelationID(ctx, "corr-789")
-	ctx = WithTraceID(ctx, "trace-abc")
-	ctx = WithSpanID(ctx, "span-def")
-
-	loggerWithContext := logger.WithContext(ctx)
-	if loggerWithContext == nil {
-		t.Error("WithContext() returned nil")
-	}
-
-	// Test that the logger can be used
-	loggerWithContext.Info("test message")
-}
-
-func TestWithContextNilContext(t *testing.T) {
-	logger, err := NewDevelopment()
-	if err != nil {
-		t.Fatalf("Failed to create logger: %v", err)
-	}
-
-	loggerWithContext := logger.WithContext(nil)
-	if loggerWithContext == nil {
-		t.Error("WithContext() returned nil for nil context")
 	}
 }
 

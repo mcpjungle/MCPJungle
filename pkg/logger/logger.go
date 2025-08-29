@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -15,7 +14,6 @@ type Logger interface {
 	Info(msg string, fields ...Field)
 	Warn(msg string, fields ...Field)
 	Error(msg string, fields ...Field)
-	WithContext(ctx context.Context) Logger
 	WithFields(fields ...Field) Logger
 	Sync() error
 }
@@ -40,7 +38,7 @@ type zapLogger struct {
 // DefaultConfig returns a default configuration for development
 func DefaultConfig() *Config {
 	return &Config{
-		Level:       "info",
+		Level:       zap.InfoLevel.String(),
 		Development: true,
 	}
 }
@@ -48,7 +46,7 @@ func DefaultConfig() *Config {
 // ProductionConfig returns a configuration for production
 func ProductionConfig() *Config {
 	return &Config{
-		Level:       "info",
+		Level:       zap.InfoLevel.String(),
 		Development: false,
 	}
 }
@@ -131,7 +129,7 @@ func New(config *Config) (Logger, error) {
 	core := zapcore.NewCore(encoder, writeSyncer, level)
 
 	// Create zap logger
-	zapLog := zap.New(core, zap.AddCaller())
+	zapLog := zap.New(core)
 
 	return &zapLogger{Logger: zapLog}, nil
 }
@@ -185,42 +183,6 @@ func (l *zapLogger) Error(msg string, fields ...Field) {
 	if l.Logger != nil {
 		l.Logger.Error(msg, fieldsToZap(fields)...)
 	}
-}
-
-// WithContext creates a new logger with context fields
-func (l *zapLogger) WithContext(ctx context.Context) Logger {
-	if ctx == nil {
-		return l
-	}
-
-	// Extract context fields
-	var fields []Field
-
-	if requestID := GetRequestID(ctx); requestID != "" {
-		fields = append(fields, String("request_id", requestID))
-	}
-
-	if userID := GetUserID(ctx); userID != "" {
-		fields = append(fields, String("user_id", userID))
-	}
-
-	if correlationID := GetCorrelationID(ctx); correlationID != "" {
-		fields = append(fields, String("correlation_id", correlationID))
-	}
-
-	if traceID := GetTraceID(ctx); traceID != "" {
-		fields = append(fields, String("trace_id", traceID))
-	}
-
-	if spanID := GetSpanID(ctx); spanID != "" {
-		fields = append(fields, String("span_id", spanID))
-	}
-
-	if len(fields) > 0 {
-		return l.WithFields(fields...)
-	}
-
-	return l
 }
 
 // WithFields creates a new logger with additional fields
