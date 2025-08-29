@@ -9,7 +9,7 @@ import (
 
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List resources",
+	Short: "List resources like MCP servers, tools, etc",
 	Annotations: map[string]string{
 		"group": string(subCommandGroupBasic),
 		"order": "3",
@@ -39,6 +39,13 @@ var listMcpClientsCmd = &cobra.Command{
 	RunE: runListMcpClients,
 }
 
+var listUsersCmd = &cobra.Command{
+	Use:   "users",
+	Short: "List users (Production mode)",
+	Long:  "List users that are authorized to access MCPJungle.",
+	RunE:  runListUsers,
+}
+
 func init() {
 	listToolsCmd.Flags().StringVar(
 		&listToolsCmdServerName,
@@ -50,6 +57,7 @@ func init() {
 	listCmd.AddCommand(listToolsCmd)
 	listCmd.AddCommand(listServersCmd)
 	listCmd.AddCommand(listMcpClientsCmd)
+	listCmd.AddCommand(listUsersCmd)
 
 	rootCmd.AddCommand(listCmd)
 }
@@ -146,6 +154,31 @@ func runListMcpClients(cmd *cobra.Command, args []string) error {
 
 		if i < len(clients)-1 {
 			fmt.Println()
+		}
+	}
+
+	return nil
+}
+
+func runListUsers(cmd *cobra.Command, args []string) error {
+	users, err := apiClient.ListUsers()
+	if err != nil {
+		return fmt.Errorf("failed to list users: %w", err)
+	}
+
+	if len(users) == 0 {
+		cmd.Println("There are no users in the registry")
+		return nil
+	}
+	for i, u := range users {
+		if u.Role == string(types.UserRoleAdmin) {
+			cmd.Printf("%d. %s  [ADMIN]\n", i+1, u.Username)
+		} else {
+			cmd.Printf("%d. %s\n", i+1, u.Username)
+		}
+
+		if i < len(users)-1 {
+			cmd.Println()
 		}
 	}
 

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/mark3labs/mcp-go/server"
@@ -10,8 +9,6 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp_client"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
-	"net/http"
-	"strings"
 )
 
 const V0PathPrefix = "/api/v0"
@@ -101,116 +98,6 @@ func (s *Server) Start() error {
 	return nil
 }
 
-// requireInitialized is middleware to reject requests to certain routes if the server is not initialized
-func requireInitialized(configService *config.ServerConfigService) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		cfg, err := configService.GetConfig()
-		if err != nil || !cfg.Initialized {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "server not initialized"})
-			return
-		}
-		c.Next()
-	}
-}
-
-// checkAuthForAPIAccess is middleware that checks for a valid admin token if the server is in production mode.
-// In development mode, it allows all requests without authentication.
-func checkAuthForAPIAccess(configService *config.ServerConfigService, userService *user.UserService) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		cfg, err := configService.GetConfig()
-		if err != nil {
-			c.AbortWithStatusJSON(
-				http.StatusServiceUnavailable, gin.H{"error": "failed to fetch server config while checking auth"},
-			)
-			return
-		}
-		if cfg.Mode == model.ModeDev {
-			c.Next()
-			return
-		}
-		authHeader := c.GetHeader("Authorization")
-		token := strings.TrimPrefix(authHeader, "Bearer ")
-		if token == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing access token"})
-			return
-		}
-		_, err = userService.VerifyAdminToken(token)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid access token"})
-			return
-		}
-		c.Next()
-	}
-}
-
-// checkAuthForMcpProxyAccess is middleware for MCP proxy that checks for a valid MCP client token
-// if the server is in production mode.
-// In development mode, mcp clients do not require auth to access the MCP proxy.
-func checkAuthForMcpProxyAccess(
-	configService *config.ServerConfigService,
-	mcpClientService *mcp_client.McpClientService,
-) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		cfg, err := configService.GetConfig()
-		if err != nil {
-			c.AbortWithStatusJSON(
-				http.StatusServiceUnavailable, gin.H{"error": "failed to fetch server config while checking mcp auth"},
-			)
-			return
-		}
-
-		// the gin context doesn't get passed down to the MCP proxy server, so we need to
-		// set values in the underlying request's context to be able to access them from proxy.
-		ctx := context.WithValue(c.Request.Context(), "mode", cfg.Mode)
-		c.Request = c.Request.WithContext(ctx)
-
-		if cfg.Mode == model.ModeDev {
-			c.Next()
-			return
-		}
-
-		authHeader := c.GetHeader("Authorization")
-		token := strings.TrimPrefix(authHeader, "Bearer ")
-		if token == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing MCP client access token"})
-			return
-		}
-		client, err := mcpClientService.GetClientByToken(token)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid MCP client token"})
-			return
-		}
-
-		// inject the authenticated MCP client in context for the proxy to use
-		ctx = context.WithValue(c.Request.Context(), "client", client)
-		c.Request = c.Request.WithContext(ctx)
-
-		c.Next()
-	}
-}
-
-// requireServerMode is middleware that checks if the server is in a specific mode.
-// If not, the request is rejected with a 403 Forbidden status.
-func requireServerMode(configService *config.ServerConfigService, m model.ServerMode) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		cfg, err := configService.GetConfig()
-		if err != nil {
-			c.AbortWithStatusJSON(
-				http.StatusServiceUnavailable, gin.H{"error": "failed to fetch server config while checking mode"},
-			)
-			return
-		}
-		if cfg.Mode != m {
-			c.AbortWithStatusJSON(
-				http.StatusForbidden,
-				gin.H{"error": fmt.Sprintf("this request is only allowed in %s mode", m)},
-			)
-			return
-		}
-		c.Next()
-	}
-}
-
 // newRouter sets up the Gin router with the MCP proxy server and API endpoints.
 func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 	gin.SetMode(gin.ReleaseMode)
@@ -225,47 +112,74 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 
 	r.POST("/init", registerInitServerHandler(opts.ConfigService, opts.UserService))
 
-	requireInit := requireInitialized(opts.ConfigService)
-	checkUserAuth := checkAuthForAPIAccess(opts.ConfigService, opts.UserService)
-	checkMcpClientAuth := checkAuthForMcpProxyAccess(opts.ConfigService, opts.MCPClientService)
+	requireProdMode := requireServerMode(model.ModeProd)
 
 	// Set up the MCP proxy server on /mcp
 	streamableHttpServer := server.NewStreamableHTTPServer(opts.MCPProxyServer)
 	r.Any(
 		"/mcp",
-		requireInit,
-		checkMcpClientAuth,
+		requireInitialized(opts.ConfigService),
+		checkAuthForMcpProxyAccess(opts.MCPClientService),
 		gin.WrapH(streamableHttpServer),
 	)
 
-	// Setup API endpoints
-	apiV0 := r.Group(V0PathPrefix, requireInit, checkUserAuth)
+	// Setup /v0 API endpoints
+	apiV0 := r.Group(
+		V0PathPrefix,
+		requireInitialized(opts.ConfigService),
+		verifyUserAuthForAPIAccess(opts.UserService),
+	)
+
+	// endpoints accessible by a standard user in production mode or anyone in development mode
+	userAPI := apiV0.Group("/")
 	{
-		apiV0.POST("/servers", registerServerHandler(opts.MCPService))
-		apiV0.DELETE("/servers/:name", deregisterServerHandler(opts.MCPService))
-		apiV0.GET("/servers", listServersHandler(opts.MCPService))
+		userAPI.GET("/servers", listServersHandler(opts.MCPService))
 
-		apiV0.GET("/tools", listToolsHandler(opts.MCPService))
-		apiV0.POST("/tools/invoke", invokeToolHandler(opts.MCPService))
-		apiV0.POST("/tools/enable", enableToolsHandler(opts.MCPService))
-		apiV0.POST("/tools/disable", disableToolsHandler(opts.MCPService))
+		userAPI.GET("/tools", listToolsHandler(opts.MCPService))
+		userAPI.POST("/tools/invoke", invokeToolHandler(opts.MCPService))
+		userAPI.GET("/tool", getToolHandler(opts.MCPService))
 
-		apiV0.GET("/tool", getToolHandler(opts.MCPService))
+		userAPI.GET("/users/whoami", requireProdMode, whoAmIHandler())
+	}
 
-		apiV0.GET(
+	// endpoints only accessible by an admin user in production mode or anyone in development mode
+	adminAPI := apiV0.Group("/", requireAdminUser())
+	{
+		adminAPI.POST("/servers", registerServerHandler(opts.MCPService))
+		adminAPI.DELETE("/servers/:name", deregisterServerHandler(opts.MCPService))
+
+		adminAPI.POST("/tools/enable", enableToolsHandler(opts.MCPService))
+		adminAPI.POST("/tools/disable", disableToolsHandler(opts.MCPService))
+
+		// endpoints for managing MCP clients (production mode only)
+		adminAPI.GET(
 			"/clients",
-			requireServerMode(opts.ConfigService, model.ModeProd),
+			requireProdMode,
 			listMcpClientsHandler(opts.MCPClientService),
 		)
-		apiV0.POST(
+		adminAPI.POST(
 			"/clients",
-			requireServerMode(opts.ConfigService, model.ModeProd),
+			requireProdMode,
 			createMcpClientHandler(opts.MCPClientService),
 		)
-		apiV0.DELETE(
+		adminAPI.DELETE(
 			"/clients/:name",
-			requireServerMode(opts.ConfigService, model.ModeProd),
+			requireProdMode,
 			deleteMcpClientHandler(opts.MCPClientService),
+		)
+
+		// endpoints for managing human users (production mode only)
+		adminAPI.POST("/users",
+			requireProdMode,
+			createUserHandler(opts.UserService),
+		)
+		adminAPI.GET("/users",
+			requireProdMode,
+			listUsersHandler(opts.UserService),
+		)
+		adminAPI.DELETE("/users/:username",
+			requireProdMode,
+			deleteUserHandler(opts.UserService),
 		)
 	}
 

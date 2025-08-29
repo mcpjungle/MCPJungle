@@ -2,8 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/joho/godotenv"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/spf13/cobra"
+
 	"github.com/mcpjungle/mcpjungle/internal/api"
 	"github.com/mcpjungle/mcpjungle/internal/db"
 	"github.com/mcpjungle/mcpjungle/internal/migrations"
@@ -12,9 +17,6 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp_client"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
-	"github.com/spf13/cobra"
-	"os"
-	"strings"
 )
 
 const (
@@ -33,9 +35,10 @@ var (
 
 var startServerCmd = &cobra.Command{
 	Use:   "start",
-	Short: "Start the MCP registry server",
+	Short: "Start the MCPJungle server",
 	Long: "Starts the MCPJungle HTTP registry server and the MCP Proxy server.\n" +
-		"The server is started in Development mode by default, which is ideal for individual users.\n",
+		"The server is started in development mode by default, which is ideal for individual users.\n" +
+		"Teams & Enterprises should run mcpjungle in production mode.\n",
 	RunE: runStartServer,
 	Annotations: map[string]string{
 		"group": string(subCommandGroupBasic),
@@ -48,14 +51,14 @@ func init() {
 		&startServerCmdBindPort,
 		"port",
 		"",
-		fmt.Sprintf("port to bind the server to (overrides env var %s)", BindPortEnvVar),
+		fmt.Sprintf("port to bind the HTTP server to (overrides env var %s)", BindPortEnvVar),
 	)
 	startServerCmd.Flags().BoolVar(
 		&startServerCmdProdEnabled,
 		"prod",
 		false,
 		fmt.Sprintf(
-			"Run the server in Production mode (suitable for enterprises)."+
+			"Run the server in Production mode (ideal for teams and enterprises)."+
 				" Alternatively, set the %s environment variable ('%s' | '%s')",
 			ServerModeEnvVar, model.ModeDev, model.ModeProd,
 		),
@@ -176,6 +179,8 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Display startup banner when the server is started
+	fmt.Print(asciiArt)
 	fmt.Printf("MCPJungle HTTP server listening on :%s\n\n", port)
 	if err := s.Start(); err != nil {
 		return fmt.Errorf("failed to run the server: %v\n", err)

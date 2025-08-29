@@ -20,12 +20,14 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"github.com/mcpjungle/mcpjungle/client"
-	"github.com/mcpjungle/mcpjungle/cmd/config"
-	"github.com/spf13/cobra"
 	"net/http"
 	"sort"
 	"strconv"
+
+	"github.com/spf13/cobra"
+
+	"github.com/mcpjungle/mcpjungle/client"
+	"github.com/mcpjungle/mcpjungle/cmd/config"
 )
 
 // subCommandGroup defines a type for categorizing subcommands into groups
@@ -41,7 +43,16 @@ const (
 // unorderedCommand is a special value used to indicate that a command does not have any order specified.
 const unorderedCommand = -1
 
-// TODO: refactor: all commands should use cmd.Print..() instead of fmt.Print..() statements to produce outputs.
+// asciiArt contains the MCPJungle ASCII art banner
+const asciiArt = `
+███╗   ███╗ ██████╗██████╗       ██╗██╗   ██╗███╗   ██╗ ██████╗ ██╗     ███████╗
+████╗ ████║██╔════╝██╔══██╗      ██║██║   ██║████╗  ██║██╔════╝ ██║     ██╔════╝
+██╔████╔██║██║     ██████╔╝      ██║██║   ██║██╔██╗ ██║██║  ███╗██║     █████╗  
+██║╚██╔╝██║██║     ██╔═══╝  ██   ██║██║   ██║██║╚██╗██║██║   ██║██║     ██╔══╝  
+██║ ╚═╝ ██║╚██████╗██║      ╚█████╔╝╚██████╔╝██║ ╚████║╚██████╔╝███████╗███████╗
+╚═╝     ╚═╝ ╚═════╝╚═╝       ╚════╝  ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝ ╚══════╝╚══════╝
+
+`
 
 // SilentErr is a sentinel error used to indicate that the command should not print an error message
 // This is useful when we handle error printing internally but want main to exit with a non-zero status.
@@ -78,6 +89,10 @@ func Execute() error {
 
 	// Set custom help function that handles both root and subcommands
 	rootCmd.SetHelpFunc(customHelpFunc(defaultHelpFunc))
+
+	// Enable built-in --version behavior
+	rootCmd.Version = getVersion()
+	rootCmd.SetVersionTemplate(asciiArt + "\nMCPJungle {{.Version}}\n")
 
 	// only print usage and error messages if the command usage is incorrect
 	rootCmd.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
@@ -125,8 +140,7 @@ func displayRootCmdHelpMsg(cmd *cobra.Command) {
 	cmd.Printf("Use \"%s [command] --help\" for more information about a command.\n", cmd.CommandPath())
 }
 
-// customHelpFunc returns a help function that displays a custom help message for the root command
-// and falls back to the default help for subcommands.
+// customHelpFunc returns a help function that shows appropriate help content.
 func customHelpFunc(defaultHelpFunc func(*cobra.Command, []string)) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
 		if cmd.Parent() == nil {
@@ -134,7 +148,7 @@ func customHelpFunc(defaultHelpFunc func(*cobra.Command, []string)) func(*cobra.
 			displayRootCmdHelpMsg(cmd)
 			return
 		}
-		// this is a subcommand, use the original default help
+		// this is a subcommand, use default help
 		defaultHelpFunc(cmd, args)
 	}
 }

@@ -9,6 +9,7 @@ import (
 const ClientConfigFileName = ".mcpjungle.conf"
 
 // ClientConfig represents the MCPJungle client configuration stored in the user's home directory.
+// It can contain configuration for both a standard user and an admin user.
 type ClientConfig struct {
 	AccessToken string `yaml:"access_token"`
 }
