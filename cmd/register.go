@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
+	"io"
 	"os"
+	"path/filepath"
 )
 
 var (
@@ -88,13 +91,48 @@ func init() {
 func readMcpServerConfig(filePath string) (types.RegisterServerInput, error) {
 	var input types.RegisterServerInput
 
-	data, err := os.ReadFile(filePath)
+	f, err := os.Open(filePath)
 	if err != nil {
-		return input, fmt.Errorf("failed to read config file %s: %w", registerCmdServerConfigFilePath, err)
+		return input, fmt.Errorf("failed to open config file: %w", err)
+	}
+	defer f.Close()
+	ext := filepath.Ext(filePath)
+	switch ext {
+	case ".yaml", ".yml":
+		return readMcpServerConfigYaml(f)
+	case ".json":
+		return readMcpServerConfigJson(f)
+	default:
+		fmt.Println("Unknown server config file extension. Assuming json format.")
+		return readMcpServerConfigJson(f)
+	}
+}
+
+func readMcpServerConfigJson(reader io.Reader) (types.RegisterServerInput, error) {
+	var input types.RegisterServerInput
+
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return input, fmt.Errorf("failed to read config from config file: %w", err)
 	}
 	// Parse JSON config
 	if err := json.Unmarshal(data, &input); err != nil {
-		return input, fmt.Errorf("failed to parse config file: %w", err)
+		return input, fmt.Errorf("failed to parse config from config file: %w", err)
+	}
+
+	return input, nil
+}
+
+func readMcpServerConfigYaml(reader io.Reader) (types.RegisterServerInput, error) {
+	var input types.RegisterServerInput
+
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return input, fmt.Errorf("failed to read config from config file: %w", err)
+	}
+	// Parse YAML config
+	if err := yaml.Unmarshal(data, &input); err != nil {
+		return input, fmt.Errorf("failed to parse config from config file: %w", err)
 	}
 
 	return input, nil
