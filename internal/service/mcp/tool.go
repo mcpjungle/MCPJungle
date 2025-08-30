@@ -356,6 +356,8 @@ func (m *MCPService) deregisterServerTools(s *model.McpServer) error {
 }
 
 // addToolInstance adds a tool instance to the in-memory tool instance tracker.
+// This method does not check for duplicates.
+// If a tool with the same name already exists, it is overwritten.
 func (m *MCPService) addToolInstance(tool mcp.Tool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -377,10 +379,11 @@ func (m *MCPService) notifyToolDeletion(toolNames ...string) {
 }
 
 // notifyToolAddition calls all registered tool addition callbacks with the given tool names.
+// This method works on best-effort basis. If a callback fails, it logs the error but does not propagate it.
 func (m *MCPService) notifyToolAddition(toolName string) {
 	if err := m.toolAdditionCallback(toolName); err != nil {
 		// log the issue, but do not fail the entire operation
 		// as the tool has already been added successfully
-		log.Printf("[ERROR] a tool addition callback failed for tool %s: %v", toolName, err)
+		log.Printf("[ERROR] tool addition callback failed for tool %s: %v", toolName, err)
 	}
 }

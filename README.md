@@ -406,6 +406,8 @@ You can then configure your MCP client to use this group-specific endpoint inste
 ### Creating a Tool Group
 You can create a new tool group by providing a JSON configuration file to the `create group` command.
 
+You must specify a unique `name` for the group and a list of `included_tools` that you want to expose via its MCP proxy.
+
 Here is an example of a tool group configuration file (`claude-tools-group.json`):
 ```json
 {
@@ -419,7 +421,7 @@ Here is an example of a tool group configuration file (`claude-tools-group.json`
 }
 ```
 
-Instead of exposing 30+ tools across all MCP servers, this group only exposes 3 tools.
+Instead of exposing 20 tools across all MCP servers, this group only exposes 3 handpicked ones.
 
 You can create this group in mcpjungle:
 ```bash
@@ -432,9 +434,12 @@ It is now accessible at the following streamable http endpoint:
 
 ```
 
-You can then configure Claude (or any other MCP client) to use this group-specific endpoint.
+You can then configure Claude (or any other MCP client) to use this group-specific endpoint to access the MCP server.
 
 The client will then ONLY see and be able to use these 3 tools and will not be aware of any other tools registered in MCPJungle.
+
+> [!TIP]
+> You can run `mcpjungle list tools` to view all available tools and pick the ones you want to include in your group.
 
 ### Managing tool groups
 You can currently perform operations like listing all groups, viewing details of a specific group and deleting a group.

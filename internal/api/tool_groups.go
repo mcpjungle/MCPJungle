@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/mark3labs/mcp-go/server"
@@ -62,11 +63,11 @@ func getToolGroupHandler(toolGroupService *toolgroup.ToolGroupService) gin.Handl
 
 		group, err := toolGroupService.GetToolGroup(name)
 		if err != nil {
+			if errors.Is(err, toolgroup.ErrToolGroupNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("tool group %s not found", name)})
+				return
+			}
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		if group == nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "tool group not found"})
 			return
 		}
 
@@ -106,11 +107,13 @@ func deleteToolGroupHandler(toolGroupService *toolgroup.ToolGroupService) gin.Ha
 		}
 
 		// TODO: return 404 if the group did not exist.
+		//  The tool group service should return ErrToolGroupNotFound if the group does not exist.
 		//  The CLI should then handle this and output "group does not exist".
 		c.Status(http.StatusNoContent)
 	}
 }
 
+// toolGroupMCPServerCallHandler handles incoming MCP requests from for a specific tool group.
 func toolGroupMCPServerCallHandler(toolGroupService *toolgroup.ToolGroupService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// get the Proxy MCP server for the specified tool group
@@ -122,6 +125,10 @@ func toolGroupMCPServerCallHandler(toolGroupService *toolgroup.ToolGroupService)
 		}
 
 		// serve the MCP request using the MCP server
+		// TODO: Make this API more efficient
+		// This api sits in the host path because we expect high traffic on MCP tool calling.
+		// It is inefficient to create a new StreamableHTTPServer for each request.
+		// Maybe pre-create a StreamableHTTPServer for each tool group and store it in the ToolGroupMCPServer struct?
 		streamableServer := server.NewStreamableHTTPServer(groupMcpServer)
 		streamableServer.ServeHTTP(c.Writer, c.Request)
 	}

@@ -18,9 +18,11 @@ type MCPService struct {
 	toolInstances map[string]mcp.Tool
 	mu            sync.RWMutex
 
-	// toolDeletionCallback holds a callback to be invoked when one or more tools is deregistered or disabled from mcpjungle.
+	// toolDeletionCallback is a callback that gets invoked when one or more tools is removed
+	// (deregistered or disabled) from mcpjungle.
 	toolDeletionCallback ToolDeletionCallback
-	// toolAdditionCallback holds a callback to be invoked when one or more tools is registered or (re)enabled in mcpjungle.
+	// toolAdditionCallback is a callback that gets invoked when one or more tools is added
+	// (registered or (re)enabled) in mcpjungle.
 	toolAdditionCallback ToolAdditionCallback
 }
 
@@ -30,8 +32,13 @@ func NewMCPService(db *gorm.DB, mcpProxyServer *server.MCPServer) (*MCPService, 
 	s := &MCPService{
 		db:             db,
 		mcpProxyServer: mcpProxyServer,
-		toolInstances:  make(map[string]mcp.Tool),
-		mu:             sync.RWMutex{},
+
+		toolInstances: make(map[string]mcp.Tool),
+		mu:            sync.RWMutex{},
+
+		// initialize the callbacks to NOOP functions
+		toolDeletionCallback: func(toolNames ...string) {},
+		toolAdditionCallback: func(toolName string) error { return nil },
 	}
 	if err := s.initMCPProxyServer(); err != nil {
 		return nil, fmt.Errorf("failed to initialize MCP proxy server: %w", err)

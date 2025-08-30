@@ -52,6 +52,8 @@ func runGetGroup(cmd *cobra.Command, args []string) error {
 		cmd.Println("Included Tools:")
 		for i, t := range group.IncludedTools {
 			cmd.Printf("%d. %s\n", i+1, t)
+			// TODO: Also show whether the tool is still active, disabled, or deleted at the moment
+			// ie, is it practically available as part of this group?
 		}
 	}
 	cmd.Println()

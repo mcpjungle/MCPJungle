@@ -11,6 +11,8 @@ import (
 	"sync"
 )
 
+var ErrToolGroupNotFound = errors.New("tool group not found")
+
 // ValidGroupName is a regex that matches valid tool group names.
 // A valid tool group name must start with an alphanumeric character and can contain
 // alphanumeric characters, underscores, and hyphens.
@@ -37,7 +39,7 @@ func NewToolGroupService(db *gorm.DB, mcpService *mcp.MCPService) (*ToolGroupSer
 		mu:         sync.RWMutex{},
 	}
 
-	// register callbacks to handle when a tool gets added/deleted
+	// register callbacks with mcp service to be notified when a tool gets added/removed
 	mcpService.SetToolDeletionCallback(s.handleToolDeletion)
 	mcpService.SetToolAdditionCallback(s.handleToolAddition)
 
@@ -99,7 +101,7 @@ func (s *ToolGroupService) GetToolGroup(name string) (*model.ToolGroup, error) {
 	var group model.ToolGroup
 	if err := s.db.Where("name = ?", name).First(&group).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
+			return nil, ErrToolGroupNotFound
 		}
 		return nil, err
 	}
