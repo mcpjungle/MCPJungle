@@ -126,7 +126,6 @@ func (s *ToolGroupService) DeleteToolGroup(name string) error {
 }
 
 // GetToolGroupMCPServer retrieves the MCP proxy server for a given tool group name.
-// This method is safe to call concurrently.
 func (s *ToolGroupService) GetToolGroupMCPServer(name string) (*server.MCPServer, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -201,10 +200,14 @@ func (s *ToolGroupService) handleToolDeletion(tools ...string) {
 // handleToolAddition is a callback that is called when a tool is added or (re)enabled in mcpjungle.
 // this callback adds the new tool to MCP proxy servers of all groups that include it.
 func (s *ToolGroupService) handleToolAddition(newTool string) error {
+	// get all tool groups from the database
 	groups, err := s.ListToolGroups()
 	if err != nil {
 		return fmt.Errorf("failed to list tool groups from DB: %w", err)
 	}
+
+	// find all groups that include the added tool
+	groupsToUpdate := make([]string, 0, len(groups))
 	for i := range groups {
 		name := groups[i].Name
 		groupTools, err := groups[i].GetTools()
@@ -215,20 +218,28 @@ func (s *ToolGroupService) handleToolAddition(newTool string) error {
 			if t != newTool {
 				continue
 			}
-
 			// current group includes the added tool, so add the tool instance to the group's MCP server
-			newToolInstance, exists := s.mcpService.GetToolInstance(newTool)
-			if !exists {
-				// this should not happen because the tool should exist if we are in this callback
-				return fmt.Errorf("tool instance %s does not exist", newTool)
-			}
-			s.mu.RLock()
-			s.mcpServers[name].AddTool(newToolInstance, s.mcpService.MCPProxyToolCallHandler)
-			s.mu.RUnlock()
-
+			groupsToUpdate = append(groupsToUpdate, name)
 			// no need to check other tools in this group anymore, so exit the loop and move on to the next group
 			break
 		}
 	}
+
+	newToolInstance, exists := s.mcpService.GetToolInstance(newTool)
+	if !exists {
+		// this should not happen because the tool should exist if we are in this callback
+		return fmt.Errorf("tool instance %s does not exist", newTool)
+	}
+
+	// add the new tool instance to all relevant MCP proxy servers
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, name := range groupsToUpdate {
+		mcpServer, exists := s.mcpServers[name]
+		if exists {
+			mcpServer.AddTool(newToolInstance, s.mcpService.MCPProxyToolCallHandler)
+		}
+	}
+
 	return nil
 }
