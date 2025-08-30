@@ -114,6 +114,8 @@ func deleteToolGroupHandler(toolGroupService *toolgroup.ToolGroupService) gin.Ha
 			return
 		}
 
+		// TODO: return 404 if the group did not exist.
+		//  The CLI should then handle this and output "group does not exist".
 		c.Status(http.StatusNoContent)
 	}
 }

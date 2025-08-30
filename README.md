@@ -455,8 +455,9 @@ mcpjungle delete group claude-tools
 >
 > But if the tool is re-enabled or added again later, it will automatically become available in the group again.
 
-**Limitation** 🚧
+**Limitations** 🚧
 1. Currently, you cannot update an existing tool group. You must delete the group and create a new one with the modified configuration file.
+2. In `production` mode, currently only an admin can create a Tool Group. We're working on allowing standard Users to create their own groups as well.
 
 ## Authentication
 MCPJungle currently supports authentication if your Streamable HTTP MCP Server accepts static tokens for auth.
