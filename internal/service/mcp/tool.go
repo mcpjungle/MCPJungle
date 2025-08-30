@@ -16,6 +16,11 @@ import (
 // The callback receives the names of the deleted tools as arguments.
 type ToolDeletionCallback func(toolNames ...string)
 
+// ToolAdditionCallback is a function type that can be registered to be called
+// whenever a tool is added (registered or re-enabled).
+// The callback receives the name of the added tool as argument.
+type ToolAdditionCallback func(toolName string) error
+
 // ListTools returns all tools registered in the registry.
 func (m *MCPService) ListTools() ([]model.Tool, error) {
 	var tools []model.Tool
@@ -149,13 +154,18 @@ func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[strin
 	return result, nil
 }
 
-// RegisterToolDeletionCallback registers a callback function to be called
+// SetToolDeletionCallback registers a callback function to be called
 // whenever one or more tools are deleted (deregistered) or disabled.
 // The callback receives the names of the deleted tools as arguments.
-func (m *MCPService) RegisterToolDeletionCallback(callback ToolDeletionCallback) {
-	m.callbackMu.Lock()
-	defer m.callbackMu.Unlock()
-	m.toolDeletionCallbacks = append(m.toolDeletionCallbacks, callback)
+func (m *MCPService) SetToolDeletionCallback(callback ToolDeletionCallback) {
+	m.toolDeletionCallback = callback
+}
+
+// SetToolAdditionCallback registers a callback function to be called
+// whenever one or more tools are added (registered or re-enabled).
+// The callback receives the name of the added tool as argument.
+func (m *MCPService) SetToolAdditionCallback(callback ToolAdditionCallback) {
+	m.toolAdditionCallback = callback
 }
 
 // EnableTools enables one or more tools.
@@ -215,6 +225,8 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 
 			// also add the tool to the in-memory tool instance tracker
 			m.addToolInstance(mcpTool)
+			// notify any registered callbacks about the tool addition (re-enabling)
+			m.notifyToolAddition(mcpTool.Name)
 		} else {
 			// if the tool was disabled, remove it from the MCP proxy server
 			m.mcpProxyServer.DeleteTools(entity)
@@ -260,6 +272,7 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 
 			m.mcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
 			m.addToolInstance(mcpTool)
+			m.notifyToolAddition(mcpTool.Name)
 		} else {
 			m.mcpProxyServer.DeleteTools(canonicalToolName)
 			m.deleteToolInstances(canonicalToolName)
@@ -304,6 +317,8 @@ func (m *MCPService) registerServerTools(ctx context.Context, s *model.McpServer
 
 			// also add the tool to the in-memory tool instance tracker
 			m.addToolInstance(tool)
+			// notify any registered callbacks about the tool addition
+			m.notifyToolAddition(tool.Name)
 		}
 	}
 	return nil
@@ -358,10 +373,14 @@ func (m *MCPService) deleteToolInstances(toolNames ...string) {
 
 // notifyToolDeletion calls all registered tool deletion callbacks with the given tool names.
 func (m *MCPService) notifyToolDeletion(toolNames ...string) {
-	m.callbackMu.RLock()
-	defer m.callbackMu.RUnlock()
+	m.toolDeletionCallback(toolNames...)
+}
 
-	for _, callback := range m.toolDeletionCallbacks {
-		callback(toolNames...)
+// notifyToolAddition calls all registered tool addition callbacks with the given tool names.
+func (m *MCPService) notifyToolAddition(toolName string) {
+	if err := m.toolAdditionCallback(toolName); err != nil {
+		// log the issue, but do not fail the entire operation
+		// as the tool has already been added successfully
+		log.Printf("[ERROR] a tool addition callback failed for tool %s: %v", toolName, err)
 	}
 }

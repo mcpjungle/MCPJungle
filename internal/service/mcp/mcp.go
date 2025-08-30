@@ -18,10 +18,10 @@ type MCPService struct {
 	toolInstances map[string]mcp.Tool
 	mu            sync.RWMutex
 
-	// toolDeletionCallbacks holds a list of callbacks to be invoked when one or more tools is
-	// deregistered from mcpjungle.
-	toolDeletionCallbacks []ToolDeletionCallback
-	callbackMu            sync.RWMutex
+	// toolDeletionCallback holds a callback to be invoked when one or more tools is deregistered or disabled from mcpjungle.
+	toolDeletionCallback ToolDeletionCallback
+	// toolAdditionCallback holds a callback to be invoked when one or more tools is registered or (re)enabled in mcpjungle.
+	toolAdditionCallback ToolAdditionCallback
 }
 
 // NewMCPService creates a new instance of MCPService.

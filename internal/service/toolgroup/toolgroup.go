@@ -37,8 +37,9 @@ func NewToolGroupService(db *gorm.DB, mcpService *mcp.MCPService) (*ToolGroupSer
 		mu:         sync.RWMutex{},
 	}
 
-	// register callback to handle when a tool gets deleted
-	mcpService.RegisterToolDeletionCallback(s.handleToolDeletion)
+	// register callbacks to handle when a tool gets added/deleted
+	mcpService.SetToolDeletionCallback(s.handleToolDeletion)
+	mcpService.SetToolAdditionCallback(s.handleToolAddition)
 
 	if err := s.initToolGroupMCPServers(); err != nil {
 		return nil, fmt.Errorf("failed to initialize tool group MCP servers: %w", err)
@@ -195,4 +196,39 @@ func (s *ToolGroupService) handleToolDeletion(tools ...string) {
 	for _, mcpServer := range s.mcpServers {
 		mcpServer.DeleteTools(tools...)
 	}
+}
+
+// handleToolAddition is a callback that is called when a tool is added or (re)enabled in mcpjungle.
+// this callback adds the new tool to MCP proxy servers of all groups that include it.
+func (s *ToolGroupService) handleToolAddition(newTool string) error {
+	groups, err := s.ListToolGroups()
+	if err != nil {
+		return fmt.Errorf("failed to list tool groups from DB: %w", err)
+	}
+	for i := range groups {
+		name := groups[i].Name
+		groupTools, err := groups[i].GetTools()
+		if err != nil {
+			return fmt.Errorf("failed to get tool names for group %s: %w", name, err)
+		}
+		for _, t := range groupTools {
+			if t != newTool {
+				continue
+			}
+
+			// current group includes the added tool, so add the tool instance to the group's MCP server
+			newToolInstance, exists := s.mcpService.GetToolInstance(newTool)
+			if !exists {
+				// this should not happen because the tool should exist if we are in this callback
+				return fmt.Errorf("tool instance %s does not exist", newTool)
+			}
+			s.mu.RLock()
+			s.mcpServers[name].AddTool(newToolInstance, s.mcpService.MCPProxyToolCallHandler)
+			s.mu.RUnlock()
+
+			// no need to check other tools in this group anymore, so exit the loop and move on to the next group
+			break
+		}
+	}
+	return nil
 }
