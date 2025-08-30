@@ -52,5 +52,10 @@ func runGetGroup(cmd *cobra.Command, args []string) error {
 	}
 	cmd.Println()
 
+	cmd.Println(
+		"NOTE: If a tool in this group is disabled globally or has been deleted, " +
+			"then it will not be available via the group's MCP endpoint.",
+	)
+
 	return nil
 }

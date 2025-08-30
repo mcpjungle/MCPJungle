@@ -7,8 +7,15 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"gorm.io/gorm"
+	"regexp"
 	"sync"
 )
+
+// ValidGroupName is a regex that matches valid tool group names.
+// A valid tool group name must start with an alphanumeric character and can contain
+// alphanumeric characters, underscores, and hyphens.
+// This ensures that the group name can be safely used in URLs.
+var ValidGroupName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
 
 // ToolGroupService provides methods to manage tool groups and their associated MCP proxy servers.
 type ToolGroupService struct {
@@ -41,6 +48,17 @@ func NewToolGroupService(db *gorm.DB, mcpService *mcp.MCPService) (*ToolGroupSer
 
 // CreateToolGroup creates a new tool group in the database and a Proxy MCP server that just exposes the specified tools.
 func (s *ToolGroupService) CreateToolGroup(group *model.ToolGroup) error {
+	// validate the tool group name
+	if len(group.Name) == 0 {
+		return errors.New("tool group name cannot be empty")
+	}
+	if !ValidGroupName.MatchString(group.Name) {
+		return fmt.Errorf(
+			"invalid group name: name must start with an alphanumeric character and " +
+				"can only contain alphanumeric characters, underscores, and hyphens",
+		)
+	}
+
 	toolNames, err := group.GetTools()
 	if err != nil {
 		return fmt.Errorf("failed to parse toolNames: %w", err)
@@ -51,11 +69,14 @@ func (s *ToolGroupService) CreateToolGroup(group *model.ToolGroup) error {
 
 	// create the proxy MCP server that exposes only specified tools
 	mcpServer := s.newMCPServer(group.Name)
+
 	// populate the MCP server with the specified tools
+	// this also has a side effect of validating that the tools exist in mcpjungle.
+	// if a tool does not exist, return an error without creating the group.
 	for _, name := range toolNames {
 		tool, exists := s.mcpService.GetToolInstance(name)
 		if !exists {
-			return fmt.Errorf("tool %s does not exist in the tool instances tracker", name)
+			return fmt.Errorf("tool %s does not exist or is disabled", name)
 		}
 		mcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
 	}

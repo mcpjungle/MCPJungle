@@ -450,6 +450,11 @@ mcpjungle get group claude-tools
 mcpjungle delete group claude-tools
 ```
 
+> [!NOTE]
+> If a tool is included in a group but is later disabled globally or deleted, then it will not be available via the group's MCP endpoint.
+>
+> But if the tool is re-enabled or added again later, it will automatically become available in the group again.
+
 **Limitation** 🚧
 1. Currently, you cannot update an existing tool group. You must delete the group and create a new one with the modified configuration file.
 
