@@ -23,21 +23,9 @@ func createToolGroupHandler(toolGroupService *toolgroup.ToolGroupService) gin.Ha
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-
-		// Construct the endpoint for the created tool group
-		scheme := "http"
-		if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
-			scheme = "https"
-		}
-		endpointURL := &url.URL{
-			Scheme: scheme,
-			Host:   c.Request.Host,
-			Path:   fmt.Sprintf("%s/groups/%s/mcp", V0PathPrefix, input.Name),
-		}
 		resp := &types.CreateToolGroupResponse{
-			Endpoint: endpointURL.String(),
+			Endpoint: getToolGroupEndpoint(c, input.Name),
 		}
-
 		c.JSON(http.StatusCreated, resp)
 	}
 }
@@ -82,9 +70,12 @@ func getToolGroupHandler(toolGroupService *toolgroup.ToolGroupService) gin.Handl
 			return
 		}
 
-		resp := &types.ToolGroup{
-			Name:        group.Name,
-			Description: group.Description,
+		resp := &types.GetToolGroupResponse{
+			ToolGroup: &types.ToolGroup{
+				Name:        group.Name,
+				Description: group.Description,
+			},
+			Endpoint: getToolGroupEndpoint(c, group.Name),
 		}
 		// Convert datatypes.JSON to []string
 		if group.IncludedTools != nil {
@@ -134,4 +125,18 @@ func toolGroupMCPServerCallHandler(toolGroupService *toolgroup.ToolGroupService)
 		streamableServer := server.NewStreamableHTTPServer(groupMcpServer)
 		streamableServer.ServeHTTP(c.Writer, c.Request)
 	}
+}
+
+// getToolGroupEndpoint deduces the proxy MCP server endpoint URL for a given tool group
+func getToolGroupEndpoint(c *gin.Context, groupName string) string {
+	scheme := "http"
+	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	endpointURL := &url.URL{
+		Scheme: scheme,
+		Host:   c.Request.Host,
+		Path:   fmt.Sprintf("%s/groups/%s/mcp", V0PathPrefix, groupName),
+	}
+	return endpointURL.String()
 }

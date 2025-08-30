@@ -41,7 +41,11 @@ func runGetGroup(cmd *cobra.Command, args []string) error {
 		cmd.Println()
 		cmd.Println("Description: " + group.Description)
 	}
+
 	cmd.Println()
+	cmd.Println("MCP Server endpoint: ", group.Endpoint)
+	cmd.Println()
+
 	if len(group.IncludedTools) == 0 {
 		cmd.Println("This group has no tools.")
 	} else {
