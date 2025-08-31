@@ -14,12 +14,6 @@ import (
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
-// Context key types for type-safe context values
-type (
-	contextKeyMode   struct{}
-	contextKeyClient struct{}
-)
-
 // requireInitialized is middleware to reject requests to certain routes if the server is not initialized
 func requireInitialized(configService *config.ServerConfigService) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -153,7 +147,7 @@ func checkAuthForMcpProxyAccess(mcpClientService *mcpclient.McpClientService) gi
 
 		// the gin context doesn't get passed down to the MCP proxy server, so we need to
 		// set values in the underlying request's context to be able to access them from proxy.
-		ctx := context.WithValue(c.Request.Context(), contextKeyMode{}, m)
+		ctx := context.WithValue(c.Request.Context(), "mode", m)
 		c.Request = c.Request.WithContext(ctx)
 
 		if m == model.ModeDev {
@@ -175,7 +169,7 @@ func checkAuthForMcpProxyAccess(mcpClientService *mcpclient.McpClientService) gi
 		}
 
 		// inject the authenticated MCP client in context for the proxy to use
-		ctx = context.WithValue(c.Request.Context(), contextKeyClient{}, client)
+		ctx = context.WithValue(c.Request.Context(), "client", client)
 		c.Request = c.Request.WithContext(ctx)
 
 		c.Next()

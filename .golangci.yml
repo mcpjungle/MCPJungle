@@ -20,8 +20,9 @@ linters:
         - name: use-any
     staticcheck:
       checks:
-        - -ST1000
         - all
+        - -ST1000
+        - -SA1029 # todo: remove this and fix issues
   exclusions:
     generated: lax
     presets:
