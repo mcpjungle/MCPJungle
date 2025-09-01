@@ -3,6 +3,7 @@ package model
 import (
 	"encoding/json"
 	"errors"
+
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"

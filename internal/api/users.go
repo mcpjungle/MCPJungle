@@ -1,11 +1,12 @@
 package api
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
-	"net/http"
 )
 
 func createUserHandler(userService *user.UserService) gin.HandlerFunc {

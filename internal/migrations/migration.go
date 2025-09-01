@@ -1,7 +1,9 @@
+// Package migrations provides database migration functionality for the MCPJungle application.
 package migrations
 
 import (
 	"fmt"
+
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"gorm.io/gorm"
 )
@@ -22,6 +24,9 @@ func Migrate(db *gorm.DB) error {
 	}
 	if err := db.AutoMigrate(&model.McpClient{}); err != nil {
 		return fmt.Errorf("auto‑migration failed for McpClient model: %v", err)
+	}
+	if err := db.AutoMigrate(&model.ToolGroup{}); err != nil {
+		return fmt.Errorf("auto‑migration failed for ToolGroup model: %v", err)
 	}
 	return nil
 }

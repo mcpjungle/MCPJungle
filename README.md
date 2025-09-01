@@ -40,6 +40,7 @@ MCPJungle is a single source-of-truth registry for all [Model Context Protocol](
   - [Connect to mcpjungle from Claude](#claude)
   - [Connect to mcpjungle from Cursor](#cursor)
   - [Enabling/Disabling Tools globally](#enablingdisabling-tools)
+  - [Tool Groups](#tool-groups)
   - [Authentication](#authentication)
   - [Enterprise features](#enterprise-features-)
     - [Access Control](#access-control)
@@ -388,6 +389,80 @@ A disabled tool is still accessible via mcpjungle's HTTP API, so humans can stil
 
 > [!NOTE]
 > When a new server is registered in MCPJungle, all its tools are **enabled** by default.
+
+## Tool Groups
+As you add more MCP servers to MCPJungle, the number of tools available through the Gateway can grow significantly.
+
+If your MCP client is exposed to hundreds of tools through the gateway MCP, its performance may degrade.
+
+MCPJungle allows you to **expose only a subset of all available tools to your MCP clients using Tool Groups**.
+
+You can create a new group and only include specific tools that you wish to expose.
+
+Once a group is created, mcpjungle returns a unique endpoint for it.
+
+You can then configure your MCP client to use this group-specific endpoint instead of the main gateway endpoint.
+
+### Creating a Tool Group
+You can create a new tool group by providing a JSON configuration file to the `create group` command.
+
+You must specify a unique `name` for the group and a list of `included_tools` that you want to expose via its MCP proxy.
+
+Here is an example of a tool group configuration file (`claude-tools-group.json`):
+```json
+{
+  "name": "claude-tools",
+  "description": "This group only contains tools for Claude Desktop to use",
+  "included_tools": [
+    "filesystem__read_file",
+    "deepwiki__read_wiki_contents",
+    "time__get_current_time"
+  ]
+}
+```
+
+Instead of exposing 20 tools across all MCP servers, this group only exposes 3 handpicked ones.
+
+You can create this group in mcpjungle:
+```bash
+$ mcpjungle create group -c ./claude-tools-group.json
+
+Tool Group claude-tools created successfully
+It is now accessible at the following streamable http endpoint:
+
+    http://127.0.0.1:8080/v0/groups/claude-tools/mcp
+
+```
+
+You can then configure Claude (or any other MCP client) to use this group-specific endpoint to access the MCP server.
+
+The client will then ONLY see and be able to use these 3 tools and will not be aware of any other tools registered in MCPJungle.
+
+> [!TIP]
+> You can run `mcpjungle list tools` to view all available tools and pick the ones you want to include in your group.
+
+### Managing tool groups
+You can currently perform operations like listing all groups, viewing details of a specific group and deleting a group.
+
+```bash
+# list all tool groups
+mcpjungle list groups
+
+# view details of a specific group
+mcpjungle get group claude-tools
+
+# delete a group
+mcpjungle delete group claude-tools
+```
+
+> [!NOTE]
+> If a tool is included in a group but is later disabled globally or deleted, then it will not be available via the group's MCP endpoint.
+>
+> But if the tool is re-enabled or added again later, it will automatically become available in the group again.
+
+**Limitations** 🚧
+1. Currently, you cannot update an existing tool group. You must delete the group and create a new one with the modified configuration file.
+2. In `production` mode, currently only an admin can create a Tool Group. We're working on allowing standard Users to create their own groups as well.
 
 ## Authentication
 MCPJungle currently supports authentication if your Streamable HTTP MCP Server accepts static tokens for auth.

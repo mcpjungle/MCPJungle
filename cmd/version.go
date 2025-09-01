@@ -9,11 +9,9 @@ import (
 
 const defaultVersion = "dev"
 
-var (
-	// Version can be overridden at build time using:
-	// go build -ldflags="-X 'github.com/mcpjungle/mcpjungle/cmd.Version=v1.2.3'"
-	Version = defaultVersion
-)
+// Version can be overridden at build time using:
+// go build -ldflags="-X 'github.com/mcpjungle/mcpjungle/cmd.Version=v1.2.3'"
+var Version = defaultVersion
 
 // getVersion returns the CLI version string.
 func getVersion() string {

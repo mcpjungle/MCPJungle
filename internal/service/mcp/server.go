@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+
 	"github.com/mcpjungle/mcpjungle/internal/model"
 )
 

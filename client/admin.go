@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/mcpjungle/mcpjungle/internal/model"
 	"io"
 	"net/http"
 	"net/url"
+
+	"github.com/mcpjungle/mcpjungle/internal/model"
 )
 
 type InitServerResponse struct {

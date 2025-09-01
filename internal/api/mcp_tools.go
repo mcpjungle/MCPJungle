@@ -2,10 +2,10 @@ package api
 
 import (
 	"encoding/json"
-	"github.com/mcpjungle/mcpjungle/internal/model"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 )
 

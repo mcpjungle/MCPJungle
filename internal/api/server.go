@@ -1,17 +1,23 @@
+// Package api provides HTTP API functionality for the MCPJungle server.
 package api
 
 import (
 	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
-	"github.com/mcpjungle/mcpjungle/internal/service/mcp_client"
+	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
+	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
 )
 
-const V0PathPrefix = "/api/v0"
+const (
+	V0PathPrefix    = "/v0"
+	V0ApiPathPrefix = "/api" + V0PathPrefix
+)
 
 type ServerOptions struct {
 	// Port is the HTTP ports to bind the server to
@@ -19,9 +25,10 @@ type ServerOptions struct {
 
 	MCPProxyServer   *server.MCPServer
 	MCPService       *mcp.MCPService
-	MCPClientService *mcp_client.McpClientService
+	MCPClientService *mcpclient.McpClientService
 	ConfigService    *config.ServerConfigService
 	UserService      *user.UserService
+	ToolGroupService *toolgroup.ToolGroupService
 }
 
 // Server represents the MCPJungle registry server that handles MCP proxy and API requests
@@ -31,7 +38,7 @@ type Server struct {
 
 	mcpProxyServer   *server.MCPServer
 	mcpService       *mcp.MCPService
-	mcpClientService *mcp_client.McpClientService
+	mcpClientService *mcpclient.McpClientService
 
 	configService *config.ServerConfigService
 	userService   *user.UserService
@@ -115,17 +122,24 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 	requireProdMode := requireServerMode(model.ModeProd)
 
 	// Set up the MCP proxy server on /mcp
-	streamableHttpServer := server.NewStreamableHTTPServer(opts.MCPProxyServer)
+	streamableHTTPServer := server.NewStreamableHTTPServer(opts.MCPProxyServer)
 	r.Any(
 		"/mcp",
 		requireInitialized(opts.ConfigService),
 		checkAuthForMcpProxyAccess(opts.MCPClientService),
-		gin.WrapH(streamableHttpServer),
+		gin.WrapH(streamableHTTPServer),
+	)
+
+	r.Any(
+		V0PathPrefix+"/groups/:name/mcp",
+		requireInitialized(opts.ConfigService),
+		checkAuthForMcpProxyAccess(opts.MCPClientService),
+		toolGroupMCPServerCallHandler(opts.ToolGroupService),
 	)
 
 	// Setup /v0 API endpoints
 	apiV0 := r.Group(
-		V0PathPrefix,
+		V0ApiPathPrefix,
 		requireInitialized(opts.ConfigService),
 		verifyUserAuthForAPIAccess(opts.UserService),
 	)
@@ -181,6 +195,12 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 			requireProdMode,
 			deleteUserHandler(opts.UserService),
 		)
+
+		// endpoints for managing tool groups
+		adminAPI.POST("/tool-groups", createToolGroupHandler(opts.ToolGroupService))
+		adminAPI.GET("/tool-groups/:name", getToolGroupHandler(opts.ToolGroupService))
+		adminAPI.GET("/tool-groups", listToolGroupsHandler(opts.ToolGroupService))
+		adminAPI.DELETE("/tool-groups/:name", deleteToolGroupHandler(opts.ToolGroupService))
 	}
 
 	return r, nil

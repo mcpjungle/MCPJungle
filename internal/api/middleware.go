@@ -3,14 +3,15 @@ package api
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
-	"github.com/mcpjungle/mcpjungle/internal/service/mcp_client"
+	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
-	"net/http"
-	"strings"
 )
 
 // requireInitialized is middleware to reject requests to certain routes if the server is not initialized
@@ -131,7 +132,7 @@ func requireServerMode(m model.ServerMode) gin.HandlerFunc {
 // checkAuthForMcpProxyAccess is middleware for MCP proxy that checks for a valid MCP client token
 // if the server is in production mode.
 // In development mode, mcp clients do not require auth to access the MCP proxy.
-func checkAuthForMcpProxyAccess(mcpClientService *mcp_client.McpClientService) gin.HandlerFunc {
+func checkAuthForMcpProxyAccess(mcpClientService *mcpclient.McpClientService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		mode, exists := c.Get("mode")
 		if !exists {

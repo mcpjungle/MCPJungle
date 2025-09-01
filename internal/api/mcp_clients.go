@@ -1,13 +1,14 @@
 package api
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/mcpjungle/mcpjungle/internal/model"
-	"github.com/mcpjungle/mcpjungle/internal/service/mcp_client"
-	"net/http"
+	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
 )
 
-func listMcpClientsHandler(mcpClientService *mcp_client.McpClientService) gin.HandlerFunc {
+func listMcpClientsHandler(mcpClientService *mcpclient.McpClientService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		clients, err := mcpClientService.ListClients()
 		if err != nil {
@@ -18,7 +19,7 @@ func listMcpClientsHandler(mcpClientService *mcp_client.McpClientService) gin.Ha
 	}
 }
 
-func createMcpClientHandler(mcpClientService *mcp_client.McpClientService) gin.HandlerFunc {
+func createMcpClientHandler(mcpClientService *mcpclient.McpClientService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req model.McpClient
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -39,7 +40,7 @@ func createMcpClientHandler(mcpClientService *mcp_client.McpClientService) gin.H
 	}
 }
 
-func deleteMcpClientHandler(mcpClientService *mcp_client.McpClientService) gin.HandlerFunc {
+func deleteMcpClientHandler(mcpClientService *mcpclient.McpClientService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		name := c.Param("name")
 		if name == "" {

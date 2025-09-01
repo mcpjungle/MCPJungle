@@ -1,0 +1,56 @@
+version: "2"
+run:
+  concurrency: 4  
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - unused
+    - revive
+    - bodyclose
+  settings:
+    govet:
+      disable:
+        - fieldalignment
+        - shadow
+      enable-all: true
+    revive:
+      rules:
+        - name: indent-error-flow
+        - name: use-any
+    staticcheck:
+      checks:
+        - all
+        - -ST1000
+        - -SA1029 # todo: remove this and fix issues
+  exclusions:
+    generated: lax
+    presets:
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - lll
+        path: _test\.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - example/
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - example/

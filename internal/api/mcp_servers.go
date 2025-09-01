@@ -2,11 +2,12 @@ package api
 
 import (
 	"fmt"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
-	"net/http"
 )
 
 func registerServerHandler(mcpService *mcp.MCPService) gin.HandlerFunc {
@@ -81,7 +82,7 @@ func listServersHandler(mcpService *mcp.MCPService) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		servers := make([]*types.McpServer, len(records), len(records))
+		servers := make([]*types.McpServer, len(records))
 		for i, record := range records {
 			servers[i] = &types.McpServer{
 				Name:        record.Name,

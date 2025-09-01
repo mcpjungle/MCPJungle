@@ -3,9 +3,10 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/spf13/cobra"
-	"os"
 )
 
 var (
@@ -90,7 +91,7 @@ func readMcpServerConfig(filePath string) (types.RegisterServerInput, error) {
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return input, fmt.Errorf("failed to read config file %s: %w", registerCmdServerConfigFilePath, err)
+		return input, fmt.Errorf("failed to read config file %s: %w", filePath, err)
 	}
 	// Parse JSON config
 	if err := json.Unmarshal(data, &input); err != nil {

@@ -1,10 +1,12 @@
+// Package client provides HTTP client functionality for interacting with the MCPJungle API.
 package client
 
 import (
-	"github.com/mcpjungle/mcpjungle/internal/api"
 	"io"
 	"net/http"
 	"net/url"
+
+	"github.com/mcpjungle/mcpjungle/internal/api"
 )
 
 // Client represents a client for interacting with the MCPJungle HTTP API
@@ -24,7 +26,7 @@ func NewClient(baseURL string, accessToken string, httpClient *http.Client) *Cli
 
 // constructAPIEndpoint constructs the full API endpoint URL where a request must be sent
 func (c *Client) constructAPIEndpoint(suffixPath string) (string, error) {
-	return url.JoinPath(c.baseURL, api.V0PathPrefix, suffixPath)
+	return url.JoinPath(c.baseURL, api.V0ApiPathPrefix, suffixPath)
 }
 
 // newRequest creates a new HTTP request with the specified method, URL, and body.
