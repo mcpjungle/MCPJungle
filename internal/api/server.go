@@ -237,6 +237,11 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		userAPI.POST("/tools/invoke", s.invokeToolHandler())
 		userAPI.GET("/tool", s.getToolHandler())
 
+		// Prompt endpoints
+		userAPI.GET("/prompts", s.listPromptsHandler())
+		userAPI.GET("/prompt", s.getPromptHandler())
+		userAPI.POST("/prompts/get", s.getPromptWithArgsHandler())
+
 		userAPI.GET("/users/whoami", requireEnterpriseMode, s.whoAmIHandler())
 	}
 
@@ -248,6 +253,9 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 
 		adminAPI.POST("/tools/enable", s.enableToolsHandler())
 		adminAPI.POST("/tools/disable", s.disableToolsHandler())
+
+		adminAPI.POST("/prompts/enable", s.enablePromptsHandler())
+		adminAPI.POST("/prompts/disable", s.disablePromptsHandler())
 
 		// endpoints for managing MCP clients (enterprise mode only)
 		adminAPI.GET(

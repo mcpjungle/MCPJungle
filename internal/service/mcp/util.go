@@ -29,6 +29,10 @@ const serverInitRequestTimeout = 10
 // This combination produces the canonical name that uniquely identifies a tool across MCPJungle.
 const serverToolNameSep = "__"
 
+// serverPromptNameSep is the separator used to combine server name and prompt name.
+// This combination produces the canonical name that uniquely identifies a prompt across MCPJungle.
+const serverPromptNameSep = "__"
+
 // Only allow letters, numbers, hyphens, and underscores
 var validServerName = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
@@ -65,6 +69,16 @@ func mergeServerToolNames(s, t string) string {
 // splitServerToolName splits the unique tool name into server name and tool name.
 func splitServerToolName(name string) (string, string, bool) {
 	return strings.Cut(name, serverToolNameSep)
+}
+
+// mergeServerPromptNames combines the server name and prompt name into a single prompt name unique across the registry.
+func mergeServerPromptNames(s, p string) string {
+	return s + serverPromptNameSep + p
+}
+
+// splitServerPromptName splits the unique prompt name into server name and prompt name.
+func splitServerPromptName(name string) (string, string, bool) {
+	return strings.Cut(name, serverPromptNameSep)
 }
 
 // isLoopbackURL returns true if rawURL resolves to a loopback address.
@@ -108,6 +122,24 @@ func convertToolModelToMcpObject(t *model.Tool) (mcp.Tool, error) {
 	// NOTE: if more fields are added to the tool in DB, they should be set here as well
 
 	return mcpTool, nil
+}
+
+// convertPromptModelToMcpObject converts a prompt model from the database to a mcp.Prompt object
+func convertPromptModelToMcpObject(p *model.Prompt) (mcp.Prompt, error) {
+	mcpPrompt := mcp.Prompt{
+		Name:        p.Name,
+		Description: p.Description,
+	}
+
+	var arguments []mcp.PromptArgument
+	if err := json.Unmarshal(p.Arguments, &arguments); err != nil {
+		return mcp.Prompt{}, fmt.Errorf(
+			"failed to unmarshal arguments %s for prompt %s: %w", p.Arguments, p.Name, err,
+		)
+	}
+	mcpPrompt.Arguments = arguments
+
+	return mcpPrompt, nil
 }
 
 // createHTTPMcpServerConn creates a new connection with a streamable http MCP server and returns the client.

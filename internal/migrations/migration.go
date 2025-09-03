@@ -28,5 +28,8 @@ func Migrate(db *gorm.DB) error {
 	if err := db.AutoMigrate(&model.ToolGroup{}); err != nil {
 		return fmt.Errorf("auto‑migration failed for ToolGroup model: %v", err)
 	}
+	if err := db.AutoMigrate(&model.Prompt{}); err != nil {
+		return fmt.Errorf("auto‑migration failed for Prompt model: %v", err)
+	}
 	return nil
 }
