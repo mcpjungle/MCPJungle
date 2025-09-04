@@ -75,4 +75,3 @@ func TestStartCommandFlags(t *testing.T) {
 		}
 	})
 }
-

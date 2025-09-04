@@ -155,4 +155,3 @@ func TestListCommandVariables(t *testing.T) {
 		}
 	})
 }
-

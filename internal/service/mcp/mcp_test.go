@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/mcpjungle/mcpjungle/internal/service"
+	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 	"gorm.io/gorm"
 )
 
@@ -40,13 +40,13 @@ func TestNewMCPService(t *testing.T) {
 			mcpService, err := NewMCPService(tt.db, tt.mcpProxyServer)
 
 			if tt.expectError {
-				service.AssertError(t, err)
+				testhelpers.AssertError(t, err)
 				if mcpService != nil {
 					t.Error("Expected service to be nil when error occurs")
 				}
 			} else {
-				service.AssertNoError(t, err)
-				service.AssertNotNil(t, mcpService)
+				testhelpers.AssertNoError(t, err)
+				testhelpers.AssertNotNil(t, mcpService)
 				if mcpService.toolInstances == nil {
 					t.Error("Expected toolInstances to be initialized")
 				}
@@ -62,14 +62,14 @@ func TestNewMCPService(t *testing.T) {
 }
 
 func TestMCPServiceInitialization(t *testing.T) {
-	db, err := service.CreateTestDB()
-	service.AssertNoError(t, err)
+	db, err := testhelpers.CreateTestDB()
+	testhelpers.AssertNoError(t, err)
 
 	proxyServer := &server.MCPServer{}
 
 	mcpService, err := NewMCPService(db, proxyServer)
-	service.AssertNoError(t, err)
-	service.AssertNotNil(t, mcpService)
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertNotNil(t, mcpService)
 
 	// Test that the service is properly initialized
 	if mcpService.db != db {
@@ -90,13 +90,13 @@ func TestMCPServiceInitialization(t *testing.T) {
 }
 
 func TestMCPServiceCallbacks(t *testing.T) {
-	db, err := service.CreateTestDB()
-	service.AssertNoError(t, err)
+	db, err := testhelpers.CreateTestDB()
+	testhelpers.AssertNoError(t, err)
 
 	proxyServer := &server.MCPServer{}
 
 	mcpService, err := NewMCPService(db, proxyServer)
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	// Test that callbacks are initialized to NOOP functions
 	// These should not panic or return errors
@@ -110,17 +110,17 @@ func TestMCPServiceCallbacks(t *testing.T) {
 	}()
 
 	err = mcpService.toolAdditionCallback("tool1")
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 }
 
 func TestMCPServiceConcurrency(t *testing.T) {
-	db, err := service.CreateTestDB()
-	service.AssertNoError(t, err)
+	db, err := testhelpers.CreateTestDB()
+	testhelpers.AssertNoError(t, err)
 
 	proxyServer := &server.MCPServer{}
 
 	mcpService, err := NewMCPService(db, proxyServer)
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	// Test that the service can handle concurrent access to toolInstances
 	// This is a basic test to ensure the mutex is working
@@ -146,13 +146,13 @@ func TestMCPServiceConcurrency(t *testing.T) {
 }
 
 func TestMCPServiceToolInstances(t *testing.T) {
-	db, err := service.CreateTestDB()
-	service.AssertNoError(t, err)
+	db, err := testhelpers.CreateTestDB()
+	testhelpers.AssertNoError(t, err)
 
 	proxyServer := &server.MCPServer{}
 
 	mcpService, err := NewMCPService(db, proxyServer)
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	// Test that toolInstances map is properly initialized
 	if mcpService.toolInstances == nil {
@@ -177,14 +177,14 @@ func TestMCPServiceErrorHandling(t *testing.T) {
 	// This would require mocking the database to simulate connection failures
 	// For now, we'll test the basic error handling in the constructor
 
-	db, err := service.CreateTestDB()
-	service.AssertNoError(t, err)
+	db, err := testhelpers.CreateTestDB()
+	testhelpers.AssertNoError(t, err)
 
 	proxyServer := &server.MCPServer{}
 
 	mcpService, err := NewMCPService(db, proxyServer)
-	service.AssertNoError(t, err)
-	service.AssertNotNil(t, mcpService)
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertNotNil(t, mcpService)
 
 	// Test that the service handles errors gracefully
 	// This is a basic test - in a real scenario, you'd want to test

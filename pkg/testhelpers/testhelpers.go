@@ -1,4 +1,6 @@
-package service
+// Package testhelpers provides common testing utilities and assertion functions
+// for the MCPJungle project.
+package testhelpers
 
 import (
 	"fmt"
@@ -8,7 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// CreateTestDB creates a test database
+// CreateTestDB creates a test database using SQLite in-memory database
 func CreateTestDB() (*gorm.DB, error) {
 	return gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 }
@@ -64,7 +66,7 @@ func AssertFalse(t *testing.T, condition bool, message string) {
 // AssertStringContains asserts that a string contains a substring
 func AssertStringContains(t *testing.T, str, substr string) {
 	t.Helper()
-	if !contains(str, substr) {
+	if !Contains(str, substr) {
 		t.Errorf("Expected string '%s' to contain '%s'", str, substr)
 	}
 }
@@ -72,7 +74,7 @@ func AssertStringContains(t *testing.T, str, substr string) {
 // AssertStringNotContains asserts that a string does not contain a substring
 func AssertStringNotContains(t *testing.T, str, substr string) {
 	t.Helper()
-	if contains(str, substr) {
+	if Contains(str, substr) {
 		t.Errorf("Expected string '%s' to not contain '%s'", str, substr)
 	}
 }
@@ -158,16 +160,16 @@ func testName(index int, test any) string {
 	return fmt.Sprintf("test_%d", index)
 }
 
-// Helper function to check if string contains substring
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr ||
-		(len(s) > len(substr) &&
-			(s[:len(substr)] == substr ||
-				s[len(s)-len(substr):] == substr ||
-				containsSubstring(s, substr))))
+// Contains checks if a string contains a substring
+// This is a public function that can be used by other packages
+func Contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
+		(len(s) > len(substr) && (s[:len(substr)] == substr ||
+			s[len(s)-len(substr):] == substr ||
+			containsSubstring(s, substr))))
 }
 
-// Helper function to check if string contains substring (more efficient)
+// containsSubstring is a helper function for Contains
 func containsSubstring(s, substr string) bool {
 	for i := 0; i <= len(s)-len(substr); i++ {
 		if s[i:i+len(substr)] == substr {

@@ -21,4 +21,3 @@ func TestSubCommandGroups(t *testing.T) {
 		t.Errorf("Expected subCommandGroupAdvanced to be 'advanced', got %s", subCommandGroupAdvanced)
 	}
 }
-

@@ -4,51 +4,51 @@ import (
 	"testing"
 
 	"github.com/mcpjungle/mcpjungle/internal/model"
-	"github.com/mcpjungle/mcpjungle/internal/service"
+	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
 func TestNewUserService(t *testing.T) {
-	db, err := service.CreateTestDB()
-	service.AssertNoError(t, err)
+	db, err := testhelpers.CreateTestDB()
+	testhelpers.AssertNoError(t, err)
 
 	svc := NewUserService(db)
-	service.AssertNotNil(t, svc)
+	testhelpers.AssertNotNil(t, svc)
 	if svc.db != db {
 		t.Errorf("Expected db to be %v, got %v", db, svc.db)
 	}
 }
 
 func TestCreateUser(t *testing.T) {
-	db, err := service.CreateTestDB()
-	service.AssertNoError(t, err)
+	db, err := testhelpers.CreateTestDB()
+	testhelpers.AssertNoError(t, err)
 
 	// Auto-migrate the User model
 	err = db.AutoMigrate(&model.User{})
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	svc := NewUserService(db)
 
 	username := "testuser"
 	user, err := svc.CreateUser(username)
-	service.AssertNoError(t, err)
-	service.AssertNotNil(t, user)
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertNotNil(t, user)
 
 	// Verify user properties
-	service.AssertEqual(t, username, user.Username)
-	service.AssertEqual(t, types.UserRoleUser, user.Role)
+	testhelpers.AssertEqual(t, username, user.Username)
+	testhelpers.AssertEqual(t, types.UserRoleUser, user.Role)
 	if user.AccessToken == "" {
 		t.Error("Expected access token to be generated")
 	}
 }
 
 func TestCreateUserWithExistingUsername(t *testing.T) {
-	db, err := service.CreateTestDB()
-	service.AssertNoError(t, err)
+	db, err := testhelpers.CreateTestDB()
+	testhelpers.AssertNoError(t, err)
 
 	// Auto-migrate the User model
 	err = db.AutoMigrate(&model.User{})
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	svc := NewUserService(db)
 
@@ -56,93 +56,93 @@ func TestCreateUserWithExistingUsername(t *testing.T) {
 
 	// Create first user
 	user1, err := svc.CreateUser(username)
-	service.AssertNoError(t, err)
-	service.AssertNotNil(t, user1)
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertNotNil(t, user1)
 
 	// Try to create another user with same username
 	user2, err := svc.CreateUser(username)
-	service.AssertError(t, err)
+	testhelpers.AssertError(t, err)
 	if user2 != nil {
 		t.Error("Expected second user creation to fail")
 	}
 }
 
 func TestCreateAdminUser(t *testing.T) {
-	db, err := service.CreateTestDB()
-	service.AssertNoError(t, err)
+	db, err := testhelpers.CreateTestDB()
+	testhelpers.AssertNoError(t, err)
 
 	// Auto-migrate the User model
 	err = db.AutoMigrate(&model.User{})
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	svc := NewUserService(db)
 
 	user, err := svc.CreateAdminUser()
-	service.AssertNoError(t, err)
-	service.AssertNotNil(t, user)
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertNotNil(t, user)
 
 	// Verify admin user properties
-	service.AssertEqual(t, "admin", user.Username)
-	service.AssertEqual(t, types.UserRoleAdmin, user.Role)
+	testhelpers.AssertEqual(t, "admin", user.Username)
+	testhelpers.AssertEqual(t, types.UserRoleAdmin, user.Role)
 	if user.AccessToken == "" {
 		t.Error("Expected access token to be generated")
 	}
 }
 
 func TestGetUserByAccessToken(t *testing.T) {
-	db, err := service.CreateTestDB()
-	service.AssertNoError(t, err)
+	db, err := testhelpers.CreateTestDB()
+	testhelpers.AssertNoError(t, err)
 
 	// Auto-migrate the User model
 	err = db.AutoMigrate(&model.User{})
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	svc := NewUserService(db)
 
 	// Create a test user first
 	username := "testuser"
 	user, err := svc.CreateUser(username)
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	// Test getting user by valid token
 	retrievedUser, err := svc.GetUserByAccessToken(user.AccessToken)
-	service.AssertNoError(t, err)
-	service.AssertNotNil(t, retrievedUser)
-	service.AssertEqual(t, username, retrievedUser.Username)
-	service.AssertEqual(t, user.AccessToken, retrievedUser.AccessToken)
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertNotNil(t, retrievedUser)
+	testhelpers.AssertEqual(t, username, retrievedUser.Username)
+	testhelpers.AssertEqual(t, user.AccessToken, retrievedUser.AccessToken)
 
 	// Test getting user by invalid token
 	_, err = svc.GetUserByAccessToken("invalid-token")
-	service.AssertError(t, err)
+	testhelpers.AssertError(t, err)
 }
 
 func TestListUsers(t *testing.T) {
-	db, err := service.CreateTestDB()
-	service.AssertNoError(t, err)
+	db, err := testhelpers.CreateTestDB()
+	testhelpers.AssertNoError(t, err)
 
 	// Auto-migrate the User model
 	err = db.AutoMigrate(&model.User{})
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	svc := NewUserService(db)
 
 	// Initially should be empty
 	users, err := svc.ListUsers()
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 	if len(users) != 0 {
 		t.Errorf("Expected 0 users initially, got %d", len(users))
 	}
 
 	// Create some users
 	_, err = svc.CreateUser("user1")
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	_, err = svc.CreateUser("user2")
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	// Now should have 2 users
 	users, err = svc.ListUsers()
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 	if len(users) != 2 {
 		t.Errorf("Expected 2 users, got %d", len(users))
 	}
@@ -162,68 +162,68 @@ func TestListUsers(t *testing.T) {
 }
 
 func TestDeleteUser(t *testing.T) {
-	db, err := service.CreateTestDB()
-	service.AssertNoError(t, err)
+	db, err := testhelpers.CreateTestDB()
+	testhelpers.AssertNoError(t, err)
 
 	// Auto-migrate the User model
 	err = db.AutoMigrate(&model.User{})
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	svc := NewUserService(db)
 
 	// Create a test user
 	username := "testuser"
 	user, err := svc.CreateUser(username)
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	// Verify user exists
 	_, err = svc.GetUserByAccessToken(user.AccessToken)
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	// Delete the user
 	err = svc.DeleteUser(username)
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	// Verify user was deleted
 	_, err = svc.GetUserByAccessToken(user.AccessToken)
-	service.AssertError(t, err)
+	testhelpers.AssertError(t, err)
 }
 
 func TestDeleteUserNotFound(t *testing.T) {
-	db, err := service.CreateTestDB()
-	service.AssertNoError(t, err)
+	db, err := testhelpers.CreateTestDB()
+	testhelpers.AssertNoError(t, err)
 
 	// Auto-migrate the User model
 	err = db.AutoMigrate(&model.User{})
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	svc := NewUserService(db)
 
 	// Try to delete non-existent user
 	err = svc.DeleteUser("nonexistent")
-	service.AssertError(t, err)
+	testhelpers.AssertError(t, err)
 }
 
 func TestDeleteAdminUser(t *testing.T) {
-	db, err := service.CreateTestDB()
-	service.AssertNoError(t, err)
+	db, err := testhelpers.CreateTestDB()
+	testhelpers.AssertNoError(t, err)
 
 	// Auto-migrate the User model
 	err = db.AutoMigrate(&model.User{})
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	svc := NewUserService(db)
 
 	// Create admin user
 	admin, err := svc.CreateAdminUser()
-	service.AssertNoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	// Try to delete admin user (should fail)
 	err = svc.DeleteUser("admin")
-	service.AssertError(t, err)
+	testhelpers.AssertError(t, err)
 
 	// Verify admin user still exists
 	retrievedUser, err := svc.GetUserByAccessToken(admin.AccessToken)
-	service.AssertNoError(t, err)
-	service.AssertEqual(t, "admin", retrievedUser.Username)
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertEqual(t, "admin", retrievedUser.Username)
 }

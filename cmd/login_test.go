@@ -55,4 +55,3 @@ func TestUserRoleConstants(t *testing.T) {
 		}
 	})
 }
-
