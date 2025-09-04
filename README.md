@@ -441,6 +441,8 @@ The client will then ONLY see and be able to use these 3 tools and will not be a
 > [!TIP]
 > You can run `mcpjungle list tools` to view all available tools and pick the ones you want to include in your group.
 
+You can also watch a [Video on using Tool Groups](https://youtu.be/A21rfGgo38A).
+
 ### Managing tool groups
 You can currently perform operations like listing all groups, viewing details of a specific group and deleting a group.
 
