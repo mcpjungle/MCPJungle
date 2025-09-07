@@ -7,9 +7,8 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/mcpjungle/mcpjungle/internal/telemetry"
 	"gorm.io/gorm"
-
-	"github.com/mcpjungle/mcpjungle/internal/metrics"
 )
 
 // MCPService coordinates operations amongst the registry database, mcp proxy server and upstream MCP servers.
@@ -29,12 +28,12 @@ type MCPService struct {
 	// (registered or (re)enabled) in mcpjungle.
 	toolAdditionCallback ToolAdditionCallback
 
-	metrics *metrics.MCPMetrics
+	metrics telemetry.CustomMetrics
 }
 
 // NewMCPService creates a new instance of MCPService.
 // It initializes the MCP proxy server by loading all registered tools from the database.
-func NewMCPService(db *gorm.DB, mcpProxyServer *server.MCPServer, metrics *metrics.MCPMetrics) (*MCPService, error) {
+func NewMCPService(db *gorm.DB, mcpProxyServer *server.MCPServer, metrics telemetry.CustomMetrics) (*MCPService, error) {
 	s := &MCPService{
 		db:             db,
 		mcpProxyServer: mcpProxyServer,

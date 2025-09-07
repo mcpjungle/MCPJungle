@@ -52,6 +52,7 @@ func (m *MCPService) DeregisterMcpServer(name string) error {
 	if err := m.db.Unscoped().Delete(s).Error; err != nil {
 		return fmt.Errorf("failed to deregister server %s: %w", name, err)
 	}
+
 	return nil
 }
 

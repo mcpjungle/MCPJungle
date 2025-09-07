@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-
 	"github.com/mcpjungle/mcpjungle/internal/model"
 )
 

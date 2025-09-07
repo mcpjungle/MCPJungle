@@ -6,14 +6,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mark3labs/mcp-go/server"
-
-	"github.com/mcpjungle/mcpjungle/internal/metrics"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
+	"github.com/mcpjungle/mcpjungle/internal/telemetry"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 const (
@@ -31,7 +32,9 @@ type ServerOptions struct {
 	ConfigService    *config.ServerConfigService
 	UserService      *user.UserService
 	ToolGroupService *toolgroup.ToolGroupService
-	OtelProviders    *metrics.Providers
+
+	OtelProviders *telemetry.Providers
+	Metrics       telemetry.CustomMetrics
 }
 
 // Server represents the MCPJungle registry server that handles MCP proxy and API requests
@@ -47,8 +50,8 @@ type Server struct {
 	userService      *user.UserService
 	toolGroupService *toolgroup.ToolGroupService
 
-	otelProviders *metrics.Providers
-	metrics       *metrics.MCPMetrics
+	otelProviders *telemetry.Providers
+	metrics       telemetry.CustomMetrics
 }
 
 // NewServer initializes a new Gin server for MCPJungle registry and MCP proxy
@@ -62,15 +65,7 @@ func NewServer(opts *ServerOptions) (*Server, error) {
 		userService:      opts.UserService,
 		toolGroupService: opts.ToolGroupService,
 		otelProviders:    opts.OtelProviders,
-	}
-
-	// Initialize metrics if OTel providers are available
-	if opts.OtelProviders != nil && opts.OtelProviders.Meter != nil {
-		mcpMetrics, err := metrics.NewMCPMetrics(opts.OtelProviders.Meter)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create MCP metrics: %w", err)
-		}
-		s.metrics = mcpMetrics
+		metrics:          opts.Metrics,
 	}
 
 	// Set up the router after the server is fully initialized
@@ -131,17 +126,21 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 
+	// if otel is enabled, setup prometheus metrics endpoint
+	if s.otelProviders.IsEnabled() {
+		// instrument gin
+		r.Use(otelgin.Middleware(s.otelProviders.ServiceName()))
+
+		// expose prometheus metrics endpoint
+		r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	}
+
 	r.GET(
 		"/health",
 		func(c *gin.Context) {
 			c.JSON(200, gin.H{"status": "ok"})
 		},
 	)
-
-	// Add metrics endpoint if otel is enabled
-	if s.otelProviders != nil && s.otelProviders.IsEnabled() {
-		r.GET("/metrics", gin.WrapH(s.otelProviders.Handler))
-	}
 
 	r.POST("/init", s.registerInitServerHandler())
 
