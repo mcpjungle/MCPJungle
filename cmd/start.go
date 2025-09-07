@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
@@ -25,6 +26,10 @@ const (
 	BindPortDefault = "8080"
 
 	DBUrlEnvVar            = "DATABASE_URL"
+	PostgresUserEnvVar     = "POSTGRES_USER"
+	PostgresPasswordEnvVar = "POSTGRES_PASSWORD"
+	PostgresDBEnvVar       = "POSTGRES_DB"
+
 	ServerModeEnvVar       = "SERVER_MODE"
 	TelemetryEnabledEnvVar = "OTEL_ENABLED"
 )
@@ -154,6 +159,25 @@ func getBindPort() string {
 	return port
 }
 
+func getEnvOrSecret(envVar string, secretPathEnvVar string) (string, error) {
+	val := os.Getenv(envVar)
+	if val != "" {
+		return val, nil
+	}
+
+	secretPath := os.Getenv(secretPathEnvVar)
+	if secretPath == "" {
+		return "", fmt.Errorf("%s not found", secretPathEnvVar)
+	}
+
+	data, err := os.ReadFile(secretPath)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(data)), nil
+}
+
 func runStartServer(cmd *cobra.Command, args []string) error {
 	_ = godotenv.Load()
 
@@ -199,6 +223,21 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 
 	// connect to the DB and run migrations
 	dsn := os.Getenv(DBUrlEnvVar)
+
+	if dsn == "" {
+		pgUser, _ := getEnvOrSecret(PostgresUserEnvVar, PostgresUserEnvVar+"_FILE")
+		pgPassword, _ := getEnvOrSecret(PostgresPasswordEnvVar, PostgresPasswordEnvVar+"_FILE")
+		pgDB, _ := getEnvOrSecret(PostgresDBEnvVar, PostgresDBEnvVar+"_FILE")
+
+		hasAll := pgUser != "" && pgPassword != "" && pgDB != ""
+		hasNone := pgUser == "" && pgPassword == "" && pgDB == ""
+		if !hasAll && !hasNone {
+			return fmt.Errorf("either all PostgreSQL environment variables must be provided or none of them")
+		}
+
+		dsn = fmt.Sprintf("postgres://%s:%s@db:5432/%s", url.QueryEscape(pgUser), url.QueryEscape(pgPassword), url.QueryEscape(pgDB))
+	}
+
 	dbConn, err := db.NewDBConnection(dsn)
 	if err != nil {
 		return err
