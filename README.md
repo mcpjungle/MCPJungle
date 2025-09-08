@@ -32,7 +32,7 @@ MCPJungle is a single source-of-truth registry for all [Model Context Protocol](
 - [Usage](#usage)
   - [Server](#server)
     - [Running mcpjungle server inside Docker](#running-inside-docker)
-    - [Running mcpjungle server directly on the host machine](#running-directly)
+    - [Running mcpjungle server directly on the host machine](#running-directly-on-host)
   - [Client](#client)
     - [Adding Streamable HTTP-based MCP servers](#registering-streamable-http-based-servers)
     - [Adding STDIO-based MCP servers](#registering-stdio-based-servers)
@@ -44,6 +44,7 @@ MCPJungle is a single source-of-truth registry for all [Model Context Protocol](
   - [Authentication](#authentication)
   - [Enterprise features](#enterprise-features-)
     - [Access Control](#access-control)
+    - [OpenTelemetry](#opentelemetry)
 - [Limitations](#current-limitations-)
 - [Contributing](#contributing-)
 
@@ -143,7 +144,14 @@ The gateway itself runs over streamable http transport and is accessible at the 
 ### Running inside Docker
 For running the MCPJungle server locally, docker compose is the recommended way:
 ```shell
+# docker-compose.yaml is optimized for individuals running mcpjungle on their local machines for personal use.
+# mcpjungle will run in `development` mode by default.
 curl -O https://raw.githubusercontent.com/mcpjungle/MCPJungle/refs/heads/main/docker-compose.yaml
+
+# docker-compose.prod.yaml is optimized for orgs deploying mcpjungle on a remote server for multiple users.
+# mcpjungle will run in `production` mode by default, which enables enterprise features.
+curl -O https://raw.githubusercontent.com/mcpjungle/MCPJungle/refs/heads/main/docker-compose.prod.yaml
+
 docker-compose up -d
 ```
 
@@ -158,6 +166,10 @@ If you plan on registering stdio-based MCP servers that rely on `npx` or `uvx`, 
 ```bash
 MCPJUNGLE_IMAGE_TAG=latest-stdio docker-compose up -d
 ```
+
+> [!NOTE]
+> If you're using `docker-compose.yaml`, this is already the default image tag.
+> You only need to specify the stdio image tag if you're using `docker-compose.prod.yaml`.
 
 This image is significantly larger. But it is very convenient and recommended for running locally when you rely on stdio-based MCP servers.
 
@@ -178,7 +190,7 @@ For the database, we recommend you deploy a separate Postgres DB cluster and sup
 
 You can see the definitions of the [standard Docker image](./Dockerfile) and the [stdio Docker image](./stdio.Dockerfile).
 
-### Running directly
+### Running directly on host
 You can also run the server directly on your host machine using the binary:
 
 ```bash
@@ -561,6 +573,25 @@ A client that has access to a particular server this way can view and call all t
 
 > [!NOTE]
 > If you don't specify the `--allow` flag, the MCP client will not be able to access any MCP servers.
+
+### OpenTelemetry
+MCPJungle supports Prometheus-compatible OpenTelemetry Metrics for observability.
+
+- In `production` mode, OpenTelemetry is enabled by default.
+- In `development` mode, telemetry is disabled by default. You can enable it by setting the `OTEL_ENABLED` environment variable to `true` before starting the server:
+
+```bash
+# enable OpenTelemetry metrics
+export OTEL_ENABLED=true
+
+# optionally, set additional attributes to be added to all metrics
+export OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=production
+
+# start the server
+mcpjungle start
+```
+
+Once the mcpjungle server is started, metrics are available at the `/metrics` endpoint.
 
 # Current limitations 🚧
 We're not perfect yet, but we're working hard to get there!
