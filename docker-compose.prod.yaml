@@ -1,0 +1,81 @@
+# MCPJungle Docker Compose configuration for teams & organizations.
+# Use this compose file if you want to host MCPJungle on a remote server for multiple users within your org.
+# The mcpjungle server runs in production mode with enterprise features enabled.
+services:
+  db:
+    image: postgres:latest
+    container_name: mcpjungle-db
+    environment:
+      POSTGRES_USER: mcpjungle
+      POSTGRES_PASSWORD: mcpjungle
+      POSTGRES_DB: mcpjungle
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "PGPASSWORD=mcpjungle pg_isready -U mcpjungle"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: mcpjungle-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+
+  mcpjungle:
+    image: mcpjungle/mcpjungle:${MCPJUNGLE_IMAGE_TAG:-latest}
+    container_name: mcpjungle-server
+    environment:
+      DATABASE_URL: postgres://mcpjungle:mcpjungle@db:5432/mcpjungle
+      SERVER_MODE: ${SERVER_MODE:-production}
+      OTEL_ENABLED: ${OTEL_ENABLED:-true}
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: mcpjungle-prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    volumes:
+      - prometheus_data:/prometheus
+    configs:
+      - source: prometheus_config
+        target: /etc/prometheus/prometheus.yml
+    depends_on:
+      - mcpjungle
+    restart: unless-stopped
+
+configs:
+  prometheus_config:
+    content: |
+      global:
+        scrape_interval: 15s
+        evaluation_interval: 30s
+
+      scrape_configs:
+        - job_name: 'mcpjungle'
+          static_configs:
+            - targets: ['mcpjungle:8080']
+          metrics_path: '/metrics'
+          scrape_interval: 15s
+
+volumes:
+  db_data:
+  prometheus_data:

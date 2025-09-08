@@ -16,6 +16,7 @@ const (
 )
 
 const (
+	// attrValueMaxLen is the maximum length for string attribute values.
 	attrValueMaxLen  = 64
 	attrValueUnknown = "unknown"
 )

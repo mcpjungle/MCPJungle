@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// ToolCallOutcome represents the outcome of a tool call, either success or error.
 type ToolCallOutcome string
 
 const (
