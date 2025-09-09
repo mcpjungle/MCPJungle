@@ -10,11 +10,11 @@ import (
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
-// CreateUser sends a request to create a new authenticated, human user in mcpjungle
-func (c *Client) CreateUser(user *types.CreateUserRequest) (*types.CreateUserResponse, error) {
-	u, _ := c.constructAPIEndpoint("/users")
+// CreateToolGroup sends API request to create a new Tool Group.
+func (c *Client) CreateToolGroup(group *types.ToolGroup) (*types.CreateToolGroupResponse, error) {
+	u, _ := c.constructAPIEndpoint("/tool-groups")
 
-	body, err := json.Marshal(user)
+	body, err := json.Marshal(group)
 	if err != nil {
 		return nil, err
 	}
@@ -36,16 +36,16 @@ func (c *Client) CreateUser(user *types.CreateUserRequest) (*types.CreateUserRes
 		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
 	}
 
-	var createResp types.CreateUserResponse
+	var createResp types.CreateToolGroupResponse
 	if err := json.NewDecoder(resp.Body).Decode(&createResp); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 	return &createResp, nil
 }
 
-// DeleteUser sends a request to delete a user from mcpjungle
-func (c *Client) DeleteUser(username string) error {
-	u, _ := c.constructAPIEndpoint("/users/" + username)
+// DeleteToolGroup sends API request to delete a Tool Group by name.
+func (c *Client) DeleteToolGroup(name string) error {
+	u, _ := c.constructAPIEndpoint("/tool-groups/" + name)
 
 	req, err := c.newRequest(http.MethodDelete, u, nil)
 	if err != nil {
@@ -66,9 +66,9 @@ func (c *Client) DeleteUser(username string) error {
 	return nil
 }
 
-// ListUsers sends a request to list all users in mcpjungle
-func (c *Client) ListUsers() ([]*types.User, error) {
-	u, _ := c.constructAPIEndpoint("/users")
+// ListToolGroups sends API request to list all Tool Groups.
+func (c *Client) ListToolGroups() ([]types.ToolGroup, error) {
+	u, _ := c.constructAPIEndpoint("/tool-groups")
 
 	req, err := c.newRequest(http.MethodGet, u, nil)
 	if err != nil {
@@ -86,22 +86,21 @@ func (c *Client) ListUsers() ([]*types.User, error) {
 		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
 	}
 
-	var users []*types.User
-	if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
+	var groups []types.ToolGroup
+	if err := json.NewDecoder(resp.Body).Decode(&groups); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
-	return users, nil
+	return groups, nil
 }
 
-// Whoami sends a request to get information about the user associated with the provided access token
-func (c *Client) Whoami(accessToken string) (*types.User, error) {
-	u, _ := c.constructAPIEndpoint("/users/whoami")
+// GetToolGroup sends API request to get details of a specific Tool Group by name.
+func (c *Client) GetToolGroup(name string) (*types.GetToolGroupResponse, error) {
+	u, _ := c.constructAPIEndpoint("/tool-groups/" + name)
 
 	req, err := c.newRequest(http.MethodGet, u, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request to %s: %w", u, err)
 	}
-	req.Header.Set("Authorization", "Bearer "+accessToken)
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -114,9 +113,9 @@ func (c *Client) Whoami(accessToken string) (*types.User, error) {
 		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
 	}
 
-	var user types.User
-	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+	var group types.GetToolGroupResponse
+	if err := json.NewDecoder(resp.Body).Decode(&group); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
-	return &user, nil
+	return &group, nil
 }

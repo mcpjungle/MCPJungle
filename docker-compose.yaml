@@ -1,3 +1,6 @@
+# MCPJungle Docker Compose configuration for individual users.
+# Use this compose file if you want to run MCPJungle locally for your personal MCP management & Gateway.
+# The mcpjungle server runs in development mode.
 services:
   db:
     image: postgres:latest
@@ -17,23 +20,13 @@ services:
       retries: 5
     restart: unless-stopped
 
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: mcpjungle-pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - "5050:80"
-    depends_on:
-      - db
-
   mcpjungle:
-    image: mcpjungle/mcpjungle:${MCPJUNGLE_IMAGE_TAG:-latest}
+    image: mcpjungle/mcpjungle:${MCPJUNGLE_IMAGE_TAG:-latest-stdio}
     container_name: mcpjungle-server
     environment:
       DATABASE_URL: postgres://mcpjungle:mcpjungle@db:5432/mcpjungle
-      SERVER_MODE: $SERVER_MODE
+      SERVER_MODE: ${SERVER_MODE:-development}
+      OTEL_ENABLED: ${OTEL_ENABLED:-false}
     ports:
       - "8080:8080"
     depends_on:

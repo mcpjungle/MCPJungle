@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"io"
 	"net/http"
+
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
 // ListTools fetches the list of tools, optionally filtered by server name.
@@ -23,6 +24,7 @@ func (c *Client) ListTools(server string) ([]*types.Tool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to send request to %s: %w", req.URL.String(), err)
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

@@ -1,3 +1,4 @@
+// Package internal provides internal utility functionality for the MCPJungle application.
 package internal
 
 import (

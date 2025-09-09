@@ -24,10 +24,9 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/spf13/cobra"
-
 	"github.com/mcpjungle/mcpjungle/client"
 	"github.com/mcpjungle/mcpjungle/cmd/config"
+	"github.com/spf13/cobra"
 )
 
 // subCommandGroup defines a type for categorizing subcommands into groups
@@ -54,10 +53,10 @@ const asciiArt = `
 
 `
 
-// SilentErr is a sentinel error used to indicate that the command should not print an error message
+// ErrSilent is a sentinel error used to indicate that the command should not print an error message
 // This is useful when we handle error printing internally but want main to exit with a non-zero status.
 // See https://github.com/spf13/cobra/issues/914#issuecomment-548411337
-var SilentErr = errors.New("SilentErr")
+var ErrSilent = errors.New("SilentErr")
 
 var registryServerURL string
 
@@ -98,7 +97,7 @@ func Execute() error {
 	rootCmd.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
 		cmd.Println(err)
 		cmd.Println(cmd.UsageString())
-		return SilentErr
+		return ErrSilent
 	})
 
 	rootCmd.PersistentFlags().StringVar(

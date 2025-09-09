@@ -113,7 +113,7 @@ func readMcpServerConfigJson(reader io.Reader) (types.RegisterServerInput, error
 
 	data, err := io.ReadAll(reader)
 	if err != nil {
-		return input, fmt.Errorf("failed to read config from config file: %w", err)
+		return input, fmt.Errorf("failed to read config file %s: %w", registerCmdServerConfigFilePath, err)
 	}
 	// Parse JSON config
 	if err := json.Unmarshal(data, &input); err != nil {

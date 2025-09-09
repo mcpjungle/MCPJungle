@@ -32,7 +32,7 @@ MCPJungle is a single source-of-truth registry for all [Model Context Protocol](
 - [Usage](#usage)
   - [Server](#server)
     - [Running mcpjungle server inside Docker](#running-inside-docker)
-    - [Running mcpjungle server directly on the host machine](#running-directly)
+    - [Running mcpjungle server directly on the host machine](#running-directly-on-host)
   - [Client](#client)
     - [Adding Streamable HTTP-based MCP servers](#registering-streamable-http-based-servers)
     - [Adding STDIO-based MCP servers](#registering-stdio-based-servers)
@@ -40,22 +40,24 @@ MCPJungle is a single source-of-truth registry for all [Model Context Protocol](
   - [Connect to mcpjungle from Claude](#claude)
   - [Connect to mcpjungle from Cursor](#cursor)
   - [Enabling/Disabling Tools globally](#enablingdisabling-tools)
+  - [Tool Groups](#tool-groups)
   - [Authentication](#authentication)
   - [Enterprise features](#enterprise-features-)
     - [Access Control](#access-control)
+    - [OpenTelemetry](#opentelemetry)
 - [Limitations](#current-limitations-)
 - [Contributing](#contributing-)
 
 # Quickstart guide
 This quickstart guide will show you how to:
-1. Start the MCPJungle server locally using docker-compose
+1. Start the MCPJungle server locally using `docker compose`
 2. Register a simple MCP server in mcpjungle
 3. Connect your Claude to mcpjungle to access your MCP tools
 
 ## Start the server
 ```bash
 curl -O https://raw.githubusercontent.com/mcpjungle/MCPJungle/refs/heads/main/docker-compose.yaml
-docker-compose up -d
+docker compose up -d
 ```
 
 ## Register MCP servers
@@ -142,8 +144,17 @@ The gateway itself runs over streamable http transport and is accessible at the 
 ### Running inside Docker
 For running the MCPJungle server locally, docker compose is the recommended way:
 ```shell
+# docker-compose.yaml is optimized for individuals running mcpjungle on their local machines for personal use.
+# mcpjungle will run in `development` mode by default.
 curl -O https://raw.githubusercontent.com/mcpjungle/MCPJungle/refs/heads/main/docker-compose.yaml
-docker-compose up -d
+
+docker compose up -d
+
+# docker-compose.prod.yaml is optimized for orgs deploying mcpjungle on a remote server for multiple users.
+# mcpjungle will run in `production` mode by default, which enables enterprise features.
+curl -O https://raw.githubusercontent.com/mcpjungle/MCPJungle/refs/heads/main/docker-compose.prod.yaml
+
+docker compose -f docker-compose.prod.yaml up -d
 ```
 
 This will start the MCPJungle server along with a persistent Postgres database container.
@@ -155,8 +166,12 @@ curl http://localhost:8080/health
 
 If you plan on registering stdio-based MCP servers that rely on `npx` or `uvx`, use mcpjungle's `stdio` tagged docker image instead.
 ```bash
-MCPJUNGLE_IMAGE_TAG=latest-stdio docker-compose up -d
+MCPJUNGLE_IMAGE_TAG=latest-stdio docker compose up -d
 ```
+
+> [!NOTE]
+> If you're using `docker-compose.yaml`, this is already the default image tag.
+> You only need to specify the stdio image tag if you're using `docker-compose.prod.yaml`.
 
 This image is significantly larger. But it is very convenient and recommended for running locally when you rely on stdio-based MCP servers.
 
@@ -177,7 +192,7 @@ For the database, we recommend you deploy a separate Postgres DB cluster and sup
 
 You can see the definitions of the [standard Docker image](./Dockerfile) and the [stdio Docker image](./stdio.Dockerfile).
 
-### Running directly
+### Running directly on host
 You can also run the server directly on your host machine using the binary:
 
 ```bash
@@ -219,7 +234,7 @@ You can register this MCP server with MCPJungle:
 mcpjungle register --name calculator --description "Provides some basic math tools" --url http://127.0.0.1:8000/mcp
 ```
 
-If you used docker-compose to run the server, and you're not on Linux, you will have to use `host.docker.internal` instead of your local loopback address.
+If you used docker compose to run the server, and you're not on Linux, you will have to use `host.docker.internal` instead of your local loopback address.
 ```bash
 mcpjungle register --name calculator --description "Provides some basic math tools" --url http://host.docker.internal:8000/mcp
 ```
@@ -389,6 +404,82 @@ A disabled tool is still accessible via mcpjungle's HTTP API, so humans can stil
 > [!NOTE]
 > When a new server is registered in MCPJungle, all its tools are **enabled** by default.
 
+## Tool Groups
+As you add more MCP servers to MCPJungle, the number of tools available through the Gateway can grow significantly.
+
+If your MCP client is exposed to hundreds of tools through the gateway MCP, its performance may degrade.
+
+MCPJungle allows you to **expose only a subset of all available tools to your MCP clients using Tool Groups**.
+
+You can create a new group and only include specific tools that you wish to expose.
+
+Once a group is created, mcpjungle returns a unique endpoint for it.
+
+You can then configure your MCP client to use this group-specific endpoint instead of the main gateway endpoint.
+
+### Creating a Tool Group
+You can create a new tool group by providing a JSON configuration file to the `create group` command.
+
+You must specify a unique `name` for the group and a list of `included_tools` that you want to expose via its MCP proxy.
+
+Here is an example of a tool group configuration file (`claude-tools-group.json`):
+```json
+{
+  "name": "claude-tools",
+  "description": "This group only contains tools for Claude Desktop to use",
+  "included_tools": [
+    "filesystem__read_file",
+    "deepwiki__read_wiki_contents",
+    "time__get_current_time"
+  ]
+}
+```
+
+Instead of exposing 20 tools across all MCP servers, this group only exposes 3 handpicked ones.
+
+You can create this group in mcpjungle:
+```bash
+$ mcpjungle create group -c ./claude-tools-group.json
+
+Tool Group claude-tools created successfully
+It is now accessible at the following streamable http endpoint:
+
+    http://127.0.0.1:8080/v0/groups/claude-tools/mcp
+
+```
+
+You can then configure Claude (or any other MCP client) to use this group-specific endpoint to access the MCP server.
+
+The client will then ONLY see and be able to use these 3 tools and will not be aware of any other tools registered in MCPJungle.
+
+> [!TIP]
+> You can run `mcpjungle list tools` to view all available tools and pick the ones you want to include in your group.
+
+You can also watch a [Video on using Tool Groups](https://youtu.be/A21rfGgo38A).
+
+### Managing tool groups
+You can currently perform operations like listing all groups, viewing details of a specific group and deleting a group.
+
+```bash
+# list all tool groups
+mcpjungle list groups
+
+# view details of a specific group
+mcpjungle get group claude-tools
+
+# delete a group
+mcpjungle delete group claude-tools
+```
+
+> [!NOTE]
+> If a tool is included in a group but is later disabled globally or deleted, then it will not be available via the group's MCP endpoint.
+>
+> But if the tool is re-enabled or added again later, it will automatically become available in the group again.
+
+**Limitations** 🚧
+1. Currently, you cannot update an existing tool group. You must delete the group and create a new one with the modified configuration file.
+2. In `production` mode, currently only an admin can create a Tool Group. We're working on allowing standard Users to create their own groups as well.
+
 ## Authentication
 MCPJungle currently supports authentication if your Streamable HTTP MCP Server accepts static tokens for auth.
 
@@ -424,8 +515,8 @@ mcpjungle start --prod
 export SERVER_MODE=production
 mcpjungle start
 
-# this also works when running the server via docker-compose
-SERVER_MODE=production docker-compose up
+# Or use the production docker compose file as described above
+docker compose -f docker-compose.prod.yaml up -d
 ```
 
 By default, mcpjungle server runs in `development` mode which is ideal for individuals running it locally.
@@ -484,6 +575,25 @@ A client that has access to a particular server this way can view and call all t
 
 > [!NOTE]
 > If you don't specify the `--allow` flag, the MCP client will not be able to access any MCP servers.
+
+### OpenTelemetry
+MCPJungle supports Prometheus-compatible OpenTelemetry Metrics for observability.
+
+- In `production` mode, OpenTelemetry is enabled by default.
+- In `development` mode, telemetry is disabled by default. You can enable it by setting the `OTEL_ENABLED` environment variable to `true` before starting the server:
+
+```bash
+# enable OpenTelemetry metrics
+export OTEL_ENABLED=true
+
+# optionally, set additional attributes to be added to all metrics
+export OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=production
+
+# start the server
+mcpjungle start
+```
+
+Once the mcpjungle server is started, metrics are available at the `/metrics` endpoint.
 
 # Current limitations 🚧
 We're not perfect yet, but we're working hard to get there!

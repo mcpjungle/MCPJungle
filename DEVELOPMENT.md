@@ -59,6 +59,17 @@ go test ./internal/service/mcp
 ./scripts/test-mcpjungle.sh
 ```
 
+#### Linting
+We use `golangci-lint` for linting. See its [Installation Docs](https://golangci-lint.run/docs/welcome/install/).
+
+```bash
+# Run golangci-lint
+golangci-lint run
+
+# Fix issues automatically where possible
+golangci-lint run --fix
+```
+
 ### 3. Database Development
 
 #### SQLite Development

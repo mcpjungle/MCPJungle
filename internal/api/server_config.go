@@ -3,11 +3,9 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/mcpjungle/mcpjungle/internal/model"
-	"github.com/mcpjungle/mcpjungle/internal/service/config"
-	"github.com/mcpjungle/mcpjungle/internal/service/user"
 )
 
-func registerInitServerHandler(configService *config.ServerConfigService, userService *user.UserService) gin.HandlerFunc {
+func (s *Server) registerInitServerHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
 			Mode model.ServerMode `json:"mode" binding:"required,oneof=development production"`
@@ -16,7 +14,7 @@ func registerInitServerHandler(configService *config.ServerConfigService, userSe
 			c.JSON(400, gin.H{"error": "Invalid request body: " + err.Error()})
 			return
 		}
-		ok, err := configService.Init(req.Mode)
+		ok, err := s.configService.Init(req.Mode)
 		if err != nil {
 			c.JSON(500, gin.H{"error": "Failed to initialize server: " + err.Error()})
 			return
@@ -33,7 +31,7 @@ func registerInitServerHandler(configService *config.ServerConfigService, userSe
 		}
 		// If the server was successfully initialized and the mode is prod,
 		// create an admin user and return its access token
-		admin, err := userService.CreateAdminUser()
+		admin, err := s.userService.CreateAdminUser()
 		if err != nil {
 			c.JSON(
 				500, gin.H{"error": "Initialization succeeded but failed to create admin user: " + err.Error()},

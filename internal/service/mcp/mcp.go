@@ -1,8 +1,13 @@
+// Package mcp provides MCP (Model Context Protocol) service functionality for the MCPJungle application.
 package mcp
 
 import (
 	"fmt"
+	"sync"
+
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/mcpjungle/mcpjungle/internal/telemetry"
 	"gorm.io/gorm"
 )
 
@@ -11,14 +16,36 @@ import (
 type MCPService struct {
 	db             *gorm.DB
 	mcpProxyServer *server.MCPServer
+
+	// toolInstances keeps track of all the in-memory mcp.Tool instances, keyed by their unique names.
+	toolInstances map[string]mcp.Tool
+	mu            sync.RWMutex
+
+	// toolDeletionCallback is a callback that gets invoked when one or more tools is removed
+	// (deregistered or disabled) from mcpjungle.
+	toolDeletionCallback ToolDeletionCallback
+	// toolAdditionCallback is a callback that gets invoked when one or more tools is added
+	// (registered or (re)enabled) in mcpjungle.
+	toolAdditionCallback ToolAdditionCallback
+
+	metrics telemetry.CustomMetrics
 }
 
 // NewMCPService creates a new instance of MCPService.
 // It initializes the MCP proxy server by loading all registered tools from the database.
-func NewMCPService(db *gorm.DB, mcpProxyServer *server.MCPServer) (*MCPService, error) {
+func NewMCPService(db *gorm.DB, mcpProxyServer *server.MCPServer, metrics telemetry.CustomMetrics) (*MCPService, error) {
 	s := &MCPService{
 		db:             db,
 		mcpProxyServer: mcpProxyServer,
+
+		toolInstances: make(map[string]mcp.Tool),
+		mu:            sync.RWMutex{},
+
+		// initialize the callbacks to NOOP functions
+		toolDeletionCallback: func(toolNames ...string) {},
+		toolAdditionCallback: func(toolName string) error { return nil },
+
+		metrics: metrics,
 	}
 	if err := s.initMCPProxyServer(); err != nil {
 		return nil, fmt.Errorf("failed to initialize MCP proxy server: %w", err)

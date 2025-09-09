@@ -1,13 +1,14 @@
+// Package db provides database functionality for the MCPJungle application.
 package db
 
 import (
 	"fmt"
-	"gorm.io/gorm/logger"
 	"log"
 
 	"github.com/glebarez/sqlite"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 // TODO: Turn this into a singleton class.

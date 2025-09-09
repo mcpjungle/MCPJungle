@@ -1,8 +1,10 @@
+// Package user provides user service functionality for the MCPJungle application.
 package user
 
 import (
 	"errors"
 	"fmt"
+
 	"github.com/mcpjungle/mcpjungle/internal"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/types"

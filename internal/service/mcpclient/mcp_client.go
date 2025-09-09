@@ -1,8 +1,10 @@
-package mcp_client
+// Package mcpclient provides MCP client service functionality for the MCPJungle application.
+package mcpclient
 
 import (
 	"errors"
 	"fmt"
+
 	"github.com/mcpjungle/mcpjungle/internal"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"gorm.io/gorm"

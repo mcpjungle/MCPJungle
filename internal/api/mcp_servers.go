@@ -2,14 +2,14 @@ package api
 
 import (
 	"fmt"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/mcpjungle/mcpjungle/internal/model"
-	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
-	"net/http"
 )
 
-func registerServerHandler(mcpService *mcp.MCPService) gin.HandlerFunc {
+func (s *Server) registerServerHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input types.RegisterServerInput
 		if err := c.ShouldBindJSON(&input); err != nil {
@@ -55,33 +55,36 @@ func registerServerHandler(mcpService *mcp.MCPService) gin.HandlerFunc {
 			}
 		}
 
-		if err := mcpService.RegisterMcpServer(c, server); err != nil {
+		if err := s.mcpService.RegisterMcpServer(c, server); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+
 		c.JSON(http.StatusCreated, server)
 	}
 }
 
-func deregisterServerHandler(mcpService *mcp.MCPService) gin.HandlerFunc {
+func (s *Server) deregisterServerHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		name := c.Param("name")
-		if err := mcpService.DeregisterMcpServer(name); err != nil {
+
+		if err := s.mcpService.DeregisterMcpServer(name); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+
 		c.Status(http.StatusNoContent)
 	}
 }
 
-func listServersHandler(mcpService *mcp.MCPService) gin.HandlerFunc {
+func (s *Server) listServersHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		records, err := mcpService.ListMcpServers()
+		records, err := s.mcpService.ListMcpServers()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		servers := make([]*types.McpServer, len(records), len(records))
+		servers := make([]*types.McpServer, len(records))
 		for i, record := range records {
 			servers[i] = &types.McpServer{
 				Name:        record.Name,
