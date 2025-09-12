@@ -2,6 +2,8 @@ package toolgroup
 
 import (
 	"testing"
+
+	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 )
 
 func TestValidGroupNameRegex(t *testing.T) {
@@ -26,9 +28,7 @@ func TestValidGroupNameRegex(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			isValid := ValidGroupName.MatchString(tt.name)
-			if isValid != tt.valid {
-				t.Errorf("Expected %s to be %v, got %v", tt.name, tt.valid, isValid)
-			}
+			testhelpers.AssertEqual(t, tt.valid, isValid)
 		})
 	}
 }
@@ -41,26 +41,20 @@ func TestValidGroupNameEdgeCases(t *testing.T) {
 	}
 
 	isValid := ValidGroupName.MatchString(longName)
-	if !isValid {
-		t.Errorf("Expected long name to be valid")
-	}
+	testhelpers.AssertTrue(t, isValid, "Expected long name to be valid")
 
 	// Test single character names
 	singleCharNames := []string{"a", "A", "1", "0"}
 	for _, name := range singleCharNames {
 		isValid := ValidGroupName.MatchString(name)
-		if !isValid {
-			t.Errorf("Expected single character name '%s' to be valid", name)
-		}
+		testhelpers.AssertTrue(t, isValid, "Expected single character name '"+name+"' to be valid")
 	}
 
 	// Test names with mixed characters
 	mixedNames := []string{"a1-b_c", "A1-B_C", "test-123_group"}
 	for _, name := range mixedNames {
 		isValid := ValidGroupName.MatchString(name)
-		if !isValid {
-			t.Errorf("Expected mixed name '%s' to be valid", name)
-		}
+		testhelpers.AssertTrue(t, isValid, "Expected mixed name '"+name+"' to be valid")
 	}
 }
 
@@ -69,9 +63,7 @@ func TestValidGroupNameUnicode(t *testing.T) {
 	unicodeNames := []string{"group-ñ", "group-é", "group-ü", "group-ß"}
 	for _, name := range unicodeNames {
 		isValid := ValidGroupName.MatchString(name)
-		if isValid {
-			t.Errorf("Expected unicode name '%s' to be invalid", name)
-		}
+		testhelpers.AssertFalse(t, isValid, "Expected unicode name '"+name+"' to be invalid")
 	}
 }
 
@@ -82,9 +74,7 @@ func TestValidGroupNameSpecialCharacters(t *testing.T) {
 	for _, char := range specialChars {
 		name := "group" + char
 		isValid := ValidGroupName.MatchString(name)
-		if isValid {
-			t.Errorf("Expected name with special character '%s' to be invalid", char)
-		}
+		testhelpers.AssertFalse(t, isValid, "Expected name with special character '"+char+"' to be invalid")
 	}
 }
 

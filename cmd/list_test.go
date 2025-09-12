@@ -2,45 +2,27 @@ package cmd
 
 import (
 	"testing"
+
+	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 )
 
 func TestListCommandStructure(t *testing.T) {
-	t.Run("list command has correct properties", func(t *testing.T) {
-		if listCmd.Use != "list" {
-			t.Errorf("Expected list command Use to be 'list', got %s", listCmd.Use)
-		}
-		if listCmd.Short != "List resources like MCP servers, tools, etc" {
-			t.Errorf("Expected list command Short to be 'List resources like MCP servers, tools, etc', got %s", listCmd.Short)
-		}
+	t.Run("command_properties", func(t *testing.T) {
+		testhelpers.AssertEqual(t, "list", listCmd.Use)
+		testhelpers.AssertEqual(t, "List resources like MCP servers, tools, etc", listCmd.Short)
 	})
 
-	t.Run("list command has correct annotations", func(t *testing.T) {
-		if listCmd.Annotations == nil {
-			t.Fatal("List command missing annotations")
+	t.Run("command_annotations", func(t *testing.T) {
+		annotationTests := []testhelpers.CommandAnnotationTest{
+			{Key: "group", Expected: string(subCommandGroupBasic)},
+			{Key: "order", Expected: "3"},
 		}
-
-		group, hasGroup := listCmd.Annotations["group"]
-		if !hasGroup {
-			t.Fatal("List command missing 'group' annotation")
-		}
-		if group != string(subCommandGroupBasic) {
-			t.Errorf("Expected list command group to be 'basic', got %s", group)
-		}
-
-		order, hasOrder := listCmd.Annotations["order"]
-		if !hasOrder {
-			t.Fatal("List command missing 'order' annotation")
-		}
-		if order != "3" {
-			t.Errorf("Expected list command order to be '3', got %s", order)
-		}
+		testhelpers.TestCommandAnnotations(t, listCmd.Annotations, annotationTests)
 	})
 
-	t.Run("list command has subcommands", func(t *testing.T) {
+	t.Run("subcommands_count", func(t *testing.T) {
 		subcommands := listCmd.Commands()
-		if len(subcommands) != 5 {
-			t.Errorf("Expected list command to have 5 subcommands, got %d", len(subcommands))
-		}
+		testhelpers.AssertEqual(t, 5, len(subcommands))
 	})
 }
 

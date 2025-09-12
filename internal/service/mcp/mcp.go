@@ -31,6 +31,13 @@ type MCPService struct {
 // NewMCPService creates a new instance of MCPService.
 // It initializes the MCP proxy server by loading all registered tools from the database.
 func NewMCPService(db *gorm.DB, mcpProxyServer *server.MCPServer) (*MCPService, error) {
+	if db == nil {
+		return nil, fmt.Errorf("database cannot be nil")
+	}
+	if mcpProxyServer == nil {
+		return nil, fmt.Errorf("MCP proxy server cannot be nil")
+	}
+
 	s := &MCPService{
 		db:             db,
 		mcpProxyServer: mcpProxyServer,

@@ -7,42 +7,22 @@ import (
 )
 
 func TestDeleteCommandStructure(t *testing.T) {
-	t.Run("delete command has correct properties", func(t *testing.T) {
-		if deleteCmd.Use != "delete" {
-			t.Errorf("Expected delete command Use to be 'delete', got %s", deleteCmd.Use)
-		}
-		if deleteCmd.Short != "Delete resources" {
-			t.Errorf("Expected delete command Short to be 'Delete resources', got %s", deleteCmd.Short)
-		}
+	t.Run("command_properties", func(t *testing.T) {
+		testhelpers.AssertEqual(t, "delete", deleteCmd.Use)
+		testhelpers.AssertEqual(t, "Delete resources", deleteCmd.Short)
 	})
 
-	t.Run("delete command has correct annotations", func(t *testing.T) {
-		if deleteCmd.Annotations == nil {
-			t.Fatal("Delete command missing annotations")
+	t.Run("command_annotations", func(t *testing.T) {
+		annotationTests := []testhelpers.CommandAnnotationTest{
+			{Key: "group", Expected: string(subCommandGroupAdvanced)},
+			{Key: "order", Expected: "4"},
 		}
-
-		group, hasGroup := deleteCmd.Annotations["group"]
-		if !hasGroup {
-			t.Fatal("Delete command missing 'group' annotation")
-		}
-		if group != string(subCommandGroupAdvanced) {
-			t.Errorf("Expected delete command group to be 'advanced', got %s", group)
-		}
-
-		order, hasOrder := deleteCmd.Annotations["order"]
-		if !hasOrder {
-			t.Fatal("Delete command missing 'order' annotation")
-		}
-		if order != "4" {
-			t.Errorf("Expected delete command order to be '4', got %s", order)
-		}
+		testhelpers.TestCommandAnnotations(t, deleteCmd.Annotations, annotationTests)
 	})
 
-	t.Run("delete command has subcommands", func(t *testing.T) {
+	t.Run("subcommands_count", func(t *testing.T) {
 		subcommands := deleteCmd.Commands()
-		if len(subcommands) != 3 {
-			t.Errorf("Expected delete command to have 3 subcommands, got %d", len(subcommands))
-		}
+		testhelpers.AssertEqual(t, 3, len(subcommands))
 	})
 }
 
@@ -326,7 +306,6 @@ func TestDeleteCommandErrorScenarios(t *testing.T) {
 	})
 }
 
-// Test command argument validation
 func TestDeleteCommandArgumentValidation(t *testing.T) {
 	t.Run("delete mcp-client requires exactly one argument", func(t *testing.T) {
 		if deleteMcpClientCmd.Args == nil {

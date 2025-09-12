@@ -19,14 +19,10 @@ func TestNewMCPClientService(t *testing.T) {
 }
 
 func TestListClientsEmpty(t *testing.T) {
-	db, err := testhelpers.CreateTestDB()
-	testhelpers.AssertNoError(t, err)
+	setup := testhelpers.SetupTestDB(t)
+	defer setup.Cleanup()
 
-	// Auto-migrate the McpClient model
-	err = db.AutoMigrate(&model.McpClient{})
-	testhelpers.AssertNoError(t, err)
-
-	svc := NewMCPClientService(db)
+	svc := NewMCPClientService(setup.DB)
 
 	clients, err := svc.ListClients()
 	testhelpers.AssertNoError(t, err)
@@ -36,14 +32,10 @@ func TestListClientsEmpty(t *testing.T) {
 }
 
 func TestCreateClient(t *testing.T) {
-	db, err := testhelpers.CreateTestDB()
-	testhelpers.AssertNoError(t, err)
+	setup := testhelpers.SetupTestDB(t)
+	defer setup.Cleanup()
 
-	// Auto-migrate the McpClient model
-	err = db.AutoMigrate(&model.McpClient{})
-	testhelpers.AssertNoError(t, err)
-
-	svc := NewMCPClientService(db)
+	svc := NewMCPClientService(setup.DB)
 
 	clientInput := model.McpClient{
 		Name:        "test-client",
@@ -63,7 +55,7 @@ func TestCreateClient(t *testing.T) {
 
 	// Verify client was saved to database
 	var savedClient model.McpClient
-	err = db.Where("name = ?", "test-client").First(&savedClient).Error
+	err = setup.DB.Where("name = ?", "test-client").First(&savedClient).Error
 	testhelpers.AssertNoError(t, err)
 	testhelpers.AssertEqual(t, "test-client", savedClient.Name)
 	testhelpers.AssertEqual(t, "Test MCP client", savedClient.Description)

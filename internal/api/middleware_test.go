@@ -6,45 +6,14 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/glebarez/sqlite"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
+	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
-
-func setupTestDB(t *testing.T) *gorm.DB {
-	dialector := sqlite.Open(":memory:")
-	config := &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	}
-	testDB, err := gorm.Open(dialector, config)
-	if err != nil {
-		t.Fatalf("Failed to connect to database: %v", err)
-	}
-
-	err = testDB.AutoMigrate(&model.User{}, &model.McpClient{}, &model.ServerConfig{})
-	if err != nil {
-		t.Fatalf("Failed to migrate database: %v", err)
-	}
-
-	return testDB
-}
-
-func cleanupTestDB(t *testing.T, testDB *gorm.DB) {
-	sqlDB, err := testDB.DB()
-	if err != nil {
-		t.Logf("Failed to get underlying sql.DB: %v", err)
-		return
-	}
-	err = sqlDB.Close()
-	if err != nil {
-		t.Logf("Failed to close database: %v", err)
-	}
-}
 
 func TestRequireInitialized(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -81,8 +50,9 @@ func TestRequireInitialized(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testDB := setupTestDB(t)
-			defer cleanupTestDB(t, testDB)
+			setup := testhelpers.SetupTestDB(t)
+			defer setup.Cleanup()
+			testDB := setup.DB
 			configService := config.NewServerConfigService(testDB)
 
 			err := tt.setupConfig(testDB)
@@ -113,8 +83,9 @@ func TestRequireInitialized(t *testing.T) {
 
 func TestVerifyUserAuthForAPIAccess(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	testDB := setupTestDB(t)
-	defer cleanupTestDB(t, testDB)
+	setup := testhelpers.SetupTestDB(t)
+	defer setup.Cleanup()
+	testDB := setup.DB
 
 	userService := user.NewUserService(testDB)
 
@@ -328,8 +299,9 @@ func TestRequireServerMode(t *testing.T) {
 
 func TestCheckAuthForMcpProxyAccess(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	testDB := setupTestDB(t)
-	defer cleanupTestDB(t, testDB)
+	setup := testhelpers.SetupTestDB(t)
+	defer setup.Cleanup()
+	testDB := setup.DB
 
 	mcpClientService := mcpclient.NewMCPClientService(testDB)
 
@@ -422,8 +394,9 @@ func TestCheckAuthForMcpProxyAccess(t *testing.T) {
 
 func TestMiddlewareIntegration(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	testDB := setupTestDB(t)
-	defer cleanupTestDB(t, testDB)
+	setup := testhelpers.SetupTestDB(t)
+	defer setup.Cleanup()
+	testDB := setup.DB
 
 	configService := config.NewServerConfigService(testDB)
 	userService := user.NewUserService(testDB)

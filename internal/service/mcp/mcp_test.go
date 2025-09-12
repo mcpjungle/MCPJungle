@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 	"gorm.io/gorm"
 )
@@ -16,12 +17,6 @@ func TestNewMCPService(t *testing.T) {
 		expectError    bool
 	}{
 		{
-			name:           "valid service creation",
-			db:             &gorm.DB{},
-			mcpProxyServer: &server.MCPServer{},
-			expectError:    false,
-		},
-		{
 			name:           "nil database",
 			db:             nil,
 			mcpProxyServer: &server.MCPServer{},
@@ -29,7 +24,7 @@ func TestNewMCPService(t *testing.T) {
 		},
 		{
 			name:           "nil proxy server",
-			db:             &gorm.DB{},
+			db:             nil, // This will be replaced with a real DB in the test
 			mcpProxyServer: nil,
 			expectError:    true,
 		},
@@ -37,7 +32,17 @@ func TestNewMCPService(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mcpService, err := NewMCPService(tt.db, tt.mcpProxyServer)
+			var db *gorm.DB
+			if tt.name == "nil proxy server" {
+				// For this test, we need a real DB but nil proxy server
+				var err error
+				db, err = testhelpers.CreateTestDB()
+				testhelpers.AssertNoError(t, err)
+			} else {
+				db = tt.db
+			}
+
+			mcpService, err := NewMCPService(db, tt.mcpProxyServer)
 
 			if tt.expectError {
 				testhelpers.AssertError(t, err)
@@ -62,18 +67,18 @@ func TestNewMCPService(t *testing.T) {
 }
 
 func TestMCPServiceInitialization(t *testing.T) {
-	db, err := testhelpers.CreateTestDB()
-	testhelpers.AssertNoError(t, err)
+	setup := testhelpers.SetupMCPTest(t)
+	defer setup.Cleanup()
 
 	proxyServer := &server.MCPServer{}
 
-	mcpService, err := NewMCPService(db, proxyServer)
+	mcpService, err := NewMCPService(setup.DB, proxyServer)
 	testhelpers.AssertNoError(t, err)
 	testhelpers.AssertNotNil(t, mcpService)
 
 	// Test that the service is properly initialized
-	if mcpService.db != db {
-		t.Errorf("Expected db to be %v, got %v", db, mcpService.db)
+	if mcpService.db != setup.DB {
+		t.Errorf("Expected db to be %v, got %v", setup.DB, mcpService.db)
 	}
 	if mcpService.mcpProxyServer != proxyServer {
 		t.Errorf("Expected mcpProxyServer to be %v, got %v", proxyServer, mcpService.mcpProxyServer)
@@ -91,6 +96,10 @@ func TestMCPServiceInitialization(t *testing.T) {
 
 func TestMCPServiceCallbacks(t *testing.T) {
 	db, err := testhelpers.CreateTestDB()
+	testhelpers.AssertNoError(t, err)
+
+	// Auto-migrate the required models
+	err = db.AutoMigrate(&model.McpServer{}, &model.Tool{})
 	testhelpers.AssertNoError(t, err)
 
 	proxyServer := &server.MCPServer{}
@@ -115,6 +124,10 @@ func TestMCPServiceCallbacks(t *testing.T) {
 
 func TestMCPServiceConcurrency(t *testing.T) {
 	db, err := testhelpers.CreateTestDB()
+	testhelpers.AssertNoError(t, err)
+
+	// Auto-migrate the required models
+	err = db.AutoMigrate(&model.McpServer{}, &model.Tool{})
 	testhelpers.AssertNoError(t, err)
 
 	proxyServer := &server.MCPServer{}
@@ -149,6 +162,10 @@ func TestMCPServiceToolInstances(t *testing.T) {
 	db, err := testhelpers.CreateTestDB()
 	testhelpers.AssertNoError(t, err)
 
+	// Auto-migrate the required models
+	err = db.AutoMigrate(&model.McpServer{}, &model.Tool{})
+	testhelpers.AssertNoError(t, err)
+
 	proxyServer := &server.MCPServer{}
 
 	mcpService, err := NewMCPService(db, proxyServer)
@@ -178,6 +195,10 @@ func TestMCPServiceErrorHandling(t *testing.T) {
 	// For now, we'll test the basic error handling in the constructor
 
 	db, err := testhelpers.CreateTestDB()
+	testhelpers.AssertNoError(t, err)
+
+	// Auto-migrate the required models
+	err = db.AutoMigrate(&model.McpServer{}, &model.Tool{})
 	testhelpers.AssertNoError(t, err)
 
 	proxyServer := &server.MCPServer{}

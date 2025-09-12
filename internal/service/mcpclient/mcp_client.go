@@ -36,6 +36,12 @@ func (m *McpClientService) CreateClient(client model.McpClient) (*model.McpClien
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 	client.AccessToken = token
+
+	// Initialize AllowList with empty array if not provided
+	if client.AllowList == nil {
+		client.AllowList = []byte("[]")
+	}
+
 	if err := m.db.Create(&client).Error; err != nil {
 		return nil, err
 	}

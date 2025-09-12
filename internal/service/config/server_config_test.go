@@ -19,14 +19,10 @@ func TestNewServerConfigService(t *testing.T) {
 }
 
 func TestGetConfigEmptyDatabase(t *testing.T) {
-	db, err := testhelpers.CreateTestDB()
-	testhelpers.AssertNoError(t, err)
+	setup := testhelpers.SetupServerConfigTest(t)
+	defer setup.Cleanup()
 
-	// Auto-migrate the ServerConfig model
-	err = db.AutoMigrate(&model.ServerConfig{})
-	testhelpers.AssertNoError(t, err)
-
-	svc := NewServerConfigService(db)
+	svc := NewServerConfigService(setup.DB)
 
 	config, err := svc.GetConfig()
 	testhelpers.AssertNoError(t, err)
@@ -38,22 +34,13 @@ func TestGetConfigEmptyDatabase(t *testing.T) {
 }
 
 func TestGetConfigWithExistingConfig(t *testing.T) {
-	db, err := testhelpers.CreateTestDB()
-	testhelpers.AssertNoError(t, err)
+	setup := testhelpers.SetupServerConfigTest(t)
+	defer setup.Cleanup()
 
-	// Auto-migrate the ServerConfig model
-	err = db.AutoMigrate(&model.ServerConfig{})
-	testhelpers.AssertNoError(t, err)
+	// Create a test config using the helper
+	setup.CreateTestServerConfig(model.ModeDev, true)
 
-	// Create a test config directly in the database
-	testConfig := model.ServerConfig{
-		Mode:        model.ModeDev,
-		Initialized: true,
-	}
-	err = db.Create(&testConfig).Error
-	testhelpers.AssertNoError(t, err)
-
-	svc := NewServerConfigService(db)
+	svc := NewServerConfigService(setup.DB)
 
 	config, err := svc.GetConfig()
 	testhelpers.AssertNoError(t, err)
@@ -68,14 +55,10 @@ func TestGetConfigWithExistingConfig(t *testing.T) {
 }
 
 func TestInitFirstTime(t *testing.T) {
-	db, err := testhelpers.CreateTestDB()
-	testhelpers.AssertNoError(t, err)
+	setup := testhelpers.SetupServerConfigTest(t)
+	defer setup.Cleanup()
 
-	// Auto-migrate the ServerConfig model
-	err = db.AutoMigrate(&model.ServerConfig{})
-	testhelpers.AssertNoError(t, err)
-
-	svc := NewServerConfigService(db)
+	svc := NewServerConfigService(setup.DB)
 
 	// Initially no config should exist
 	config, err := svc.GetConfig()

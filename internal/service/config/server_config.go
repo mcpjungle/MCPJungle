@@ -34,14 +34,17 @@ func (s *ServerConfigService) GetConfig() (model.ServerConfig, error) {
 
 // Init initializes the server configuration in the database.
 // It is an idempotent operation. It returns true if the config was created.
-// If the config already exists, it returns false and does nothing else.
+// If the config already exists, it updates the mode and returns false.
 func (s *ServerConfigService) Init(mode model.ServerMode) (bool, error) {
 	config, err := s.GetConfig()
 	if err != nil {
 		return false, err
 	}
 	if config.Initialized {
-		// Config already exists, do nothing
+		if config.Mode != mode {
+			config.Mode = mode
+			return false, s.db.Save(&config).Error
+		}
 		return false, nil
 	}
 	// No config exists, create one

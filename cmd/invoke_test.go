@@ -7,38 +7,19 @@ import (
 )
 
 func TestInvokeCommandStructure(t *testing.T) {
-	t.Run("invoke command has correct properties", func(t *testing.T) {
-		if invokeToolCmd.Use != "invoke <name>" {
-			t.Errorf("Expected invoke command Use to be 'invoke <name>', got %s", invokeToolCmd.Use)
-		}
-		if invokeToolCmd.Short != "Invoke a tool" {
-			t.Errorf("Expected invoke command Short to be 'Invoke a tool', got %s", invokeToolCmd.Short)
-		}
-		if invokeToolCmd.Long == "" {
-			t.Error("Invoke command should have long description")
-		}
+	t.Run("command_properties", func(t *testing.T) {
+		testhelpers.AssertEqual(t, "invoke <name>", invokeToolCmd.Use)
+		testhelpers.AssertEqual(t, "Invoke a tool", invokeToolCmd.Short)
+		testhelpers.AssertNotNil(t, invokeToolCmd.Long)
+		testhelpers.AssertTrue(t, len(invokeToolCmd.Long) > 0, "Long description should not be empty")
 	})
 
-	t.Run("invoke command has correct annotations", func(t *testing.T) {
-		if invokeToolCmd.Annotations == nil {
-			t.Fatal("Invoke command missing annotations")
+	t.Run("command_annotations", func(t *testing.T) {
+		annotationTests := []testhelpers.CommandAnnotationTest{
+			{Key: "group", Expected: string(subCommandGroupBasic)},
+			{Key: "order", Expected: "5"},
 		}
-
-		group, hasGroup := invokeToolCmd.Annotations["group"]
-		if !hasGroup {
-			t.Fatal("Invoke command missing 'group' annotation")
-		}
-		if group != string(subCommandGroupBasic) {
-			t.Errorf("Expected invoke command group to be 'basic', got %s", group)
-		}
-
-		order, hasOrder := invokeToolCmd.Annotations["order"]
-		if !hasOrder {
-			t.Fatal("Invoke command missing 'order' annotation")
-		}
-		if order != "5" {
-			t.Errorf("Expected invoke command order to be '5', got %s", order)
-		}
+		testhelpers.TestCommandAnnotations(t, invokeToolCmd.Annotations, annotationTests)
 	})
 
 	t.Run("invoke command has RunE function", func(t *testing.T) {

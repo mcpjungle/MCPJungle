@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -192,4 +194,270 @@ func FormatSliceError(expected, actual any) string {
 // FormatMapError formats map error messages
 func FormatMapError(expected, actual any) string {
 	return fmt.Sprintf("Expected %v, got %v", expected, actual)
+}
+
+// TestDBSetup represents a test database setup with common models
+type TestDBSetup struct {
+	DB *gorm.DB
+}
+
+// SetupTestDB creates a test database with all common models migrated
+func SetupTestDB(t *testing.T) *TestDBSetup {
+	t.Helper()
+
+	db, err := CreateTestDB()
+	AssertNoError(t, err)
+
+	// Migrate all common models
+	err = db.AutoMigrate(
+		&model.User{},
+		&model.McpClient{},
+		&model.McpServer{},
+		&model.Tool{},
+		&model.ServerConfig{},
+		&model.ToolGroup{},
+	)
+	AssertNoError(t, err)
+
+	return &TestDBSetup{DB: db}
+}
+
+// SetupUserTest creates a test database with user-related models and a basic test user
+func SetupUserTest(t *testing.T) (*TestDBSetup, *model.User) {
+	t.Helper()
+
+	setup := SetupTestDB(t)
+
+	// Create a basic test user
+	testUser := &model.User{
+		Username:    "testuser",
+		Role:        types.UserRoleUser,
+		AccessToken: "test-access-token-123",
+	}
+
+	err := setup.DB.Create(testUser).Error
+	AssertNoError(t, err)
+
+	return setup, testUser
+}
+
+// SetupAdminTest creates a test database with user-related models and a basic admin user
+func SetupAdminTest(t *testing.T) (*TestDBSetup, *model.User) {
+	t.Helper()
+
+	setup := SetupTestDB(t)
+
+	// Create a basic test admin user
+	testAdmin := &model.User{
+		Username:    "testadmin",
+		Role:        types.UserRoleAdmin,
+		AccessToken: "test-admin-token-456",
+	}
+
+	err := setup.DB.Create(testAdmin).Error
+	AssertNoError(t, err)
+
+	return setup, testAdmin
+}
+
+// SetupMCPTest creates a test database with MCP-related models
+func SetupMCPTest(t *testing.T) *TestDBSetup {
+	t.Helper()
+
+	setup := SetupTestDB(t)
+
+	// Additional MCP-specific setup can be added here
+	// For example, creating test MCP servers, tools, etc.
+
+	return setup
+}
+
+// SetupClientTest creates a test database with MCP client models and a basic test client
+func SetupClientTest(t *testing.T) (*TestDBSetup, *model.McpClient) {
+	t.Helper()
+
+	setup := SetupTestDB(t)
+
+	// Create a basic test MCP client
+	testClient := &model.McpClient{
+		Name:        "test-client",
+		Description: "Test MCP client for unit tests",
+		AccessToken: "test-client-token-789",
+		AllowList:   []byte("[]"), // Empty allow list
+	}
+
+	err := setup.DB.Create(testClient).Error
+	AssertNoError(t, err)
+
+	return setup, testClient
+}
+
+// SetupServerConfigTest creates a test database with server config models
+func SetupServerConfigTest(t *testing.T) *TestDBSetup {
+	t.Helper()
+
+	setup := SetupTestDB(t)
+
+	// Additional server config setup can be added here
+
+	return setup
+}
+
+// CreateTestUser creates a test user with the given parameters
+func (s *TestDBSetup) CreateTestUser(username string, role types.UserRole, accessToken string) *model.User {
+	user := &model.User{
+		Username:    username,
+		Role:        role,
+		AccessToken: accessToken,
+	}
+
+	err := s.DB.Create(user).Error
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create test user: %v", err))
+	}
+
+	return user
+}
+
+// CreateTestMcpClient creates a test MCP client with the given parameters
+func (s *TestDBSetup) CreateTestMcpClient(name, description, accessToken string, allowList []string) *model.McpClient {
+	allowListJSON := []byte("[]")
+	if len(allowList) > 0 {
+		// Create a proper JSON array
+		jsonStr := "["
+		for i, item := range allowList {
+			if i > 0 {
+				jsonStr += ","
+			}
+			jsonStr += fmt.Sprintf(`"%s"`, item)
+		}
+		jsonStr += "]"
+		allowListJSON = []byte(jsonStr)
+	}
+
+	client := &model.McpClient{
+		Name:        name,
+		Description: description,
+		AccessToken: accessToken,
+		AllowList:   allowListJSON,
+	}
+
+	err := s.DB.Create(client).Error
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create test MCP client: %v", err))
+	}
+
+	return client
+}
+
+// CreateTestMcpServer creates a test MCP server with the given parameters
+func (s *TestDBSetup) CreateTestMcpServer(name, description string, transport types.McpServerTransport, config []byte) *model.McpServer {
+	server := &model.McpServer{
+		Name:        name,
+		Description: description,
+		Transport:   transport,
+		Config:      config,
+	}
+
+	err := s.DB.Create(server).Error
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create test MCP server: %v", err))
+	}
+
+	return server
+}
+
+// CreateTestTool creates a test tool with the given parameters
+func (s *TestDBSetup) CreateTestTool(name, description string, serverID uint, enabled bool, inputSchema []byte) *model.Tool {
+	tool := &model.Tool{
+		Name:        name,
+		Description: description,
+		ServerID:    serverID,
+		Enabled:     enabled,
+		InputSchema: inputSchema,
+	}
+
+	err := s.DB.Create(tool).Error
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create test tool: %v", err))
+	}
+
+	return tool
+}
+
+// CreateTestServerConfig creates a test server config with the given parameters
+func (s *TestDBSetup) CreateTestServerConfig(mode model.ServerMode, initialized bool) *model.ServerConfig {
+	config := &model.ServerConfig{
+		Mode:        mode,
+		Initialized: initialized,
+	}
+
+	err := s.DB.Create(config).Error
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create test server config: %v", err))
+	}
+
+	return config
+}
+
+// Cleanup closes the database connection
+func (s *TestDBSetup) Cleanup() {
+	if s.DB != nil {
+		if sqlDB, err := s.DB.DB(); err == nil {
+			sqlDB.Close()
+		}
+	}
+}
+
+// CommandAnnotationTest represents test data for command annotation testing
+type CommandAnnotationTest struct {
+	Key      string
+	Expected string
+}
+
+// TestCommandAnnotations tests command annotations using table-driven approach
+func TestCommandAnnotations(t *testing.T, annotations map[string]string, tests []CommandAnnotationTest) {
+	t.Helper()
+
+	AssertNotNil(t, annotations)
+
+	for _, tt := range tests {
+		t.Run(tt.Key, func(t *testing.T) {
+			value, exists := annotations[tt.Key]
+			AssertTrue(t, exists, "Missing '"+tt.Key+"' annotation")
+			AssertEqual(t, tt.Expected, value)
+		})
+	}
+}
+
+// TestCommandProperties tests basic command properties
+func TestCommandProperties(t *testing.T, actualUse, expectedUse, actualShort, expectedShort string) {
+	t.Helper()
+
+	AssertEqual(t, expectedUse, actualUse)
+	AssertEqual(t, expectedShort, actualShort)
+}
+
+// SubcommandTestData represents test data for subcommand testing
+type SubcommandTestData struct {
+	Use   string
+	Short string
+	Long  string
+}
+
+// TestSubcommandStructure tests a subcommand's basic structure
+func TestSubcommandStructure(t *testing.T, actualUse, expectedUse, actualShort, expectedShort, actualLong string) {
+	t.Helper()
+
+	AssertEqual(t, expectedUse, actualUse)
+	AssertEqual(t, expectedShort, actualShort)
+	if actualLong != "" {
+		AssertTrue(t, len(actualLong) > 0, "Long description should not be empty")
+	}
+}
+
+// FlagTestData represents test data for flag testing
+type FlagTestData struct {
+	Name        string
+	Description string
 }

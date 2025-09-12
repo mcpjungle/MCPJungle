@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
@@ -96,26 +97,18 @@ func TestRegisterServerHandlerValidation(t *testing.T) {
 			// Test the validation logic directly since we can't easily mock the service
 			// This tests the core validation that happens in the handler
 			if tt.input.Name == "" {
-				// Test name validation
-				if tt.expectedError != "name is required" {
-					t.Errorf("Expected error for missing name")
-				}
+				testhelpers.AssertEqual(t, "name is required", tt.expectedError)
 				return
 			}
 
 			if tt.input.Transport == "" {
-				// Test transport validation
-				if tt.expectedError != "transport is required" {
-					t.Errorf("Expected error for missing transport")
-				}
+				testhelpers.AssertEqual(t, "transport is required", tt.expectedError)
 				return
 			}
 
 			// Test transport type validation
 			if tt.input.Transport != "streamable_http" && tt.input.Transport != "stdio" {
-				if tt.expectedError != "unsupported transport type" {
-					t.Errorf("Expected error for invalid transport")
-				}
+				testhelpers.AssertEqual(t, "unsupported transport type", tt.expectedError)
 				return
 			}
 
@@ -123,15 +116,11 @@ func TestRegisterServerHandlerValidation(t *testing.T) {
 			switch tt.input.Transport {
 			case "streamable_http":
 				if tt.input.URL == "" {
-					if tt.expectedError != "url is required for streamable HTTP transport" {
-						t.Errorf("Expected error for missing URL in streamable HTTP")
-					}
+					testhelpers.AssertEqual(t, "url is required for streamable HTTP transport", tt.expectedError)
 				}
 			case "stdio":
 				if tt.input.Command == "" {
-					if tt.expectedError != "command is required for stdio transport" {
-						t.Errorf("Expected error for missing command in stdio")
-					}
+					testhelpers.AssertEqual(t, "command is required for stdio transport", tt.expectedError)
 				}
 			}
 		})
