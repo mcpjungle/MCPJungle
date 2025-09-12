@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/internal/telemetry"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
@@ -94,10 +96,19 @@ func (m *MCPService) GetToolInstance(name string) (mcp.Tool, bool) {
 
 // InvokeTool invokes a tool from a registered MCP server and returns its response.
 func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[string]any) (*types.ToolInvokeResult, error) {
+	started := time.Now()
+	outcome := telemetry.ToolCallOutcomeError
+
 	serverName, toolName, ok := splitServerToolName(name)
 	if !ok {
 		return nil, fmt.Errorf("invalid input: tool name does not contain a %s separator", serverToolNameSep)
 	}
+
+	// record the tool call metrics when the function returns
+	defer func() {
+		m.metrics.RecordToolCall(ctx, serverName, toolName, outcome, time.Since(started))
+	}()
+
 	serverModel, err := m.GetMcpServer(serverName)
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -152,6 +163,9 @@ func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[strin
 		IsError: callToolResp.IsError,
 		Content: contentList,
 	}
+
+	outcome = telemetry.ToolCallOutcomeSuccess
+
 	return result, nil
 }
 

@@ -5,12 +5,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mcpjungle/mcpjungle/internal/model"
-	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
 )
 
-func listMcpClientsHandler(mcpClientService *mcpclient.McpClientService) gin.HandlerFunc {
+func (s *Server) listMcpClientsHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		clients, err := mcpClientService.ListClients()
+		clients, err := s.mcpClientService.ListClients()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -19,7 +18,7 @@ func listMcpClientsHandler(mcpClientService *mcpclient.McpClientService) gin.Han
 	}
 }
 
-func createMcpClientHandler(mcpClientService *mcpclient.McpClientService) gin.HandlerFunc {
+func (s *Server) createMcpClientHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req model.McpClient
 		if err := c.ShouldBindJSON(&req); err != nil {
@@ -31,7 +30,7 @@ func createMcpClientHandler(mcpClientService *mcpclient.McpClientService) gin.Ha
 			return
 		}
 		// TODO: if allow list in the request is null, convert it to an empty JSON array
-		client, err := mcpClientService.CreateClient(req)
+		client, err := s.mcpClientService.CreateClient(req)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -40,14 +39,14 @@ func createMcpClientHandler(mcpClientService *mcpclient.McpClientService) gin.Ha
 	}
 }
 
-func deleteMcpClientHandler(mcpClientService *mcpclient.McpClientService) gin.HandlerFunc {
+func (s *Server) deleteMcpClientHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		name := c.Param("name")
 		if name == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
 			return
 		}
-		if err := mcpClientService.DeleteClient(name); err != nil {
+		if err := s.mcpClientService.DeleteClient(name); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}

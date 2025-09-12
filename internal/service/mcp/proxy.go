@@ -3,15 +3,20 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/internal/telemetry"
 )
 
 // MCPProxyToolCallHandler handles tool calls for the MCP proxy server
 // by forwarding the request to the appropriate upstream MCP server and
 // relaying the response back.
 func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	started := time.Now()
+	outcome := telemetry.ToolCallOutcomeSuccess
+
 	name := request.Params.Name
 	serverName, toolName, ok := splitServerToolName(name)
 	if !ok {
@@ -30,9 +35,18 @@ func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request mcp.Ca
 		}
 	}
 
+	// Record the tool call metrics at the end of the function
+	defer func() {
+		m.metrics.RecordToolCall(ctx, serverName, toolName, outcome, time.Since(started))
+	}()
+
 	// get the MCP server details from the database
 	server, err := m.GetMcpServer(serverName)
 	if err != nil {
+		// TODO: differentiate between "server not found" and other errors.
+		// server not found is not an internal error, so outcome should be success.
+		outcome = telemetry.ToolCallOutcomeError
+
 		return nil, fmt.Errorf(
 			"failed to get details about MCP server %s from DB: %w", serverName, err,
 		)
@@ -40,6 +54,7 @@ func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request mcp.Ca
 
 	mcpClient, err := newMcpServerSession(ctx, server)
 	if err != nil {
+		outcome = telemetry.ToolCallOutcomeError
 		return nil, err
 	}
 	defer mcpClient.Close()
@@ -47,8 +62,13 @@ func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request mcp.Ca
 	// Ensure the tool name is set correctly, ie, without the server name prefix
 	request.Params.Name = toolName
 
+	res, err := mcpClient.CallTool(ctx, request)
+	if err != nil {
+		outcome = telemetry.ToolCallOutcomeError
+	}
+
 	// forward the request to the upstream MCP server and relay the response back
-	return mcpClient.CallTool(ctx, request)
+	return res, err
 }
 
 // initMCPProxyServer initializes the MCP proxy server.
