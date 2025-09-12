@@ -60,8 +60,9 @@ func TestRequireInitialized(t *testing.T) {
 				t.Fatalf("Setup config failed: %v", err)
 			}
 
+			server := &Server{configService: configService}
 			router := gin.New()
-			router.Use(requireInitialized(configService))
+			router.Use(server.requireInitialized())
 			router.GET("/test", func(c *gin.Context) {
 				c.JSON(http.StatusOK, gin.H{"status": "success"})
 			})
@@ -148,7 +149,8 @@ func TestVerifyUserAuthForAPIAccess(t *testing.T) {
 					c.Set("mode", tt.mode)
 				}
 			})
-			router.Use(verifyUserAuthForAPIAccess(userService))
+			server := &Server{userService: userService}
+			router.Use(server.verifyUserAuthForAPIAccess())
 			router.GET("/test", func(c *gin.Context) {
 				c.JSON(http.StatusOK, gin.H{"status": "success"})
 			})
@@ -173,6 +175,9 @@ func TestVerifyUserAuthForAPIAccess(t *testing.T) {
 
 func TestRequireAdminUser(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+
+	testDB := testhelpers.SetupTestDB(t).DB
+	userService := user.NewUserService(testDB)
 
 	tests := []struct {
 		name           string
@@ -223,7 +228,8 @@ func TestRequireAdminUser(t *testing.T) {
 					c.Set("user", tt.user)
 				}
 			})
-			router.Use(requireAdminUser())
+			server := &Server{userService: userService}
+			router.Use(server.requireAdminUser())
 			router.GET("/test", func(c *gin.Context) {
 				c.JSON(http.StatusOK, gin.H{"status": "success"})
 			})
@@ -277,7 +283,8 @@ func TestRequireServerMode(t *testing.T) {
 					c.Set("mode", tt.contextMode)
 				}
 			})
-			router.Use(requireServerMode(tt.requiredMode))
+			server := &Server{}
+			router.Use(server.requireServerMode(tt.requiredMode))
 			router.GET("/test", func(c *gin.Context) {
 				c.JSON(http.StatusOK, gin.H{"status": "success"})
 			})
@@ -369,7 +376,8 @@ func TestCheckAuthForMcpProxyAccess(t *testing.T) {
 					c.Set("mode", tt.mode)
 				}
 			})
-			router.Use(checkAuthForMcpProxyAccess(mcpClientService))
+			server := &Server{mcpClientService: mcpClientService}
+			router.Use(server.checkAuthForMcpProxyAccess())
 			router.GET("/test", func(c *gin.Context) {
 				c.JSON(http.StatusOK, gin.H{"status": "success"})
 			})
@@ -426,10 +434,14 @@ func TestMiddlewareIntegration(t *testing.T) {
 		t.Fatalf("Failed to save admin user: %v", err)
 	}
 
+	server := &Server{
+		configService: configService,
+		userService:   userService,
+	}
 	router := gin.New()
-	router.Use(requireInitialized(configService))
-	router.Use(verifyUserAuthForAPIAccess(userService))
-	router.Use(requireAdminUser())
+	router.Use(server.requireInitialized())
+	router.Use(server.verifyUserAuthForAPIAccess())
+	router.Use(server.requireAdminUser())
 	router.GET("/admin", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "admin access granted"})
 	})

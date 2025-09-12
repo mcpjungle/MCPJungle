@@ -5,8 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 )
 
 func TestNewDBConnection(t *testing.T) {
@@ -55,24 +54,26 @@ func TestNewDBConnection(t *testing.T) {
 			db, err := NewDBConnection(tt.dsn)
 
 			if tt.expectError {
-				assert.Error(t, err)
-				assert.Nil(t, db)
+				testhelpers.AssertError(t, err)
+				if db != nil {
+					t.Errorf("Expected db to be nil, got %v", db)
+				}
 			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, db)
+				testhelpers.AssertNoError(t, err)
+				testhelpers.AssertNotNil(t, db)
 
 				// Verify it's a valid GORM database instance
 				sqlDB, err := db.DB()
-				require.NoError(t, err)
-				require.NotNil(t, sqlDB)
+				testhelpers.AssertNoError(t, err)
+				testhelpers.AssertNotNil(t, sqlDB)
 
 				// Test basic connectivity
 				err = sqlDB.Ping()
-				assert.NoError(t, err)
+				testhelpers.AssertNoError(t, err)
 
 				// Close the connection
 				err = sqlDB.Close()
-				assert.NoError(t, err)
+				testhelpers.AssertNoError(t, err)
 			}
 
 			// Cleanup after test
@@ -100,30 +101,30 @@ func TestNewDBConnection_SQLiteFallback(t *testing.T) {
 
 	// Test with empty DSN
 	db, err := NewDBConnection("")
-	require.NoError(t, err)
-	require.NotNil(t, db)
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertNotNil(t, db)
 
 	// Verify SQLite database file was created
 	_, err = os.Stat("mcp.db")
-	assert.NoError(t, err, "SQLite database file should be created")
+	testhelpers.AssertNoError(t, err)
 
 	// Test database operations
 	sqlDB, err := db.DB()
-	require.NoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	// Test ping
 	err = sqlDB.Ping()
-	assert.NoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	// Test basic query
 	var result int
 	err = db.Raw("SELECT 1").Scan(&result).Error
-	assert.NoError(t, err)
-	assert.Equal(t, 1, result)
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertEqual(t, 1, result)
 
 	// Close connection
 	err = sqlDB.Close()
-	assert.NoError(t, err)
+	testhelpers.AssertNoError(t, err)
 }
 
 func TestNewDBConnection_DatabaseConfiguration(t *testing.T) {
@@ -143,26 +144,26 @@ func TestNewDBConnection_DatabaseConfiguration(t *testing.T) {
 	defer cleanup()
 
 	db, err := NewDBConnection("")
-	require.NoError(t, err)
-	require.NotNil(t, db)
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertNotNil(t, db)
 
 	// Verify logger configuration is set to Silent
 	// This is harder to test directly, but we can verify the database works
 	sqlDB, err := db.DB()
-	require.NoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	// Test that database operations work (indicating proper configuration)
 	err = sqlDB.Ping()
-	assert.NoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	// Test a simple query
 	var result string
 	err = db.Raw("SELECT 'test'").Scan(&result).Error
-	assert.NoError(t, err)
-	assert.Equal(t, "test", result)
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertEqual(t, "test", result)
 
 	err = sqlDB.Close()
-	assert.NoError(t, err)
+	testhelpers.AssertNoError(t, err)
 }
 
 func TestNewDBConnection_ConcurrentAccess(t *testing.T) {
@@ -183,67 +184,67 @@ func TestNewDBConnection_ConcurrentAccess(t *testing.T) {
 
 	// Test creating multiple connections to the same SQLite database
 	db1, err := NewDBConnection("")
-	require.NoError(t, err)
-	require.NotNil(t, db1)
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertNotNil(t, db1)
 
 	db2, err := NewDBConnection("")
-	require.NoError(t, err)
-	require.NotNil(t, db2)
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertNotNil(t, db2)
 
 	// Both should work
 	sqlDB1, err := db1.DB()
-	require.NoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	sqlDB2, err := db2.DB()
-	require.NoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	// Test both connections
 	err = sqlDB1.Ping()
-	assert.NoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	err = sqlDB2.Ping()
-	assert.NoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	// Close connections
 	err = sqlDB1.Close()
-	assert.NoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	err = sqlDB2.Close()
-	assert.NoError(t, err)
+	testhelpers.AssertNoError(t, err)
 }
 
 func TestNewDBConnection_WithCustomPath(t *testing.T) {
 	// Test with a custom SQLite path by setting working directory
 	originalDir, err := os.Getwd()
-	require.NoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	tempDir := t.TempDir()
 	err = os.Chdir(tempDir)
-	require.NoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	defer func() {
 		err = os.Chdir(originalDir)
-		require.NoError(t, err)
+		testhelpers.AssertNoError(t, err)
 	}()
 
 	// Test SQLite creation in temp directory
 	db, err := NewDBConnection("")
-	require.NoError(t, err)
-	require.NotNil(t, db)
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertNotNil(t, db)
 
 	// Verify database file was created in temp directory
 	dbPath := filepath.Join(tempDir, "mcp.db")
 	_, err = os.Stat(dbPath)
-	assert.NoError(t, err, "SQLite database file should be created in temp directory")
+	testhelpers.AssertNoError(t, err)
 
 	sqlDB, err := db.DB()
-	require.NoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	err = sqlDB.Ping()
-	assert.NoError(t, err)
+	testhelpers.AssertNoError(t, err)
 
 	err = sqlDB.Close()
-	assert.NoError(t, err)
+	testhelpers.AssertNoError(t, err)
 }
 
 func TestNewDBConnection_ErrorHandling(t *testing.T) {
@@ -276,8 +277,10 @@ func TestNewDBConnection_ErrorHandling(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db, err := NewDBConnection(tt.dsn)
-			assert.Error(t, err)
-			assert.Nil(t, db)
+			testhelpers.AssertError(t, err)
+			if db != nil {
+				t.Errorf("Expected db to be nil, got %v", db)
+			}
 		})
 	}
 }

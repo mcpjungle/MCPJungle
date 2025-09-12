@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mcpjungle/mcpjungle/internal/telemetry"
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 )
 
@@ -18,7 +19,9 @@ func TestNewServer(t *testing.T) {
 		{
 			name: "valid options",
 			opts: &ServerOptions{
-				Port: "8080",
+				Port:          "8080",
+				OtelProviders: nil, // Use nil for testing
+				Metrics:       telemetry.NewNoopCustomMetrics(),
 			},
 			wantErr: false,
 		},
@@ -68,7 +71,9 @@ func TestRouterSetup(t *testing.T) {
 		Port: "8080",
 	}
 
-	router, err := newRouter(opts)
+	server, err := NewServer(opts)
+	testhelpers.AssertNoError(t, err)
+	router, err := server.setupRouter()
 	testhelpers.AssertNoError(t, err)
 	testhelpers.AssertNotNil(t, router)
 
