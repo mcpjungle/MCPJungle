@@ -25,6 +25,9 @@ type ToolDeletionCallback func(toolNames ...string)
 type ToolAdditionCallback func(toolName string) error
 
 // ListTools returns all tools registered in the registry.
+// It sets each tool's name to its canonical form by prepending its mcp server's name.
+// For example, if a tool named "commit" is provided by a server named "git",
+// its name will be set to "git__commit".
 func (m *MCPService) ListTools() ([]model.Tool, error) {
 	var tools []model.Tool
 	if err := m.db.Find(&tools).Error; err != nil {
@@ -324,17 +327,23 @@ func (m *MCPService) registerServerTools(ctx context.Context, s *model.McpServer
 			// If registration of a tool fails, we should not fail the entire server registration.
 			// Instead, continue with the next tool.
 			log.Printf("[ERROR] failed to register tool %s in DB: %v", canonicalToolName, err)
-		} else {
-			// Set tool name to include the server name prefix to make it recognizable by MCPJungle
-			// then add the tool to the MCP proxy server
-			tool.Name = canonicalToolName
-			m.mcpProxyServer.AddTool(tool, m.MCPProxyToolCallHandler)
-
-			// also add the tool to the in-memory tool instance tracker
-			m.addToolInstance(tool)
-			// notify any registered callbacks about the tool addition
-			m.notifyToolAddition(tool.Name)
+			continue
 		}
+
+		// Set tool name to include the server name prefix to make it recognizable by MCPJungle
+		// then add the tool to the appropriate MCP proxy server
+		tool.Name = canonicalToolName
+
+		if s.Transport == types.TransportSSE {
+			m.sseMcpProxyServer.AddTool(tool, m.MCPProxyToolCallHandler)
+		} else {
+			m.mcpProxyServer.AddTool(tool, m.MCPProxyToolCallHandler)
+		}
+
+		// also add the tool to the in-memory tool instance tracker
+		m.addToolInstance(tool)
+		// notify any registered callbacks about the tool addition
+		m.notifyToolAddition(tool.Name)
 	}
 	return nil
 }
@@ -359,7 +368,12 @@ func (m *MCPService) deregisterServerTools(s *model.McpServer) error {
 	for i, tool := range tools {
 		toolNames[i] = tool.Name
 	}
-	m.mcpProxyServer.DeleteTools(toolNames...)
+
+	if s.Transport == types.TransportSSE {
+		m.sseMcpProxyServer.DeleteTools(toolNames...)
+	} else {
+		m.mcpProxyServer.DeleteTools(toolNames...)
+	}
 
 	// delete tools from Tool instance tracker
 	m.deleteToolInstances(toolNames...)

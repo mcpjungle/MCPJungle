@@ -26,7 +26,15 @@ type ServerOptions struct {
 	// Port is the HTTP ports to bind the server to
 	Port string
 
-	MCPProxyServer   *server.MCPServer
+	// MCPProxyServer is the MCP proxy server instance that contains tools for all MCP servers
+	// using the stdio or streamable http transport.
+	MCPProxyServer *server.MCPServer
+	// SseMcpProxyServer is the MCP proxy server instance that contains tools for all MCP servers
+	// using the SSE transport.
+	// sse tools are kept separate because SSE is supported for backward compatibility reasons and
+	// we don't want it to interfere with the usual mcp proxy server.
+	SseMcpProxyServer *server.MCPServer
+
 	MCPService       *mcp.MCPService
 	MCPClientService *mcpclient.McpClientService
 	ConfigService    *config.ServerConfigService
@@ -42,7 +50,9 @@ type Server struct {
 	port   string
 	router *gin.Engine
 
-	mcpProxyServer   *server.MCPServer
+	mcpProxyServer    *server.MCPServer
+	sseMcpProxyServer *server.MCPServer
+
 	mcpService       *mcp.MCPService
 	mcpClientService *mcpclient.McpClientService
 
@@ -57,15 +67,16 @@ type Server struct {
 // NewServer initializes a new Gin server for MCPJungle registry and MCP proxy
 func NewServer(opts *ServerOptions) (*Server, error) {
 	s := &Server{
-		port:             opts.Port,
-		mcpProxyServer:   opts.MCPProxyServer,
-		mcpService:       opts.MCPService,
-		mcpClientService: opts.MCPClientService,
-		configService:    opts.ConfigService,
-		userService:      opts.UserService,
-		toolGroupService: opts.ToolGroupService,
-		otelProviders:    opts.OtelProviders,
-		metrics:          opts.Metrics,
+		port:              opts.Port,
+		mcpProxyServer:    opts.MCPProxyServer,
+		sseMcpProxyServer: opts.SseMcpProxyServer,
+		mcpService:        opts.MCPService,
+		mcpClientService:  opts.MCPClientService,
+		configService:     opts.ConfigService,
+		userService:       opts.UserService,
+		toolGroupService:  opts.ToolGroupService,
+		otelProviders:     opts.OtelProviders,
+		metrics:           opts.Metrics,
 	}
 
 	// Set up the router after the server is fully initialized
@@ -160,6 +171,21 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		s.requireInitialized(),
 		s.checkAuthForMcpProxyAccess(),
 		s.toolGroupMCPServerCallHandler(),
+	)
+
+	// Set up the SSE transport-based MCP proxy server on /sse
+	sseServer := server.NewSSEServer(s.sseMcpProxyServer)
+	r.Any(
+		"/sse",
+		s.requireInitialized(),
+		s.checkAuthForMcpProxyAccess(),
+		gin.WrapH(sseServer.SSEHandler()),
+	)
+	r.Any(
+		"/message",
+		s.requireInitialized(),
+		s.checkAuthForMcpProxyAccess(),
+		gin.WrapH(sseServer.MessageHandler()),
 	)
 
 	// Setup /v0 API endpoints

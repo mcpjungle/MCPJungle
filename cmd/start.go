@@ -192,14 +192,19 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 
 	bindPort := getBindPort()
 
-	// create the MCP proxy server
+	// create the MCP proxy servers
 	mcpProxyServer := server.NewMCPServer(
 		"MCPJungle Proxy MCP Server",
 		"0.0.1",
 		server.WithToolCapabilities(true),
 	)
+	sseMcpProxyServer := server.NewMCPServer(
+		"MCPJungle Proxy MCP Server for SSE transport",
+		"0.0.1",
+		server.WithToolCapabilities(true),
+	)
 
-	mcpService, err := mcp.NewMCPService(dbConn, mcpProxyServer, mcpMetrics)
+	mcpService, err := mcp.NewMCPService(dbConn, mcpProxyServer, sseMcpProxyServer, mcpMetrics)
 	if err != nil {
 		return fmt.Errorf("failed to create MCP service: %v", err)
 	}
@@ -216,15 +221,16 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 
 	// create the API server
 	opts := &api.ServerOptions{
-		Port:             bindPort,
-		MCPProxyServer:   mcpProxyServer,
-		MCPService:       mcpService,
-		MCPClientService: mcpClientService,
-		ConfigService:    configService,
-		UserService:      userService,
-		ToolGroupService: toolGroupService,
-		OtelProviders:    otelProviders,
-		Metrics:          mcpMetrics,
+		Port:              bindPort,
+		MCPProxyServer:    mcpProxyServer,
+		SseMcpProxyServer: sseMcpProxyServer,
+		MCPService:        mcpService,
+		MCPClientService:  mcpClientService,
+		ConfigService:     configService,
+		UserService:       userService,
+		ToolGroupService:  toolGroupService,
+		OtelProviders:     otelProviders,
+		Metrics:           mcpMetrics,
 	}
 	s, err := api.NewServer(opts)
 	if err != nil {
