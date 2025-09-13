@@ -24,7 +24,9 @@ func (s *Server) registerServerHandler() gin.HandlerFunc {
 		}
 
 		var server *model.McpServer
-		if transport == types.TransportStreamableHTTP {
+
+		switch transport {
+		case types.TransportStreamableHTTP:
 			server, err = model.NewStreamableHTTPServer(
 				input.Name,
 				input.Description,
@@ -38,7 +40,7 @@ func (s *Server) registerServerHandler() gin.HandlerFunc {
 				)
 				return
 			}
-		} else {
+		case types.TransportStdio:
 			server, err = model.NewStdioServer(
 				input.Name,
 				input.Description,
@@ -50,6 +52,21 @@ func (s *Server) registerServerHandler() gin.HandlerFunc {
 				c.JSON(
 					http.StatusBadRequest,
 					gin.H{"error": fmt.Sprintf("Error creating stdio server: %v", err)},
+				)
+				return
+			}
+		default:
+			// transport is SSE
+			server, err = model.NewSSEServer(
+				input.Name,
+				input.Description,
+				input.URL,
+				input.BearerToken,
+			)
+			if err != nil {
+				c.JSON(
+					http.StatusBadRequest,
+					gin.H{"error": fmt.Sprintf("Error creating SSE server: %v", err)},
 				)
 				return
 			}

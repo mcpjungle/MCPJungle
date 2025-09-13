@@ -9,6 +9,7 @@ type McpServerTransport string
 const (
 	TransportStdio          McpServerTransport = "stdio"
 	TransportStreamableHTTP McpServerTransport = "streamable_http"
+	TransportSSE            McpServerTransport = "sse"
 )
 
 // McpServer represents an MCP server registered in the MCPJungle registry.
@@ -31,7 +32,7 @@ type RegisterServerInput struct {
 	Name string `json:"name"`
 
 	// Transport is the transport protocol used by the MCP server.
-	// valid values are "stdio", "streamable_http""
+	// valid values are "stdio", "streamable_http", and "sse".
 	Transport string `json:"transport"`
 
 	Description string `json:"description"`
@@ -61,13 +62,17 @@ type RegisterServerInput struct {
 // ValidateTransport validates the input string and returns the corresponding model.McpServerTransport.
 // It returns an error if the input is invalid or empty.
 func ValidateTransport(input string) (McpServerTransport, error) {
-	errMsgExt := fmt.Sprintf("(acceptable values: '%s', '%s')", TransportStreamableHTTP, TransportStdio)
+	errMsgExt := fmt.Sprintf(
+		"(acceptable values: '%s', '%s', '%s')", TransportStreamableHTTP, TransportStdio, TransportSSE,
+	)
 
 	switch input {
 	case string(TransportStreamableHTTP):
 		return TransportStreamableHTTP, nil
 	case string(TransportStdio):
 		return TransportStdio, nil
+	case string(TransportSSE):
+		return TransportSSE, nil
 	case "":
 		return "", fmt.Errorf("transport is required %s", errMsgExt)
 	default:

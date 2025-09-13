@@ -236,12 +236,62 @@ func runStdioServer(ctx context.Context, s *model.McpServer) (*client.Client, er
 	return c, nil
 }
 
+// createSSEMcpServerConn creates a new connection with an SSE transport-based MCP server and returns the client.
+func createSSEMcpServerConn(ctx context.Context, s *model.McpServer) (*client.Client, error) {
+	conf, err := s.GetSSEConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get SSE transport config for MCP server %s: %w", s.Name, err)
+	}
+
+	var opts []transport.ClientOption
+	if conf.BearerToken != "" {
+		// If bearer token is provided, set the Authorization header
+		o := transport.WithHeaders(map[string]string{
+			"Authorization": "Bearer " + conf.BearerToken,
+		})
+		opts = append(opts, o)
+	}
+
+	c, err := client.NewSSEMCPClient(conf.URL, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create SSE client for MCP server: %w", err)
+	}
+
+	if err = c.Start(ctx); err != nil {
+		return nil, fmt.Errorf("failed to start SSE transport for MCP server: %w", err)
+	}
+
+	initReq := mcp.InitializeRequest{
+		Params: mcp.InitializeParams{
+			ProtocolVersion: "2024-11-05",
+			Capabilities:    mcp.ClientCapabilities{},
+			ClientInfo:      mcp.Implementation{Name: "mcpjungle-sse-proxy-client", Version: "0.1.0"},
+		},
+	}
+	_, err = c.Initialize(ctx, initReq)
+	if err != nil {
+		return nil, fmt.Errorf("client failed to initialize connection with SSE MCP server: %w", err)
+	}
+
+	return c, nil
+}
+
 func newMcpServerSession(ctx context.Context, s *model.McpServer) (*client.Client, error) {
 	if s.Transport == types.TransportStreamableHTTP {
 		mcpClient, err := createHTTPMcpServerConn(ctx, s)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"failed to create connection to streamable http MCP server %s: %w", s.Name, err,
+			)
+		}
+		return mcpClient, nil
+	}
+
+	if s.Transport == types.TransportSSE {
+		mcpClient, err := createSSEMcpServerConn(ctx, s)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"failed to create connection to SSE MCP server %s: %w", s.Name, err,
 			)
 		}
 		return mcpClient, nil
