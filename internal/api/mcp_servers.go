@@ -101,14 +101,18 @@ func (s *Server) listServersHandler() gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+
 		servers := make([]*types.McpServer, len(records))
+
 		for i, record := range records {
 			servers[i] = &types.McpServer{
 				Name:        record.Name,
 				Transport:   string(record.Transport),
 				Description: record.Description,
 			}
-			if record.Transport == types.TransportStreamableHTTP {
+
+			switch record.Transport {
+			case types.TransportStreamableHTTP:
 				conf, err := record.GetStreamableHTTPConfig()
 				if err != nil {
 					c.JSON(
@@ -120,7 +124,7 @@ func (s *Server) listServersHandler() gin.HandlerFunc {
 					return
 				}
 				servers[i].URL = conf.URL
-			} else {
+			case types.TransportStdio:
 				conf, err := record.GetStdioConfig()
 				if err != nil {
 					c.JSON(
@@ -134,8 +138,22 @@ func (s *Server) listServersHandler() gin.HandlerFunc {
 				servers[i].Command = conf.Command
 				servers[i].Args = conf.Args
 				servers[i].Env = conf.Env
+			default:
+				// transport is SSE
+				conf, err := record.GetSSEConfig()
+				if err != nil {
+					c.JSON(
+						http.StatusInternalServerError,
+						gin.H{
+							"error": fmt.Sprintf("Error getting SSE config for server %s: %v", record.Name, err),
+						},
+					)
+					return
+				}
+				servers[i].URL = conf.URL
 			}
 		}
+
 		c.JSON(http.StatusOK, servers)
 	}
 }
