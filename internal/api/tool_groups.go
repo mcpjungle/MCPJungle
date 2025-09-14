@@ -26,7 +26,7 @@ func (s *Server) createToolGroupHandler() gin.HandlerFunc {
 			return
 		}
 		resp := &types.CreateToolGroupResponse{
-			Endpoint: getToolGroupEndpoint(c, input.Name),
+			ToolGroupEndpoints: getToolGroupEndpoints(c, input.Name),
 		}
 		c.JSON(http.StatusCreated, resp)
 	}
@@ -77,7 +77,7 @@ func (s *Server) getToolGroupHandler() gin.HandlerFunc {
 				Name:        group.Name,
 				Description: group.Description,
 			},
-			Endpoint: getToolGroupEndpoint(c, group.Name),
+			ToolGroupEndpoints: getToolGroupEndpoints(c, group.Name),
 		}
 		// Convert datatypes.JSON to []string
 		if group.IncludedTools != nil {
@@ -165,8 +165,11 @@ func (s *Server) toolGroupSseMCPServerCallMessageHandler() gin.HandlerFunc {
 	}
 }
 
-// getToolGroupEndpoint deduces the proxy MCP server endpoint URL for a given tool group
-func getToolGroupEndpoint(c *gin.Context, groupName string) string {
+// getToolGroupEndpoints deduces the proxy MCP server endpoint URLs for a given tool group.
+// It returns the streamable HTTP endpoint and the SSE endpoints
+func getToolGroupEndpoints(c *gin.Context, groupName string) *types.ToolGroupEndpoints {
+	// This logic of creating the API endpoints is duplicated from internal/api/server.go
+	// TODO: centralize this logic into one place and use that everywhere.
 	scheme := "http"
 	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
 		scheme = "https"
@@ -174,7 +177,13 @@ func getToolGroupEndpoint(c *gin.Context, groupName string) string {
 	endpointURL := &url.URL{
 		Scheme: scheme,
 		Host:   c.Request.Host,
-		Path:   fmt.Sprintf("%s/groups/%s/mcp", V0PathPrefix, groupName),
+		Path:   fmt.Sprintf("%s/groups/%s", V0PathPrefix, groupName),
 	}
-	return endpointURL.String()
+	baseEndpoint := endpointURL.String()
+
+	return &types.ToolGroupEndpoints{
+		StreamableHttpEndpoint: baseEndpoint + "/mcp",
+		SSEEndpoint:            baseEndpoint + "/sse",
+		SSEMessageEndpoint:     baseEndpoint + "/message",
+	}
 }
