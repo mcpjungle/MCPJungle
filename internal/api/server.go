@@ -188,6 +188,19 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		gin.WrapH(sseServer.MessageHandler()),
 	)
 
+	r.Any(
+		V0PathPrefix+"/groups/:name/sse",
+		s.requireInitialized(),
+		s.checkAuthForMcpProxyAccess(),
+		s.toolGroupSseMCPServerCallHandler(),
+	)
+	r.Any(
+		V0PathPrefix+"/groups/:name/message",
+		s.requireInitialized(),
+		s.checkAuthForMcpProxyAccess(),
+		s.toolGroupSseMCPServerCallMessageHandler(),
+	)
+
 	// Setup /v0 API endpoints
 	apiV0 := r.Group(
 		V0ApiPathPrefix,

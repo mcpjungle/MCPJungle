@@ -97,6 +97,16 @@ func (m *MCPService) GetToolInstance(name string) (mcp.Tool, bool) {
 	return tool, exists
 }
 
+// GetToolParentServer returns the MCP server that provides the given tool.
+// The input name must be the canonical tool name, ie, it must contain the server name prefix (eg- "server__tool").
+func (m *MCPService) GetToolParentServer(name string) (*model.McpServer, error) {
+	serverName, _, ok := splitServerToolName(name)
+	if !ok {
+		return nil, fmt.Errorf("invalid input: tool name does not contain a %s separator", serverToolNameSep)
+	}
+	return m.GetMcpServer(serverName)
+}
+
 // InvokeTool invokes a tool from a registered MCP server and returns its response.
 func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[string]any) (*types.ToolInvokeResult, error) {
 	started := time.Now()

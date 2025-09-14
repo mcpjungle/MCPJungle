@@ -127,11 +127,41 @@ func (s *Server) toolGroupMCPServerCallHandler() gin.HandlerFunc {
 
 		// serve the MCP request using the MCP server
 		// TODO: Make this API more efficient
-		// This api sits in the host path because we expect high traffic on MCP tool calling.
+		// This api sits in the hot path because we expect high traffic on MCP tool calling.
 		// It is inefficient to create a new StreamableHTTPServer for each request.
 		// Maybe pre-create a StreamableHTTPServer for each tool group and store it in the ToolGroupMCPServer struct?
 		streamableServer := server.NewStreamableHTTPServer(groupMcpServer)
 		streamableServer.ServeHTTP(c.Writer, c.Request)
+	}
+}
+
+// toolGroupSseMCPServerCallHandler handles SSE connection requests (/sse) for a specific tool group.
+func (s *Server) toolGroupSseMCPServerCallHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		groupName := c.Param("name")
+		groupSseMcpServer, exists := s.toolGroupService.GetToolGroupSseMCPServer(groupName)
+		if !exists {
+			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("tool group not found: %s", groupName)})
+			return
+		}
+
+		sseServer := server.NewSSEServer(groupSseMcpServer)
+		sseServer.SSEHandler().ServeHTTP(c.Writer, c.Request)
+	}
+}
+
+// toolGroupSseMCPServerCallHandler handles SSE connection requests (/message) for a specific tool group.
+func (s *Server) toolGroupSseMCPServerCallMessageHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		groupName := c.Param("name")
+		groupSseMcpServer, exists := s.toolGroupService.GetToolGroupSseMCPServer(groupName)
+		if !exists {
+			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("tool group not found: %s", groupName)})
+			return
+		}
+
+		sseServer := server.NewSSEServer(groupSseMcpServer)
+		sseServer.MessageHandler().ServeHTTP(c.Writer, c.Request)
 	}
 }
 
