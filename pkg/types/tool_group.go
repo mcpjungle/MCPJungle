@@ -14,7 +14,7 @@ type ToolGroup struct {
 
 // ToolGroupEndpoints contains the endpoints a MCP client can use to access a tool group.
 type ToolGroupEndpoints struct {
-	StreamableHttpEndpoint string `json:"streamable_http_endpoint"`
+	StreamableHTTPEndpoint string `json:"streamable_http_endpoint"`
 	SSEEndpoint            string `json:"sse_endpoint"`
 	SSEMessageEndpoint     string `json:"sse_message_endpoint"`
 }

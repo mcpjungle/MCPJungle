@@ -216,7 +216,7 @@ func getToolGroupEndpoints(c *gin.Context, groupName string) *types.ToolGroupEnd
 	baseEndpoint := endpointURL.String()
 
 	return &types.ToolGroupEndpoints{
-		StreamableHttpEndpoint: baseEndpoint + "/mcp",
+		StreamableHTTPEndpoint: baseEndpoint + "/mcp",
 		SSEEndpoint:            baseEndpoint + "/sse",
 		SSEMessageEndpoint:     baseEndpoint + "/message",
 	}
