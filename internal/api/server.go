@@ -32,8 +32,9 @@ type ServerOptions struct {
 	MCPProxyServer *server.MCPServer
 	// SseMcpProxyServer is the MCP proxy server instance that contains tools for all MCP servers
 	// using the SSE transport.
-	// sse tools are kept separate because SSE is supported for backward compatibility reasons and
+	// sse tools are kept separate because SSE is supported for backward compatibility reasons, and
 	// we don't want it to interfere with the usual mcp proxy server.
+	// Both sse & streamable http use http, and we don't want to mix them up either.
 	SseMcpProxyServer *server.MCPServer
 
 	MCPService       *mcp.MCPService
@@ -64,6 +65,9 @@ type Server struct {
 	otelProviders *telemetry.Providers
 	metrics       telemetry.CustomMetrics
 
+	// groupMcpServers keeps track of mcp-go's server.SSEServer instances created for each tool group.
+	// These instances serve the requests made to tool groups' SSE tools.
+	// We need to maintain one instance for each group for sse to work correctly.
 	groupSseServers sync.Map
 }
 
@@ -176,7 +180,7 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		s.toolGroupMCPServerCallHandler(),
 	)
 
-	// Set up the SSE transport-based MCP proxy server on /sse
+	// Set up the SSE transport-based MCP proxy server for the global /sse endpoint
 	sseServer := server.NewSSEServer(s.sseMcpProxyServer)
 	r.Any(
 		"/sse",

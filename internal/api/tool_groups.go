@@ -135,7 +135,8 @@ func (s *Server) toolGroupMCPServerCallHandler() gin.HandlerFunc {
 	}
 }
 
-// getGroupSseServer returns an SSE server for a specific group, creating one if it doesn't exist
+// getGroupSseServer returns a server.SSEServer for a specific group, creating one if it doesn't already exist.
+// It ensures that each tool group has its own SSE server with the correct dynamic base path.
 func (s *Server) getGroupSseServer(groupName string) (*server.SSEServer, error) {
 	// Try to get existing server first
 	if serverVal, ok := s.groupSseServers.Load(groupName); ok {
@@ -172,7 +173,7 @@ func (s *Server) toolGroupSseMCPServerCallHandler() gin.HandlerFunc {
 		if err != nil {
 			c.JSON(
 				http.StatusNotFound,
-				gin.H{"error": fmt.Sprintf("failed to get sse server for group: %s", groupName)},
+				gin.H{"error": fmt.Sprintf("failed to get sse server for group %s: %v", groupName, err)},
 			)
 			return
 		}

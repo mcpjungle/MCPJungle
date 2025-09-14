@@ -100,7 +100,8 @@ func (m *MCPService) initMCPProxyServer() error {
 		var server *model.McpServer
 		serverName, _, _ := splitServerToolName(tool.Name)
 
-		if _, exists := mcpServerModelsCache[serverName]; !exists {
+		server, exists := mcpServerModelsCache[serverName]
+		if !exists {
 			server, err = m.GetMcpServer(serverName)
 			if err != nil {
 				return fmt.Errorf(
@@ -110,8 +111,6 @@ func (m *MCPService) initMCPProxyServer() error {
 			// store the server model in cache so we don't have to query the DB again for the same server
 			mcpServerModelsCache[serverName] = server
 		}
-
-		server = mcpServerModelsCache[serverName]
 
 		if server.Transport == types.TransportSSE {
 			m.sseMcpProxyServer.AddTool(tool, m.MCPProxyToolCallHandler)
