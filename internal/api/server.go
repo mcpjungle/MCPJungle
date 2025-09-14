@@ -3,6 +3,7 @@ package api
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mark3labs/mcp-go/server"
@@ -62,6 +63,8 @@ type Server struct {
 
 	otelProviders *telemetry.Providers
 	metrics       telemetry.CustomMetrics
+
+	groupSseServers sync.Map
 }
 
 // NewServer initializes a new Gin server for MCPJungle registry and MCP proxy

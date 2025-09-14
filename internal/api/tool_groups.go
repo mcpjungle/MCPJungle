@@ -135,18 +135,49 @@ func (s *Server) toolGroupMCPServerCallHandler() gin.HandlerFunc {
 	}
 }
 
+// getGroupSseServer returns an SSE server for a specific group, creating one if it doesn't exist
+func (s *Server) getGroupSseServer(groupName string) (*server.SSEServer, error) {
+	// Try to get existing server first
+	if serverVal, ok := s.groupSseServers.Load(groupName); ok {
+		return serverVal.(*server.SSEServer), nil
+	}
+
+	// Get the sse MCP proxy server for the group
+	groupSseMcpServer, exists := s.toolGroupService.GetToolGroupSseMCPServer(groupName)
+	if !exists {
+		return nil, fmt.Errorf("tool group not found: %s", groupName)
+	}
+
+	// Create new server with the correct dynamic base path
+	sseServer := server.NewSSEServer(
+		groupSseMcpServer,
+		server.WithDynamicBasePath(func(r *http.Request, sessionID string) string {
+			// Return the group-specific base path
+			return fmt.Sprintf("%s/groups/%s", V0PathPrefix, groupName)
+		}),
+	)
+
+	// Store for future use
+	s.groupSseServers.Store(groupName, sseServer)
+
+	return sseServer, nil
+}
+
 // toolGroupSseMCPServerCallHandler handles SSE connection requests (/sse) for a specific tool group.
 func (s *Server) toolGroupSseMCPServerCallHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		groupName := c.Param("name")
-		groupSseMcpServer, exists := s.toolGroupService.GetToolGroupSseMCPServer(groupName)
-		if !exists {
-			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("tool group not found: %s", groupName)})
+
+		groupSseMcpServer, err := s.getGroupSseServer(groupName)
+		if err != nil {
+			c.JSON(
+				http.StatusNotFound,
+				gin.H{"error": fmt.Sprintf("failed to get sse server for group: %s", groupName)},
+			)
 			return
 		}
 
-		sseServer := server.NewSSEServer(groupSseMcpServer)
-		sseServer.SSEHandler().ServeHTTP(c.Writer, c.Request)
+		groupSseMcpServer.SSEHandler().ServeHTTP(c.Writer, c.Request)
 	}
 }
 
@@ -154,14 +185,17 @@ func (s *Server) toolGroupSseMCPServerCallHandler() gin.HandlerFunc {
 func (s *Server) toolGroupSseMCPServerCallMessageHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		groupName := c.Param("name")
-		groupSseMcpServer, exists := s.toolGroupService.GetToolGroupSseMCPServer(groupName)
-		if !exists {
-			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("tool group not found: %s", groupName)})
+
+		groupSseMcpServer, err := s.getGroupSseServer(groupName)
+		if err != nil {
+			c.JSON(
+				http.StatusNotFound,
+				gin.H{"error": fmt.Sprintf("failed to get sse server for group: %s", groupName)},
+			)
 			return
 		}
 
-		sseServer := server.NewSSEServer(groupSseMcpServer)
-		sseServer.MessageHandler().ServeHTTP(c.Writer, c.Request)
+		groupSseMcpServer.MessageHandler().ServeHTTP(c.Writer, c.Request)
 	}
 }
 
