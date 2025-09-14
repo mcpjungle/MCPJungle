@@ -207,6 +207,9 @@ func (m *MCPService) DisableTools(entity string) ([]string, error) {
 }
 
 // setToolsEnabled does the heavy lifting of enabling or disabling one or more tools.
+// entity can be either a tool name or a server name.
+// If entity is a tool name, only that tool is enabled/disabled.
+// If entity is a server name, all tools of that server are enabled/disabled.
 func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, error) {
 	serverName, toolName, ok := splitServerToolName(entity)
 	if ok {
@@ -232,22 +235,32 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 		}
 
 		if enabled {
-			// if the tool was enabled, add it back to the MCP proxy server
+			// if the tool was enabled, add it back to the appropriate MCP proxy server
 			mcpTool, err := convertToolModelToMcpObject(&tool)
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert tool model to MCP object for tool %s: %w", tool.Name, err)
 			}
 			// set the tool name to its canonical form in the proxy
 			mcpTool.Name = entity
-			m.mcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
+
+			if s.Transport == types.TransportSSE {
+				m.sseMcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
+			} else {
+				m.mcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
+			}
 
 			// also add the tool to the in-memory tool instance tracker
 			m.addToolInstance(mcpTool)
 			// notify any registered callbacks about the tool addition (re-enabling)
 			m.notifyToolAddition(mcpTool.Name)
 		} else {
-			// if the tool was disabled, remove it from the MCP proxy server
-			m.mcpProxyServer.DeleteTools(entity)
+			// if the tool was disabled, remove it from the appropriate MCP proxy server
+			if s.Transport == types.TransportSSE {
+				m.sseMcpProxyServer.DeleteTools(entity)
+			} else {
+				m.mcpProxyServer.DeleteTools(entity)
+			}
+
 			// also remove the tool from the in-memory tool instance tracker
 			m.deleteToolInstances(entity)
 			// notify any registered callbacks about the tool deletion
@@ -288,11 +301,21 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 			// set the tool name to its canonical form in the proxy
 			mcpTool.Name = canonicalToolName
 
-			m.mcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
+			if s.Transport == types.TransportSSE {
+				m.sseMcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
+			} else {
+				m.mcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
+			}
+
 			m.addToolInstance(mcpTool)
 			m.notifyToolAddition(mcpTool.Name)
 		} else {
-			m.mcpProxyServer.DeleteTools(canonicalToolName)
+			if s.Transport == types.TransportSSE {
+				m.sseMcpProxyServer.DeleteTools(canonicalToolName)
+			} else {
+				m.mcpProxyServer.DeleteTools(canonicalToolName)
+			}
+
 			m.deleteToolInstances(canonicalToolName)
 			m.notifyToolDeletion(canonicalToolName)
 		}
