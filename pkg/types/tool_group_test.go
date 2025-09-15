@@ -42,17 +42,25 @@ func TestToolGroup(t *testing.T) {
 func TestCreateToolGroupResponse(t *testing.T) {
 	t.Run("CreateToolGroupResponse struct creation", func(t *testing.T) {
 		response := CreateToolGroupResponse{
-			Endpoint: "/api/tool-groups/test-group",
+			ToolGroupEndpoints: &ToolGroupEndpoints{
+				StreamableHTTPEndpoint: "/api/tool-groups/test-group/stream",
+				SSEEndpoint:            "/api/tool-groups/test-group/sse",
+				SSEMessageEndpoint:     "/api/tool-groups/test-group/sse/message",
+			},
 		}
 
-		if response.Endpoint != "/api/tool-groups/test-group" {
-			t.Errorf("Expected Endpoint to be '/api/tool-groups/test-group', got %s", response.Endpoint)
+		if response.StreamableHTTPEndpoint != "/api/tool-groups/test-group/stream" {
+			t.Errorf("Expected StreamableHTTPEndpoint to be '/api/tool-groups/test-group/stream', got %s", response.StreamableHTTPEndpoint)
 		}
 	})
 
 	t.Run("CreateToolGroupResponse JSON marshaling", func(t *testing.T) {
 		response := CreateToolGroupResponse{
-			Endpoint: "/api/tool-groups/json-group",
+			ToolGroupEndpoints: &ToolGroupEndpoints{
+				StreamableHTTPEndpoint: "/api/tool-groups/json-group/stream",
+				SSEEndpoint:            "/api/tool-groups/json-group/sse",
+				SSEMessageEndpoint:     "/api/tool-groups/json-group/sse/message",
+			},
 		}
 
 		data, err := json.Marshal(response)
@@ -60,7 +68,7 @@ func TestCreateToolGroupResponse(t *testing.T) {
 			t.Fatalf("Failed to marshal CreateToolGroupResponse: %v", err)
 		}
 
-		expected := `{"endpoint":"/api/tool-groups/json-group"}`
+		expected := `{"streamable_http_endpoint":"/api/tool-groups/json-group/stream","sse_endpoint":"/api/tool-groups/json-group/sse","sse_message_endpoint":"/api/tool-groups/json-group/sse/message"}`
 		if string(data) != expected {
 			t.Errorf("Expected JSON %s, got %s", expected, string(data))
 		}
@@ -77,14 +85,18 @@ func TestGetToolGroupResponse(t *testing.T) {
 
 		response := GetToolGroupResponse{
 			ToolGroup: toolGroup,
-			Endpoint:  "/api/tool-groups/get-group",
+			ToolGroupEndpoints: &ToolGroupEndpoints{
+				StreamableHTTPEndpoint: "/api/tool-groups/get-group/stream",
+				SSEEndpoint:            "/api/tool-groups/get-group/sse",
+				SSEMessageEndpoint:     "/api/tool-groups/get-group/sse/message",
+			},
 		}
 
 		if response.ToolGroup != toolGroup {
 			t.Error("Expected ToolGroup pointer to match")
 		}
-		if response.Endpoint != "/api/tool-groups/get-group" {
-			t.Errorf("Expected Endpoint to be '/api/tool-groups/get-group', got %s", response.Endpoint)
+		if response.StreamableHTTPEndpoint != "/api/tool-groups/get-group/stream" {
+			t.Errorf("Expected StreamableHTTPEndpoint to be '/api/tool-groups/get-group/stream', got %s", response.StreamableHTTPEndpoint)
 		}
 	})
 }

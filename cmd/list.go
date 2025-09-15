@@ -115,7 +115,7 @@ func runListServers(cmd *cobra.Command, args []string) error {
 		fmt.Println("Transport: " + s.Transport)
 
 		t, _ := types.ValidateTransport(s.Transport)
-		if t == types.TransportStreamableHTTP {
+		if t == types.TransportStreamableHTTP || t == types.TransportSSE {
 			fmt.Println("URL: " + s.URL)
 		} else {
 			if len(s.Args) > 0 {

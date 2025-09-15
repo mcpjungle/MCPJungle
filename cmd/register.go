@@ -21,10 +21,10 @@ var (
 var registerMCPServerCmd = &cobra.Command{
 	Use:   "register",
 	Short: "Register an MCP Server",
-	Long: "Register a MCP Server with the registry.\n" +
-		"The recommended way is to specify the json configuration file for your server.\n" +
-		"A config file is required if you want to register an stdio-based mcp server.\n" +
-		"The flags only allow you to register a streamable http server.\n" +
+	Long: "Register an MCP Server in mcpjungle.\n" +
+		"The recommended way is to specify the json configuration file for your mcp server.\n" +
+		"Flags are provided for convenience if you want to register a streamable http based server.\n" +
+		"But a config file is *required* if you want to register a server using stdio or sse transport.\n" +
 		"\nNOTE: A server's name is unique across mcpjungle and must not contain\nany whitespaces, special characters or multiple consecutive underscores '__'.",
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		// Skip flag validation if config file is provided
@@ -127,6 +127,13 @@ func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to register server: %w", err)
 	}
 	fmt.Printf("Server %s registered successfully!\n", s.Name)
+
+	if types.McpServerTransport(s.Transport) == types.TransportSSE {
+		cmd.Println()
+		cmd.Println("This MCP server uses the SSE (Server-sent events) transport.")
+		cmd.Println("So its tools will be accessible at the '/sse' endpoint")
+		cmd.Println("WARNING: SSE is deprecated, consider migrating this MCP server to streamable http transport.")
+	}
 
 	tools, err := apiClient.ListTools(s.Name)
 	if err != nil {

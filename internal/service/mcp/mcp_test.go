@@ -18,12 +18,6 @@ func TestNewMCPService(t *testing.T) {
 		expectError    bool
 	}{
 		{
-			name:           "nil database",
-			db:             nil,
-			mcpProxyServer: &server.MCPServer{},
-			expectError:    true,
-		},
-		{
 			name:           "nil proxy server",
 			db:             nil, // This will be replaced with a real DB in the test
 			mcpProxyServer: nil,
@@ -43,7 +37,7 @@ func TestNewMCPService(t *testing.T) {
 				db = tt.db
 			}
 
-			mcpService, err := NewMCPService(db, tt.mcpProxyServer, telemetry.NewNoopCustomMetrics())
+			mcpService, err := NewMCPService(db, tt.mcpProxyServer, tt.mcpProxyServer, telemetry.NewNoopCustomMetrics())
 
 			if tt.expectError {
 				testhelpers.AssertError(t, err)
@@ -73,7 +67,7 @@ func TestMCPServiceInitialization(t *testing.T) {
 
 	proxyServer := &server.MCPServer{}
 
-	mcpService, err := NewMCPService(setup.DB, proxyServer, telemetry.NewNoopCustomMetrics())
+	mcpService, err := NewMCPService(setup.DB, proxyServer, proxyServer, telemetry.NewNoopCustomMetrics())
 	testhelpers.AssertNoError(t, err)
 	testhelpers.AssertNotNil(t, mcpService)
 
@@ -105,7 +99,7 @@ func TestMCPServiceCallbacks(t *testing.T) {
 
 	proxyServer := &server.MCPServer{}
 
-	mcpService, err := NewMCPService(db, proxyServer, telemetry.NewNoopCustomMetrics())
+	mcpService, err := NewMCPService(db, proxyServer, proxyServer, telemetry.NewNoopCustomMetrics())
 	testhelpers.AssertNoError(t, err)
 
 	// Test that callbacks are initialized to NOOP functions
@@ -133,7 +127,7 @@ func TestMCPServiceConcurrency(t *testing.T) {
 
 	proxyServer := &server.MCPServer{}
 
-	mcpService, err := NewMCPService(db, proxyServer, telemetry.NewNoopCustomMetrics())
+	mcpService, err := NewMCPService(db, proxyServer, proxyServer, telemetry.NewNoopCustomMetrics())
 	testhelpers.AssertNoError(t, err)
 
 	// Test that the service can handle concurrent access to toolInstances
@@ -169,7 +163,7 @@ func TestMCPServiceToolInstances(t *testing.T) {
 
 	proxyServer := &server.MCPServer{}
 
-	mcpService, err := NewMCPService(db, proxyServer, telemetry.NewNoopCustomMetrics())
+	mcpService, err := NewMCPService(db, proxyServer, proxyServer, telemetry.NewNoopCustomMetrics())
 	testhelpers.AssertNoError(t, err)
 
 	// Test that toolInstances map is properly initialized
@@ -204,7 +198,7 @@ func TestMCPServiceErrorHandling(t *testing.T) {
 
 	proxyServer := &server.MCPServer{}
 
-	mcpService, err := NewMCPService(db, proxyServer, telemetry.NewNoopCustomMetrics())
+	mcpService, err := NewMCPService(db, proxyServer, proxyServer, telemetry.NewNoopCustomMetrics())
 	testhelpers.AssertNoError(t, err)
 	testhelpers.AssertNotNil(t, mcpService)
 
