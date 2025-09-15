@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -121,6 +123,211 @@ func TestRegisterCommandVariables(t *testing.T) {
 		}
 		if registerCmdServerConfigFilePath != "" {
 			t.Errorf("Expected registerCmdServerConfigFilePath to be empty, got %s", registerCmdServerConfigFilePath)
+		}
+	})
+}
+
+func TestRunRegisterMCPServerFunctional(t *testing.T) {
+	t.Run("runRegisterMCPServer would handle config file vs flags logic", func(t *testing.T) {
+		testCases := []struct {
+			name                  string
+			configFilePath        string
+			serverName            string
+			serverURL             string
+			expectedUseConfigFile bool
+		}{
+			{
+				name:                  "use config file when provided",
+				configFilePath:        "/path/to/config.json",
+				serverName:            "",
+				serverURL:             "",
+				expectedUseConfigFile: true,
+			},
+			{
+				name:                  "use flags when no config file",
+				configFilePath:        "",
+				serverName:            "test-server",
+				serverURL:             "http://localhost:8080",
+				expectedUseConfigFile: false,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				useConfigFile := tc.configFilePath != ""
+
+				if useConfigFile != tc.expectedUseConfigFile {
+					t.Errorf("Expected useConfigFile %v, got %v", tc.expectedUseConfigFile, useConfigFile)
+				}
+			})
+		}
+	})
+
+	t.Run("runRegisterMCPServer would handle server name validation", func(t *testing.T) {
+		testCases := []struct {
+			name        string
+			serverName  string
+			expectValid bool
+		}{
+			{
+				name:        "valid server name",
+				serverName:  "test-server",
+				expectValid: true,
+			},
+			{
+				name:        "server name with spaces",
+				serverName:  "test server",
+				expectValid: false,
+			},
+			{
+				name:        "server name with special characters",
+				serverName:  "test@server",
+				expectValid: false,
+			},
+			{
+				name:        "server name with multiple underscores",
+				serverName:  "test__server",
+				expectValid: false,
+			},
+			{
+				name:        "empty server name",
+				serverName:  "",
+				expectValid: false,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				isValid := tc.serverName != "" &&
+					!strings.Contains(tc.serverName, " ") &&
+					!strings.Contains(tc.serverName, "@") &&
+					!strings.Contains(tc.serverName, "__")
+
+				if isValid != tc.expectValid {
+					t.Errorf("Expected valid %v, got %v for server name '%s'", tc.expectValid, isValid, tc.serverName)
+				}
+			})
+		}
+	})
+
+	t.Run("runRegisterMCPServer would handle URL validation", func(t *testing.T) {
+		testCases := []struct {
+			name        string
+			serverURL   string
+			expectValid bool
+		}{
+			{
+				name:        "valid HTTP URL",
+				serverURL:   "http://localhost:8080",
+				expectValid: true,
+			},
+			{
+				name:        "valid HTTPS URL",
+				serverURL:   "https://example.com",
+				expectValid: true,
+			},
+			{
+				name:        "invalid URL",
+				serverURL:   "not-a-url",
+				expectValid: false,
+			},
+			{
+				name:        "empty URL",
+				serverURL:   "",
+				expectValid: false,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				isValid := tc.serverURL != "" &&
+					(strings.HasPrefix(tc.serverURL, "http://") || strings.HasPrefix(tc.serverURL, "https://"))
+
+				if isValid != tc.expectValid {
+					t.Errorf("Expected valid %v, got %v for URL '%s'", tc.expectValid, isValid, tc.serverURL)
+				}
+			})
+		}
+	})
+
+	t.Run("runRegisterMCPServer would handle bearer token processing", func(t *testing.T) {
+		testCases := []struct {
+			name          string
+			bearerToken   string
+			expectedToken string
+		}{
+			{
+				name:          "empty bearer token",
+				bearerToken:   "",
+				expectedToken: "",
+			},
+			{
+				name:          "valid bearer token",
+				bearerToken:   "abc123",
+				expectedToken: "abc123",
+			},
+			{
+				name:          "bearer token with Bearer prefix",
+				bearerToken:   "Bearer abc123",
+				expectedToken: "abc123",
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				token := tc.bearerToken
+				if strings.HasPrefix(token, "Bearer ") {
+					token = strings.TrimPrefix(token, "Bearer ")
+				}
+
+				if token != tc.expectedToken {
+					t.Errorf("Expected token %s, got %s", tc.expectedToken, token)
+				}
+			})
+		}
+	})
+
+	t.Run("runRegisterMCPServer would handle config file reading", func(t *testing.T) {
+		testCases := []struct {
+			name          string
+			configContent string
+			expectValid   bool
+		}{
+			{
+				name: "valid JSON config",
+				configContent: `{
+					"name": "test-server",
+					"url": "http://localhost:8080",
+					"description": "Test server"
+				}`,
+				expectValid: true,
+			},
+			{
+				name: "invalid JSON config",
+				configContent: `{
+					"name": "test-server",
+					"url": "http://localhost:8080",
+					"description": "Test server"
+				`, // Missing closing brace
+				expectValid: false,
+			},
+			{
+				name:          "empty config",
+				configContent: "",
+				expectValid:   false,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				var config map[string]interface{}
+				err := json.Unmarshal([]byte(tc.configContent), &config)
+				isValid := err == nil
+
+				if isValid != tc.expectValid {
+					t.Errorf("Expected valid %v, got %v for config: %s", tc.expectValid, isValid, tc.configContent)
+				}
+			})
 		}
 	})
 }

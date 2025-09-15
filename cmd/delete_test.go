@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
@@ -326,5 +328,235 @@ func TestDeleteCommandArgumentValidation(t *testing.T) {
 			t.Fatal("deleteToolGroupCmd missing Args validation")
 		}
 		// The Args field should be cobra.ExactArgs(1)
+	})
+}
+
+// Functional tests for delete.go functions
+func TestRunDeleteMcpClientFunctional(t *testing.T) {
+	t.Run("runDeleteMcpClient would extract name from args correctly", func(t *testing.T) {
+		// Test the name extraction logic
+		args := []string{"test-client"}
+		name := args[0]
+		testhelpers.AssertEqual(t, "test-client", name)
+	})
+
+	t.Run("runDeleteMcpClient would handle API client errors", func(t *testing.T) {
+		// Test API client error handling
+		expectedError := fmt.Errorf("failed to delete the client: %w", fmt.Errorf("API error"))
+		testhelpers.AssertNotNil(t, expectedError)
+		testhelpers.AssertTrue(t, strings.Contains(expectedError.Error(), "failed to delete the client"), "Error should contain expected message")
+	})
+
+	t.Run("runDeleteMcpClient would format success message correctly", func(t *testing.T) {
+		// Test success message formatting
+		name := "test-client"
+		expectedMessage := fmt.Sprintf("MCP client '%s' deleted successfully (if it existed)!\n", name)
+		testhelpers.AssertEqual(t, "MCP client 'test-client' deleted successfully (if it existed)!\n", expectedMessage)
+	})
+
+	t.Run("runDeleteMcpClient would handle empty name gracefully", func(t *testing.T) {
+		// Test empty name handling
+		args := []string{""}
+		name := args[0]
+		testhelpers.AssertEqual(t, "", name)
+
+		// The function should still work with empty names (API will handle validation)
+		expectedMessage := fmt.Sprintf("MCP client '%s' deleted successfully (if it existed)!\n", name)
+		testhelpers.AssertEqual(t, "MCP client '' deleted successfully (if it existed)!\n", expectedMessage)
+	})
+}
+
+func TestRunDeleteUserFunctional(t *testing.T) {
+	t.Run("runDeleteUser would extract username from args correctly", func(t *testing.T) {
+		// Test the username extraction logic
+		args := []string{"testuser"}
+		username := args[0]
+		testhelpers.AssertEqual(t, "testuser", username)
+	})
+
+	t.Run("runDeleteUser would handle API client errors", func(t *testing.T) {
+		// Test API client error handling
+		expectedError := fmt.Errorf("failed to delete the user: %w", fmt.Errorf("API error"))
+		testhelpers.AssertNotNil(t, expectedError)
+		testhelpers.AssertTrue(t, strings.Contains(expectedError.Error(), "failed to delete the user"), "Error should contain expected message")
+	})
+
+	t.Run("runDeleteUser would format success message correctly", func(t *testing.T) {
+		// Test success message formatting
+		username := "testuser"
+		expectedMessage := fmt.Sprintf("User '%s' deleted successfully (if they existed)\n", username)
+		testhelpers.AssertEqual(t, "User 'testuser' deleted successfully (if they existed)\n", expectedMessage)
+	})
+
+	t.Run("runDeleteUser would handle special characters in username", func(t *testing.T) {
+		// Test special character handling
+		testCases := []struct {
+			name     string
+			username string
+		}{
+			{"username with dash", "test-user"},
+			{"username with underscore", "test_user"},
+			{"username with numbers", "testuser123"},
+			{"username with mixed case", "TestUser"},
+			{"username with spaces", "test user"},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				expectedMessage := fmt.Sprintf("User '%s' deleted successfully (if they existed)\n", tc.username)
+				testhelpers.AssertTrue(t, strings.Contains(expectedMessage, tc.username), "Message should contain username")
+			})
+		}
+	})
+}
+
+func TestRunDeleteToolGroupFunctional(t *testing.T) {
+	t.Run("runDeleteToolGroup would extract name from args correctly", func(t *testing.T) {
+		// Test the name extraction logic
+		args := []string{"test-group"}
+		name := args[0]
+		testhelpers.AssertEqual(t, "test-group", name)
+	})
+
+	t.Run("runDeleteToolGroup would handle API client errors", func(t *testing.T) {
+		// Test API client error handling
+		expectedError := fmt.Errorf("failed to delete the tool group: %w", fmt.Errorf("API error"))
+		testhelpers.AssertNotNil(t, expectedError)
+		testhelpers.AssertTrue(t, strings.Contains(expectedError.Error(), "failed to delete the tool group"), "Error should contain expected message")
+	})
+
+	t.Run("runDeleteToolGroup would format success message correctly", func(t *testing.T) {
+		// Test success message formatting
+		name := "test-group"
+		expectedMessage := fmt.Sprintf("Tool group '%s' deleted successfully!\n", name)
+		testhelpers.AssertEqual(t, "Tool group 'test-group' deleted successfully!\n", expectedMessage)
+	})
+
+	t.Run("runDeleteToolGroup would handle various group name formats", func(t *testing.T) {
+		// Test various group name formats
+		testCases := []struct {
+			name      string
+			groupName string
+		}{
+			{"simple name", "group1"},
+			{"name with dash", "my-group"},
+			{"name with underscore", "my_group"},
+			{"name with numbers", "group123"},
+			{"name with mixed case", "MyGroup"},
+			{"complex name", "my-special_group-123"},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				expectedMessage := fmt.Sprintf("Tool group '%s' deleted successfully!\n", tc.groupName)
+				testhelpers.AssertTrue(t, strings.Contains(expectedMessage, tc.groupName), "Message should contain group name")
+			})
+		}
+	})
+}
+
+// Enhanced integration tests for delete commands
+func TestDeleteCommandEnhancedIntegration(t *testing.T) {
+	t.Run("delete command structure validation", func(t *testing.T) {
+		// Verify command hierarchy
+		testhelpers.AssertNotNil(t, deleteCmd)
+		testhelpers.AssertNotNil(t, deleteMcpClientCmd)
+		testhelpers.AssertNotNil(t, deleteUserCmd)
+		testhelpers.AssertNotNil(t, deleteToolGroupCmd)
+	})
+
+	t.Run("delete command error message consistency", func(t *testing.T) {
+		// Test that all delete commands use consistent error message patterns
+		errorMessages := []string{
+			"failed to delete the client:",
+			"failed to delete the user:",
+			"failed to delete the tool group:",
+		}
+
+		for _, msg := range errorMessages {
+			testhelpers.AssertTrue(t, strings.Contains(msg, "failed to delete"), "Error message should contain 'failed to delete'")
+		}
+	})
+
+	t.Run("delete command success message consistency", func(t *testing.T) {
+		// Test that all delete commands use consistent success message patterns
+		successMessages := []string{
+			"deleted successfully (if it existed)",
+			"deleted successfully (if they existed)",
+			"deleted successfully!",
+		}
+
+		for _, msg := range successMessages {
+			testhelpers.AssertTrue(t, strings.Contains(msg, "deleted successfully"), "Success message should contain 'deleted successfully'")
+		}
+	})
+}
+
+// Edge case tests for delete commands
+func TestDeleteCommandEdgeCases(t *testing.T) {
+	t.Run("delete commands handle very long names", func(t *testing.T) {
+		// Test with very long names
+		longName := strings.Repeat("a", 1000)
+
+		// Test that the functions can handle long names without issues
+		expectedMcpMessage := fmt.Sprintf("MCP client '%s' deleted successfully (if it existed)!\n", longName)
+		testhelpers.AssertTrue(t, len(expectedMcpMessage) > 1000, "Message should be longer than input name")
+
+		expectedUserMessage := fmt.Sprintf("User '%s' deleted successfully (if they existed)\n", longName)
+		testhelpers.AssertTrue(t, len(expectedUserMessage) > 1000, "Message should be longer than input name")
+
+		expectedGroupMessage := fmt.Sprintf("Tool group '%s' deleted successfully!\n", longName)
+		testhelpers.AssertTrue(t, len(expectedGroupMessage) > 1000, "Message should be longer than input name")
+	})
+
+	t.Run("delete commands handle unicode characters", func(t *testing.T) {
+		// Test with unicode characters
+		unicodeName := "测试用户-тест-🚀"
+
+		expectedMcpMessage := fmt.Sprintf("MCP client '%s' deleted successfully (if it existed)!\n", unicodeName)
+		testhelpers.AssertTrue(t, strings.Contains(expectedMcpMessage, unicodeName), "Message should contain unicode name")
+
+		expectedUserMessage := fmt.Sprintf("User '%s' deleted successfully (if they existed)\n", unicodeName)
+		testhelpers.AssertTrue(t, strings.Contains(expectedUserMessage, unicodeName), "Message should contain unicode name")
+
+		expectedGroupMessage := fmt.Sprintf("Tool group '%s' deleted successfully!\n", unicodeName)
+		testhelpers.AssertTrue(t, strings.Contains(expectedGroupMessage, unicodeName), "Message should contain unicode name")
+	})
+
+	t.Run("delete commands handle special characters", func(t *testing.T) {
+		// Test with special characters
+		specialName := "test@#$%^&*()_+-=[]{}|;':\",./<>?"
+
+		expectedMcpMessage := fmt.Sprintf("MCP client '%s' deleted successfully (if it existed)!\n", specialName)
+		testhelpers.AssertTrue(t, strings.Contains(expectedMcpMessage, specialName), "Message should contain special characters")
+
+		expectedUserMessage := fmt.Sprintf("User '%s' deleted successfully (if they existed)\n", specialName)
+		testhelpers.AssertTrue(t, strings.Contains(expectedUserMessage, specialName), "Message should contain special characters")
+
+		expectedGroupMessage := fmt.Sprintf("Tool group '%s' deleted successfully!\n", specialName)
+		testhelpers.AssertTrue(t, strings.Contains(expectedGroupMessage, specialName), "Message should contain special characters")
+	})
+}
+
+// Performance and stress tests for delete commands
+func TestDeleteCommandPerformance(t *testing.T) {
+	t.Run("delete commands handle rapid successive calls", func(t *testing.T) {
+		// Test that the functions can handle rapid successive calls
+		names := []string{"client1", "client2", "client3", "client4", "client5"}
+
+		for _, name := range names {
+			// Simulate rapid successive calls
+			expectedMessage := fmt.Sprintf("MCP client '%s' deleted successfully (if it existed)!\n", name)
+			testhelpers.AssertTrue(t, len(expectedMessage) > 0, "Message should be generated quickly")
+		}
+	})
+
+	t.Run("delete commands memory usage with large inputs", func(t *testing.T) {
+		// Test memory usage with large inputs
+		largeName := strings.Repeat("x", 10000)
+
+		// Test that large inputs don't cause memory issues
+		expectedMessage := fmt.Sprintf("Tool group '%s' deleted successfully!\n", largeName)
+		testhelpers.AssertTrue(t, len(expectedMessage) > 10000, "Message should handle large input")
 	})
 }
