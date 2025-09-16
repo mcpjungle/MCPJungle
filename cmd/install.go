@@ -9,10 +9,9 @@ import (
 )
 
 var (
-	installCmdServerName string
-	installCmdArgs       []string
-	installCmdEnv        map[string]string
-	installCmdVersion    string
+	installCmdArgs    []string
+	installCmdEnv     map[string]string
+	installCmdVersion string
 )
 
 var installMCPServerCmd = &cobra.Command{
@@ -84,40 +83,40 @@ func runInstallMCPServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to install server: %w", err)
 	}
 
-	fmt.Printf("Successfully installed MCP server: %s\n", server.Name)
+	cmd.Printf("Successfully installed MCP server: %s\n", server.Name)
 	if server.Description != "" {
-		fmt.Printf("Description: %s\n", server.Description)
+		cmd.Printf("Description: %s\n", server.Description)
 	}
-	fmt.Printf("Transport: %s\n", server.Transport)
+	cmd.Printf("Transport: %s\n", server.Transport)
 
 	// Show additional information based on transport type
 	switch server.Transport {
 	case string(types.TransportStdio):
 		if len(server.Args) > 0 {
-			fmt.Printf("Command: %s %s\n", server.Command, strings.Join(server.Args, " "))
+			cmd.Printf("Command: %s %s\n", server.Command, strings.Join(server.Args, " "))
 		} else {
-			fmt.Printf("Command: %s\n", server.Command)
+			cmd.Printf("Command: %s\n", server.Command)
 		}
 		if len(server.Env) > 0 {
-			fmt.Printf("Environment variables: %v\n", server.Env)
+			cmd.Printf("Environment variables: %v\n", server.Env)
 		}
 	case string(types.TransportStreamableHTTP), string(types.TransportSSE):
-		fmt.Printf("URL: %s\n", server.URL)
+		cmd.Printf("URL: %s\n", server.URL)
 	}
 
 	// Try to list tools provided by the server
 	tools, err := apiClient.ListTools(server.Name)
 	if err != nil {
 		// If we fail to fetch tool list, fail silently because this is not a must-have output
-		fmt.Println()
-		fmt.Println("Server installed successfully!")
+		cmd.Println()
+		cmd.Println("Server installed successfully!")
 		return nil
 	}
 
-	fmt.Println()
-	fmt.Println("The following tools are now available from this server:")
+	cmd.Println()
+	cmd.Println("The following tools are now available from this server:")
 	for i, tool := range tools {
-		fmt.Printf("%d. %s: %s\n", i+1, tool.Name, tool.Description)
+		cmd.Printf("%d. %s: %s\n", i+1, tool.Name, tool.Description)
 	}
 
 	return nil
