@@ -68,6 +68,38 @@ func (c *Client) ListServers() ([]*types.McpServer, error) {
 	return servers, nil
 }
 
+// InstallServer installs an MCP server from the official registry.
+func (c *Client) InstallServer(options *types.InstallOptions) (*types.McpServer, error) {
+	u, _ := c.constructAPIEndpoint("/install")
+	body, err := json.Marshal(options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize install options into JSON: %w", err)
+	}
+
+	req, err := c.newRequest(http.MethodPost, u, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request to %s: %w", u, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+	}
+
+	var installedServer types.McpServer
+	if err := json.NewDecoder(resp.Body).Decode(&installedServer); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return &installedServer, nil
+}
+
 // DeregisterServer deletes a server by name.
 func (c *Client) DeregisterServer(name string) error {
 	u, _ := c.constructAPIEndpoint("/servers/" + name)

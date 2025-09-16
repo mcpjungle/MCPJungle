@@ -59,6 +59,48 @@ type RegisterServerInput struct {
 	Env map[string]string `json:"env"`
 }
 
+// InstallOptions represents the options for installing an MCP server from the registry.
+type InstallOptions struct {
+	// ServerName is the name of the server to install from the registry
+	ServerName string `json:"server_name"`
+
+	// Args are additional arguments to pass to the MCP server
+	Args []string `json:"args,omitempty"`
+
+	// Env are environment variables to set for the MCP server
+	Env map[string]string `json:"env,omitempty"`
+
+	// Version is the specific version of the MCP server to install
+	Version string `json:"version,omitempty"`
+}
+
+// ServerRegistry represents a server entry in the official MCP servers registry.
+type ServerRegistry struct {
+	// Name is the display name of the server
+	Name string `json:"name"`
+
+	// Package is the package name (e.g., "@modelcontextprotocol/server-time")
+	Package string `json:"package"`
+
+	// Transport is the transport protocol used by the server
+	Transport string `json:"transport"`
+
+	// Command is the command to run the server (e.g., "npx", "uvx")
+	Command string `json:"command"`
+
+	// Args are the default arguments for the server
+	Args []string `json:"args"`
+
+	// Description is a brief description of what the server does
+	Description string `json:"description"`
+
+	// Category is the category the server belongs to (e.g., "utility", "filesystem")
+	Category string `json:"category"`
+
+	// PackageManager is the package manager used (e.g., "npm", "pip")
+	PackageManager string `json:"package_manager"`
+}
+
 // ValidateTransport validates the input string and returns the corresponding model.McpServerTransport.
 // It returns an error if the input is invalid or empty.
 func ValidateTransport(input string) (McpServerTransport, error) {
