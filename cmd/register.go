@@ -1,14 +1,10 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
+	"github.com/mcpjungle/mcpjungle/cmd/config"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
-	"io"
-	"os"
-	"path/filepath"
 )
 
 var (
@@ -88,56 +84,6 @@ func init() {
 	rootCmd.AddCommand(registerMCPServerCmd)
 }
 
-func readMcpServerConfig(filePath string) (types.RegisterServerInput, error) {
-	var input types.RegisterServerInput
-
-	f, err := os.Open(filePath)
-	if err != nil {
-		return input, fmt.Errorf("failed to open config file: %w", err)
-	}
-	defer f.Close()
-	ext := filepath.Ext(filePath)
-	switch ext {
-	case ".yaml", ".yml":
-		return readMcpServerConfigYaml(f)
-	case ".json":
-		return readMcpServerConfigJson(f)
-	default:
-		fmt.Println("Unknown server config file extension. Assuming json format.")
-		return readMcpServerConfigJson(f)
-	}
-}
-
-func readMcpServerConfigJson(reader io.Reader) (types.RegisterServerInput, error) {
-	var input types.RegisterServerInput
-
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		return input, fmt.Errorf("failed to read config file %s: %w", registerCmdServerConfigFilePath, err)
-	}
-	// Parse JSON config
-	if err := json.Unmarshal(data, &input); err != nil {
-		return input, fmt.Errorf("failed to parse config from config file: %w", err)
-	}
-
-	return input, nil
-}
-
-func readMcpServerConfigYaml(reader io.Reader) (types.RegisterServerInput, error) {
-	var input types.RegisterServerInput
-
-	data, err := io.ReadAll(reader)
-	if err != nil {
-		return input, fmt.Errorf("failed to read config from config file: %w", err)
-	}
-	// Parse YAML config
-	if err := yaml.Unmarshal(data, &input); err != nil {
-		return input, fmt.Errorf("failed to parse config from config file: %w", err)
-	}
-
-	return input, nil
-}
-
 func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
 	var input types.RegisterServerInput
 
@@ -152,9 +98,7 @@ func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
 		}
 	} else {
 		// If a config file is provided, read the configuration from the file
-		var err error
-		input, err = readMcpServerConfig(registerCmdServerConfigFilePath)
-		if err != nil {
+		if err := config.ReadFile(registerCmdServerConfigFilePath, &input); err != nil {
 			return err
 		}
 	}

@@ -1,4 +1,4 @@
-package cmd
+package config
 
 import (
 	"strings"
@@ -7,7 +7,7 @@ import (
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
-func TestReadMcpServerConfigJson(t *testing.T) {
+func TestReadFileJson(t *testing.T) {
 	input := `{
 	"name": "test_server",
 	"transport": "stdio",
@@ -18,9 +18,10 @@ func TestReadMcpServerConfigJson(t *testing.T) {
 }`
 
 	reader := strings.NewReader(input)
-	got, err := readMcpServerConfigJson(reader)
+	var got types.RegisterServerInput
+	err := readFileJson(reader, &got)
 	if err != nil {
-		t.Fatalf("readMcpServerConfigJson() error = %v", err)
+		t.Fatalf("readFileJson() error = %v", err)
 	}
 
 	expected := types.RegisterServerInput{
@@ -52,7 +53,7 @@ func TestReadMcpServerConfigJson(t *testing.T) {
 	}
 }
 
-func TestReadMcpServerConfigYaml(t *testing.T) {
+func TestReadFileYaml(t *testing.T) {
 	input := `name: test_server
 transport: stdio
 description: Test YAML server
@@ -63,9 +64,10 @@ env:
   NODE_ENV: test`
 
 	reader := strings.NewReader(input)
-	got, err := readMcpServerConfigYaml(reader)
+	var got types.RegisterServerInput
+	err := readFileYaml(reader, &got)
 	if err != nil {
-		t.Fatalf("readMcpServerConfigYaml() error = %v", err)
+		t.Fatalf("readFileYaml() error = %v", err)
 	}
 
 	expected := types.RegisterServerInput{
@@ -94,5 +96,29 @@ env:
 	}
 	if got.Env["NODE_ENV"] != expected.Env["NODE_ENV"] {
 		t.Errorf("Env = %v, want %v", got.Env, expected.Env)
+	}
+}
+
+func TestReadFileGeneric(t *testing.T) {
+	// Test with a different struct type to verify generics work
+	type TestConfig struct {
+		Name  string `json:"name" yaml:"name"`
+		Value int    `json:"value" yaml:"value"`
+	}
+
+	jsonInput := `{"name": "test", "value": 42}`
+	reader := strings.NewReader(jsonInput)
+	var config TestConfig
+
+	err := readFileJson(reader, &config)
+	if err != nil {
+		t.Fatalf("readFileJson() with generic type error = %v", err)
+	}
+
+	if config.Name != "test" {
+		t.Errorf("Name = %q, want %q", config.Name, "test")
+	}
+	if config.Value != 42 {
+		t.Errorf("Value = %d, want %d", config.Value, 42)
 	}
 }
