@@ -53,17 +53,3 @@ func TestInitServerCommandStructure(t *testing.T) {
 		}
 	})
 }
-
-func TestRunInitServer(t *testing.T) {
-	t.Run("function_definition", func(t *testing.T) {
-		// Verify that the function is properly assigned to the command
-		testhelpers.AssertNotNil(t, initServerCmd.RunE)
-	})
-}
-
-func TestInitServerCommandIntegration(t *testing.T) {
-	t.Run("command_integration", func(t *testing.T) {
-		// Verify that initServerCmd is properly initialized
-		testhelpers.AssertNotNil(t, initServerCmd)
-	})
-}

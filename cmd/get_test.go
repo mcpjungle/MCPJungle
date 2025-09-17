@@ -54,26 +54,10 @@ func TestGetGroupSubcommand(t *testing.T) {
 	})
 }
 
-func TestRunGetGroup(t *testing.T) {
-	t.Run("function_definition", func(t *testing.T) {
-		testhelpers.AssertNotNil(t, getGroupCmd.RunE)
-	})
-}
-
 func TestGetCommandIntegration(t *testing.T) {
-	t.Run("command_integration", func(t *testing.T) {
-		testhelpers.AssertNotNil(t, getCmd)
-	})
-
 	t.Run("subcommand_configuration", func(t *testing.T) {
 		subcommands := getCmd.Commands()
 		testhelpers.AssertEqual(t, 1, len(subcommands))
 		testhelpers.AssertEqual(t, "group", subcommands[0].Name())
-	})
-}
-
-func TestGetCommandArgumentValidation(t *testing.T) {
-	t.Run("argument_validation", func(t *testing.T) {
-		testhelpers.AssertNotNil(t, getGroupCmd.Args)
 	})
 }

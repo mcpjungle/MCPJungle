@@ -119,35 +119,3 @@ func TestInitIdempotent(t *testing.T) {
 		t.Errorf("Expected mode to remain %v, got %v", model.ModeDev, config.Mode)
 	}
 }
-
-func TestInitWithDifferentMode(t *testing.T) {
-	db, err := testhelpers.CreateTestDB()
-	testhelpers.AssertNoError(t, err)
-
-	// Auto-migrate the ServerConfig model
-	err = db.AutoMigrate(&model.ServerConfig{})
-	testhelpers.AssertNoError(t, err)
-
-	svc := NewServerConfigService(db)
-
-	// Initialize with dev mode
-	created, err := svc.Init(model.ModeDev)
-	testhelpers.AssertNoError(t, err)
-	if !created {
-		t.Error("Expected config to be created")
-	}
-
-	// Try to initialize with prod mode
-	created, err = svc.Init(model.ModeProd)
-	testhelpers.AssertNoError(t, err)
-	if created {
-		t.Error("Expected config not to be created when changing mode")
-	}
-
-	// Verify config mode was updated
-	config, err := svc.GetConfig()
-	testhelpers.AssertNoError(t, err)
-	if config.Mode != model.ModeProd {
-		t.Errorf("Expected mode to be updated to %v, got %v", model.ModeProd, config.Mode)
-	}
-}

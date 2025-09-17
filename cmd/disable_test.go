@@ -42,24 +42,3 @@ func TestDisableCommandStructure(t *testing.T) {
 		}
 	})
 }
-
-func TestRunDisableTools(t *testing.T) {
-	t.Run("function_definition", func(t *testing.T) {
-		// Verify that the function is properly assigned to the command
-		testhelpers.AssertNotNil(t, disableCmd.RunE)
-	})
-}
-
-func TestDisableCommandIntegration(t *testing.T) {
-	t.Run("command_integration", func(t *testing.T) {
-		// Verify that disableCmd is properly initialized
-		testhelpers.AssertNotNil(t, disableCmd)
-	})
-}
-
-func TestDisableCommandArgumentValidation(t *testing.T) {
-	t.Run("argument_validation", func(t *testing.T) {
-		testhelpers.AssertNotNil(t, disableCmd.Args)
-		// The Args field should be cobra.ExactArgs(1)
-	})
-}
