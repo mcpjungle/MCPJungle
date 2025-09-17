@@ -2,6 +2,9 @@
 package config
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -65,4 +68,54 @@ func Load() *ClientConfig {
 	_ = decoder.Decode(cfg)
 
 	return cfg
+}
+
+// ReadFile reads configuration from an external file and unmarshals it into the provided struct pointer.
+// The struct should have appropriate json and yaml tags.
+// Supports both JSON (.json) and YAML (.yaml, .yml) file formats.
+func ReadFile[T any](filePath string, config *T) error {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to open config file: %w", err)
+	}
+	defer f.Close()
+
+	ext := filepath.Ext(filePath)
+	switch ext {
+	case ".yaml", ".yml":
+		return readFileYaml(f, config)
+	case ".json":
+		return readFileJson(f, config)
+	default:
+		fmt.Println("Unknown config file extension. Assuming json format.")
+		return readFileJson(f, config)
+	}
+}
+
+// readFileJson reads and unmarshals JSON configuration from a reader.
+func readFileJson[T any](reader io.Reader, config *T) error {
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	if err := json.Unmarshal(data, config); err != nil {
+		return fmt.Errorf("failed to parse config from config file: %w", err)
+	}
+
+	return nil
+}
+
+// readFileYaml reads and unmarshals YAML configuration from a reader.
+func readFileYaml[T any](reader io.Reader, config *T) error {
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return fmt.Errorf("failed to read config from config file: %w", err)
+	}
+
+	if err := yaml.Unmarshal(data, config); err != nil {
+		return fmt.Errorf("failed to parse config from config file: %w", err)
+	}
+
+	return nil
 }

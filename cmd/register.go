@@ -1,10 +1,8 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
-
+	"github.com/mcpjungle/mcpjungle/cmd/config"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/spf13/cobra"
 )
@@ -86,21 +84,6 @@ func init() {
 	rootCmd.AddCommand(registerMCPServerCmd)
 }
 
-func readMcpServerConfig(filePath string) (types.RegisterServerInput, error) {
-	var input types.RegisterServerInput
-
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return input, fmt.Errorf("failed to read config file %s: %w", filePath, err)
-	}
-	// Parse JSON config
-	if err := json.Unmarshal(data, &input); err != nil {
-		return input, fmt.Errorf("failed to parse config file: %w", err)
-	}
-
-	return input, nil
-}
-
 func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
 	var input types.RegisterServerInput
 
@@ -115,9 +98,7 @@ func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
 		}
 	} else {
 		// If a config file is provided, read the configuration from the file
-		var err error
-		input, err = readMcpServerConfig(registerCmdServerConfigFilePath)
-		if err != nil {
+		if err := config.ReadFile(registerCmdServerConfigFilePath, &input); err != nil {
 			return err
 		}
 	}
