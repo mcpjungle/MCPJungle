@@ -162,7 +162,7 @@ When running MCPJungle in Docker, the filesystem MCP server needs special config
 
 ### Key Points for Docker Filesystem Access
 
-1. **Volume Mount**: The host filesystem is mounted as read-only at `/host` inside the container
+1. **Volume Mount**: The host filesystem is mounted as read-only at `/host` inside the container. It gives access to the current working directory on the host.
 2. **Filesystem MCP Configuration**: Use `/host` as the root path when configuring the filesystem MCP server
 3. **Security**: The mount is read-only by default for security. Modify the volume mount in `docker-compose.yaml` if you need write access
 

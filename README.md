@@ -300,7 +300,6 @@ The config file format for registering a Streamable HTTP-based MCP server is:
 
 Here's an example configuration file (let's call it `filesystem.json`) for a MCP server that uses the STDIO transport:
 
-**When running MCPJungle directly on the host machine:**
 ```json
 {
   "name": "filesystem",
@@ -310,20 +309,6 @@ Here's an example configuration file (let's call it `filesystem.json`) for a MCP
   "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
 }
 ```
-
-**For Docker deployment:**
-```json
-{
-  "name": "filesystem",
-  "transport": "stdio",
-  "description": "filesystem mcp server",
-  "command": "npx",
-  "args": ["-y", "@modelcontextprotocol/server-filesystem", "/host"]
-}
-```
-
-> [!NOTE]
-> When running MCPJungle in Docker, use `/host` as the root path to access the host filesystem. See [DEVELOPMENT.md](./DEVELOPMENT.md#docker-filesystem-access) for detailed Docker configuration.
 
 You can register this MCP server in MCPJungle by providing the configuration file:
 ```bash
@@ -360,6 +345,34 @@ This has some performance overhead but ensures that there are no memory leaks.
 But it also means that currently MCPJungle doesn't support stateful connections with your MCP server.
 
 We want to hear your feedback to improve this mechanism, feel free to create an issue, start a discussion or just reach out on Discord.
+
+
+**Caveat** ⚠️
+
+When running mcpjungle inside Docker, you need some extra configuration to run the `filesystem` mcp server.
+
+By default, mcpjungle inside container does not have access to your host filesystem.
+
+So you must:
+- mount the host directory you want to access as a volume in the container
+- specify the mount path as the directory in the filesystem mcp server command args
+
+The `docker-compose.yaml` provided by mcpjungle mounts the current working directory as `/host` in the container.
+
+So you can use the following configuration for the filesystem mcp server:
+
+```json
+{
+  "name": "filesystem",
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "/host"]
+}
+```
+
+Then, the mcp has access to `/host`, ie, the current working directory on your host machine.
+
+See [DEVELOPMENT.md](./DEVELOPMENT.md#docker-filesystem-access) for more details.
 
 
 ### Deregistering MCP servers

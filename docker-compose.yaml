@@ -30,9 +30,9 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # Mount host filesystem to enable filesystem MCP server access
-      - /:/host:ro
-      # Optional: Mount specific directories for better security
+      # Mount host filesystem current directory to enable filesystem MCP server access
+      - .:/host:ro
+      # Other options:
       # - ${HOME}:/host/home:ro
       # - /tmp:/host/tmp:rw
     depends_on:
