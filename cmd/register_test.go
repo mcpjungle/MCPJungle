@@ -276,9 +276,7 @@ func TestRunRegisterMCPServerFunctional(t *testing.T) {
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
 				token := tc.bearerToken
-				if strings.HasPrefix(token, "Bearer ") {
-					token = strings.TrimPrefix(token, "Bearer ")
-				}
+				token = strings.TrimPrefix(token, "Bearer ")
 
 				if token != tc.expectedToken {
 					t.Errorf("Expected token %s, got %s", tc.expectedToken, token)
@@ -320,7 +318,7 @@ func TestRunRegisterMCPServerFunctional(t *testing.T) {
 
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
-				var config map[string]interface{}
+				var config map[string]any
 				err := json.Unmarshal([]byte(tc.configContent), &config)
 				isValid := err == nil
 
