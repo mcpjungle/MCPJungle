@@ -1,0 +1,228 @@
+{
+  "servers": {
+    "memory": {
+      "name": "memory",
+      "package": "@modelcontextprotocol/server-memory",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "description": "Persistent memory for conversations",
+      "category": "utility",
+      "package_manager": "npm",
+      "required_env_vars": [],
+      "optional_env_vars": {}
+    },
+    "filesystem": {
+      "name": "filesystem",
+      "package": "@modelcontextprotocol/server-filesystem",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+      "description": "Read and write files on the local filesystem",
+      "category": "filesystem",
+      "package_manager": "npm",
+      "required_env_vars": [],
+      "optional_env_vars": {}
+    },
+    "sequentialthinking": {
+      "name": "sequentialthinking",
+      "package": "@modelcontextprotocol/server-sequential-thinking",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "description": "MCP server for sequential thinking and problem solving",
+      "category": "utility",
+      "package_manager": "npm",
+      "required_env_vars": [],
+      "optional_env_vars": {}
+    },
+    "everything": {
+      "name": "everything",
+      "package": "@modelcontextprotocol/server-everything",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-everything"],
+      "description": "MCP server that provides access to everything",
+      "category": "utility",
+      "package_manager": "npm",
+      "required_env_vars": [],
+      "optional_env_vars": {}
+    },
+    "time": {
+      "name": "time",
+      "package": "@modelcontextprotocol/server-time",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-time"],
+      "description": "Time and date utilities",
+      "category": "utility",
+      "package_manager": "npm",
+      "required_env_vars": [],
+      "optional_env_vars": {}
+    },
+    "github": {
+      "name": "github",
+      "package": "github-mcp-server",
+      "transport": "streamable_http",
+      "url": "https://api.github.com/mcp",
+      "description": "GitHub integration for repositories, issues, and pull requests via HTTP",
+      "category": "development",
+      "package_manager": "none",
+      "required_env_vars": ["GITHUB_PERSONAL_ACCESS_TOKEN"],
+      "optional_env_vars": {}
+    },
+    "brave-search": {
+      "name": "brave-search",
+      "package": "search-mcp-server",
+      "transport": "streamable_http",
+      "url": "https://api.brave.com/mcp",
+      "description": "Brave Search API integration via HTTP",
+      "category": "search",
+      "package_manager": "none",
+      "required_env_vars": ["BRAVE_API_KEY"],
+      "optional_env_vars": {}
+    },
+    "fetch": {
+      "name": "fetch",
+      "package": "@modelcontextprotocol/server-fetch",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-fetch"],
+      "description": "Fetch web content and resources",
+      "category": "utility",
+      "package_manager": "npm",
+      "required_env_vars": [],
+      "optional_env_vars": {}
+    },
+    "database": {
+      "name": "database",
+      "package": "database-mcp-server",
+      "transport": "streamable_http",
+      "url": "https://api.supabase.com/mcp",
+      "description": "Database operations via official HTTP API",
+      "category": "database",
+      "package_manager": "none",
+      "required_env_vars": ["SUPABASE_URL", "SUPABASE_KEY"],
+      "optional_env_vars": {}
+    },
+    "puppeteer": {
+      "name": "puppeteer",
+      "package": "@modelcontextprotocol/server-puppeteer",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-puppeteer"],
+      "description": "Web automation and screenshot capabilities",
+      "category": "automation",
+      "package_manager": "npm",
+      "required_env_vars": [],
+      "optional_env_vars": {}
+    },
+    "gdrive": {
+      "name": "gdrive",
+      "package": "@modelcontextprotocol/server-gdrive",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-gdrive"],
+      "description": "Google Drive integration",
+      "category": "storage",
+      "package_manager": "npm",
+      "required_env_vars": ["GOOGLE_APPLICATION_CREDENTIALS"],
+      "optional_env_vars": {}
+    },
+    "gmail": {
+      "name": "gmail",
+      "package": "@modelcontextprotocol/server-gmail",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-gmail"],
+      "description": "Gmail integration for email management",
+      "category": "communication",
+      "package_manager": "npm",
+      "required_env_vars": ["GOOGLE_APPLICATION_CREDENTIALS"],
+      "optional_env_vars": {}
+    },
+    "notion": {
+      "name": "notion",
+      "package": "@modelcontextprotocol/server-notion",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-notion"],
+      "description": "Notion workspace integration",
+      "category": "productivity",
+      "package_manager": "npm",
+      "required_env_vars": ["NOTION_API_KEY"],
+      "optional_env_vars": {}
+    },
+    "youtube": {
+      "name": "youtube",
+      "package": "@modelcontextprotocol/server-youtube",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-youtube"],
+      "description": "YouTube integration for video management",
+      "category": "media",
+      "package_manager": "npm",
+      "required_env_vars": ["YOUTUBE_API_KEY"],
+      "optional_env_vars": {}
+    },
+    "weather": {
+      "name": "weather",
+      "package": "weather-mcp-server",
+      "transport": "streamable_http",
+      "url": "https://api.openweathermap.org/mcp",
+      "description": "Weather information and forecasts via HTTP",
+      "category": "utility",
+      "package_manager": "none",
+      "required_env_vars": ["OPENWEATHER_API_KEY"],
+      "optional_env_vars": {}
+    },
+    "fastmcp": {
+      "name": "fastmcp",
+      "package": "fastmcp",
+      "transport": "stdio",
+      "command": "uvx",
+      "args": ["fastmcp", "run", "server.py"],
+      "description": "FastMCP server for rapid MCP development",
+      "category": "development",
+      "package_manager": "pip",
+      "required_env_vars": [],
+      "optional_env_vars": {}
+    },
+    
+    "context7": {
+      "name": "context7",
+      "package": "context7-mcp-server",
+      "transport": "streamable_http",
+      "url": "https://mcp.context7.com/mcp",
+      "description": "Context7 MCP server for documentation and code examples",
+      "category": "documentation",
+      "package_manager": "none",
+      "required_env_vars": [],
+      "optional_env_vars": {}
+    },
+    
+    "ai": {
+      "name": "ai",
+      "package": "ai-mcp-server",
+      "transport": "streamable_http",
+      "url": "https://api.openai.com/mcp",
+      "description": "AI/ML operations via official HTTP API",
+      "category": "ai",
+      "package_manager": "none",
+      "required_env_vars": ["OPENAI_API_KEY"],
+      "optional_env_vars": {}
+    },
+    
+    "slack": {
+      "name": "slack",
+      "package": "notification-mcp-server",
+      "transport": "streamable_http",
+      "url": "https://api.slack.com/mcp",
+      "description": "Slack workspace integration via HTTP",
+      "category": "communication",
+      "package_manager": "none",
+      "required_env_vars": ["SLACK_BOT_TOKEN"],
+      "optional_env_vars": {}
+    }
+  }
+}

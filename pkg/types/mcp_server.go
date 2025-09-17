@@ -99,6 +99,18 @@ type ServerRegistry struct {
 
 	// PackageManager is the package manager used (e.g., "npm", "pip")
 	PackageManager string `json:"package_manager"`
+
+	// RequiredEnvVars lists environment variables that must be set
+	RequiredEnvVars []string `json:"required_env_vars,omitempty"`
+
+	// OptionalEnvVars lists optional environment variables with defaults
+	OptionalEnvVars map[string]string `json:"optional_env_vars,omitempty"`
+
+	// URL is the URL of the remote MCP server (for HTTP/SSE transports)
+	URL string `json:"url,omitempty"`
+
+	// BearerToken is an optional token for authenticating with remote servers
+	BearerToken string `json:"bearer_token,omitempty"`
 }
 
 // ValidateTransport validates the input string and returns the corresponding model.McpServerTransport.
