@@ -156,10 +156,54 @@ docker-compose up -d
 goreleaser build --single-target --clean --snapshot
 ```
 
-## Contributing Guidelines
+## Docker Filesystem Access
 
-For detailed contribution guidelines, see [CONTRIBUTION.md](./CONTRIBUTION.md).
+When running MCPJungle in Docker, the filesystem MCP server needs special configuration to access the host machine's filesystem. The Docker Compose files have been updated to mount the host filesystem at `/host` inside the container.
 
+### Key Points for Docker Filesystem Access
+
+1. **Volume Mount**: The host filesystem is mounted as read-only at `/host` inside the container
+2. **Filesystem MCP Configuration**: Use `/host` as the root path when configuring the filesystem MCP server
+3. **Security**: The mount is read-only by default for security. Modify the volume mount in `docker-compose.yaml` if you need write access
+
+### Example Filesystem MCP Configuration for Docker
+
+```json
+{
+  "name": "filesystem",
+  "transport": "stdio",
+  "description": "filesystem mcp server",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "/host"]
+}
+```
+
+> **Tip**: Copy the JSON configuration above and save it to a file (e.g., `filesystem.json`) to use with the `mcpjungle register -c` command.
+
+### Alternative: Mount Specific Directories for Better Security
+
+Instead of mounting the entire filesystem, you can mount specific directories by modifying the volume mounts in `docker-compose.yaml`:
+
+```yaml
+volumes:
+  # Mount only your home directory
+  - ${HOME}:/host/home:ro
+  # Mount a specific project directory
+  - /path/to/your/project:/host/project:ro
+  # Mount temp directory with write access
+  - /tmp:/host/tmp:rw
+```
+
+Then configure your filesystem MCP server accordingly:
+```json
+{
+  "name": "filesystem",
+  "transport": "stdio", 
+  "description": "filesystem mcp server",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "/host/home"]
+}
+```
 
 ## Troubleshooting
 
@@ -168,12 +212,17 @@ For detailed contribution guidelines, see [CONTRIBUTION.md](./CONTRIBUTION.md).
 1. **Build failures**: Ensure you have the correct Go version and dependencies
 2. **Database connection issues**: Check if PostgreSQL/SQLite is running and accessible
 3. **MCP server registration failures**: Verify the MCP server is running and accessible
+4. **Docker filesystem access issues**: Ensure the host filesystem is properly mounted at `/host`
 
 ### Getting Help
 
 - Check existing [issues](https://github.com/mcpjungle/MCPJungle/issues)
 - Join our [Discord community](https://discord.gg/CapV4Z3krk)
 - Open a Discussion for questions and proposals
+
+## Contributing Guidelines
+
+For detailed contribution guidelines, see [CONTRIBUTION.md](./CONTRIBUTION.md).
 
 ---
 

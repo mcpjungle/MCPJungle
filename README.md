@@ -208,6 +208,7 @@ mcpjungle start
 This starts the main registry server and MCP gateway, accessible on port `8080` by default.
 
 
+
 ### Database
 The mcpjungle server relies on a database and by default, creates a SQLite DB in the current working directory.
 
@@ -298,6 +299,8 @@ The config file format for registering a Streamable HTTP-based MCP server is:
 ### Registering STDIO-based servers
 
 Here's an example configuration file (let's call it `filesystem.json`) for a MCP server that uses the STDIO transport:
+
+**When running MCPJungle directly on the host machine:**
 ```json
 {
   "name": "filesystem",
@@ -308,8 +311,23 @@ Here's an example configuration file (let's call it `filesystem.json`) for a MCP
 }
 ```
 
+**For Docker deployment:**
+```json
+{
+  "name": "filesystem",
+  "transport": "stdio",
+  "description": "filesystem mcp server",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "/host"]
+}
+```
+
+> [!NOTE]
+> When running MCPJungle in Docker, use `/host` as the root path to access the host filesystem. See [DEVELOPMENT.md](./DEVELOPMENT.md#docker-filesystem-access) for detailed Docker configuration.
+
 You can register this MCP server in MCPJungle by providing the configuration file:
 ```bash
+# Save the JSON configuration to a file (e.g., filesystem.json)
 mcpjungle register -c ./filesystem.json
 ```
 

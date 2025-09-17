@@ -135,9 +135,15 @@ BIN_SERVER_PID=$!
 log "Waiting for local binary server health"
 wait_for_health "http://127.0.0.1:9090/health"
 
-log "All tests passed 🎉"
- 
-# 7) Print Homebrew formula config snippet
+# 7) Test filesystem MCP server in Docker
+log "Testing filesystem MCP server in Docker"
+"$BIN_PATH" --registry "$REGISTRY_URL" init-server
+"$BIN_PATH" --registry "$REGISTRY_URL" register --name filesystem --transport stdio --command npx --args "-y,@modelcontextprotocol/server-filesystem,/host"
+"$BIN_PATH" --registry "$REGISTRY_URL" invoke filesystem__list_allowed_directories --input '{}' >/dev/null
+
+# 8) Print Homebrew formula config snippet
 log "Homebrew formula config (from .goreleaser.yaml)"
 sed -n '/^brews:/,/^dockers:/p' "$ROOT_DIR/.goreleaser.yaml" || true
 popd >/dev/null
+
+log "All tests passed 🎉"
