@@ -30,6 +30,13 @@ type StdioConfig struct {
 	Env map[string]string `json:"env,omitempty"`
 }
 
+type SSEConfig struct {
+	// URL must be a valid http/https URL.
+	URL string `json:"url"`
+
+	BearerToken string `json:"bearer_token,omitempty"`
+}
+
 // McpServer represents a MCP server registered in mcpjungle
 type McpServer struct {
 	gorm.Model
@@ -88,6 +95,26 @@ func NewStdioServer(name, description, command string, args []string, env map[st
 	}, nil
 }
 
+func NewSSEServer(name, description, url, bearerToken string) (*McpServer, error) {
+	if url == "" {
+		return nil, errors.New("url is required for SSE transport")
+	}
+	config := SSEConfig{
+		URL:         url,
+		BearerToken: bearerToken,
+	}
+	configJSON, err := json.Marshal(config)
+	if err != nil {
+		return nil, err
+	}
+	return &McpServer{
+		Name:        name,
+		Description: description,
+		Transport:   types.TransportSSE,
+		Config:      configJSON,
+	}, nil
+}
+
 // GetStreamableHTTPConfig returns the configuration if this is a streamable HTTP server
 func (s *McpServer) GetStreamableHTTPConfig() (*StreamableHTTPConfig, error) {
 	if s.Transport != types.TransportStreamableHTTP {
@@ -106,6 +133,18 @@ func (s *McpServer) GetStdioConfig() (*StdioConfig, error) {
 		return nil, errors.New("server is not a stdio transport type")
 	}
 	var config StdioConfig
+	if err := json.Unmarshal(s.Config, &config); err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
+// GetSSEConfig returns the configuration if this is an SSE server
+func (s *McpServer) GetSSEConfig() (*SSEConfig, error) {
+	if s.Transport != types.TransportSSE {
+		return nil, errors.New("server is not a SSE transport type")
+	}
+	var config SSEConfig
 	if err := json.Unmarshal(s.Config, &config); err != nil {
 		return nil, err
 	}

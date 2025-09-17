@@ -26,7 +26,7 @@ func (s *Server) createToolGroupHandler() gin.HandlerFunc {
 			return
 		}
 		resp := &types.CreateToolGroupResponse{
-			Endpoint: getToolGroupEndpoint(c, input.Name),
+			ToolGroupEndpoints: getToolGroupEndpoints(c, input.Name),
 		}
 		c.JSON(http.StatusCreated, resp)
 	}
@@ -77,7 +77,7 @@ func (s *Server) getToolGroupHandler() gin.HandlerFunc {
 				Name:        group.Name,
 				Description: group.Description,
 			},
-			Endpoint: getToolGroupEndpoint(c, group.Name),
+			ToolGroupEndpoints: getToolGroupEndpoints(c, group.Name),
 		}
 		// Convert datatypes.JSON to []string
 		if group.IncludedTools != nil {
@@ -127,7 +127,7 @@ func (s *Server) toolGroupMCPServerCallHandler() gin.HandlerFunc {
 
 		// serve the MCP request using the MCP server
 		// TODO: Make this API more efficient
-		// This api sits in the host path because we expect high traffic on MCP tool calling.
+		// This api sits in the hot path because we expect high traffic on MCP tool calling.
 		// It is inefficient to create a new StreamableHTTPServer for each request.
 		// Maybe pre-create a StreamableHTTPServer for each tool group and store it in the ToolGroupMCPServer struct?
 		streamableServer := server.NewStreamableHTTPServer(groupMcpServer)
@@ -135,8 +135,76 @@ func (s *Server) toolGroupMCPServerCallHandler() gin.HandlerFunc {
 	}
 }
 
-// getToolGroupEndpoint deduces the proxy MCP server endpoint URL for a given tool group
-func getToolGroupEndpoint(c *gin.Context, groupName string) string {
+// getGroupSseServer returns a server.SSEServer for a specific group, creating one if it doesn't already exist.
+// It ensures that each tool group has its own SSE server with the correct dynamic base path.
+func (s *Server) getGroupSseServer(groupName string) (*server.SSEServer, error) {
+	// Try to get existing server first
+	if serverVal, ok := s.groupSseServers.Load(groupName); ok {
+		return serverVal.(*server.SSEServer), nil
+	}
+
+	// Get the sse MCP proxy server for the group
+	groupSseMcpServer, exists := s.toolGroupService.GetToolGroupSseMCPServer(groupName)
+	if !exists {
+		return nil, fmt.Errorf("tool group not found: %s", groupName)
+	}
+
+	// Create new server with the correct dynamic base path
+	sseServer := server.NewSSEServer(
+		groupSseMcpServer,
+		server.WithDynamicBasePath(func(r *http.Request, sessionID string) string {
+			// Return the group-specific base path
+			return fmt.Sprintf("%s/groups/%s", V0PathPrefix, groupName)
+		}),
+	)
+
+	// Store for future use
+	s.groupSseServers.Store(groupName, sseServer)
+
+	return sseServer, nil
+}
+
+// toolGroupSseMCPServerCallHandler handles SSE connection requests (/sse) for a specific tool group.
+func (s *Server) toolGroupSseMCPServerCallHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		groupName := c.Param("name")
+
+		groupSseMcpServer, err := s.getGroupSseServer(groupName)
+		if err != nil {
+			c.JSON(
+				http.StatusNotFound,
+				gin.H{"error": fmt.Sprintf("failed to get sse server for group %s: %v", groupName, err)},
+			)
+			return
+		}
+
+		groupSseMcpServer.SSEHandler().ServeHTTP(c.Writer, c.Request)
+	}
+}
+
+// toolGroupSseMCPServerCallHandler handles SSE connection requests (/message) for a specific tool group.
+func (s *Server) toolGroupSseMCPServerCallMessageHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		groupName := c.Param("name")
+
+		groupSseMcpServer, err := s.getGroupSseServer(groupName)
+		if err != nil {
+			c.JSON(
+				http.StatusNotFound,
+				gin.H{"error": fmt.Sprintf("failed to get sse server for group: %s", groupName)},
+			)
+			return
+		}
+
+		groupSseMcpServer.MessageHandler().ServeHTTP(c.Writer, c.Request)
+	}
+}
+
+// getToolGroupEndpoints deduces the proxy MCP server endpoint URLs for a given tool group.
+// It returns the streamable HTTP endpoint and the SSE endpoints
+func getToolGroupEndpoints(c *gin.Context, groupName string) *types.ToolGroupEndpoints {
+	// This logic of creating the API endpoints is duplicated from internal/api/server.go
+	// TODO: centralize this logic into one place and use that everywhere.
 	scheme := "http"
 	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
 		scheme = "https"
@@ -144,7 +212,13 @@ func getToolGroupEndpoint(c *gin.Context, groupName string) string {
 	endpointURL := &url.URL{
 		Scheme: scheme,
 		Host:   c.Request.Host,
-		Path:   fmt.Sprintf("%s/groups/%s/mcp", V0PathPrefix, groupName),
+		Path:   fmt.Sprintf("%s/groups/%s", V0PathPrefix, groupName),
 	}
-	return endpointURL.String()
+	baseEndpoint := endpointURL.String()
+
+	return &types.ToolGroupEndpoints{
+		StreamableHTTPEndpoint: baseEndpoint + "/mcp",
+		SSEEndpoint:            baseEndpoint + "/sse",
+		SSEMessageEndpoint:     baseEndpoint + "/message",
+	}
 }

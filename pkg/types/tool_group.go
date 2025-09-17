@@ -12,13 +12,18 @@ type ToolGroup struct {
 	Description string `json:"description"`
 }
 
+// ToolGroupEndpoints contains the endpoints a MCP client can use to access a tool group.
+type ToolGroupEndpoints struct {
+	StreamableHTTPEndpoint string `json:"streamable_http_endpoint"`
+	SSEEndpoint            string `json:"sse_endpoint"`
+	SSEMessageEndpoint     string `json:"sse_message_endpoint"`
+}
+
 type CreateToolGroupResponse struct {
-	Endpoint string `json:"endpoint"`
+	*ToolGroupEndpoints
 }
 
 type GetToolGroupResponse struct {
 	*ToolGroup
-
-	// Endpoint is the URL MCP clients can connect to, to access this tool group's MCP server.
-	Endpoint string `json:"endpoint"`
+	*ToolGroupEndpoints
 }

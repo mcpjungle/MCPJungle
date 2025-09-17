@@ -61,19 +61,21 @@ docker compose up -d
 ```
 
 ## Register MCP servers
-Download the client binary either using brew or from the [Releases](https://github.com/mcpjungle/MCPJungle/releases).
+Download the `mcpjungle` CLI on your local machine either using brew or directly from the [Releases Page](https://github.com/mcpjungle/MCPJungle/releases).
 ```bash
 brew install mcpjungle/mcpjungle/mcpjungle
 ```
 
-Add the [context7](https://context7.com/) remote MCP server to mcpjungle
+The CLI lets you manage everything in mcpjungle.
+
+Next, lets add an MCP server to mcpjungle using the CLI. For this example, we'll use [context7](https://context7.com/).
 ```bash
 mcpjungle register --name context7 --url https://mcp.context7.com/mcp
 ```
 
 ## Connect to mcpjungle
 
-Add the following configuration in your Claude MCP Servers:
+Use the following configuration for your Claude MCP servers config:
 ```json
 {
   "mcpServers": {
@@ -89,7 +91,7 @@ Add the following configuration in your Claude MCP Servers:
 }
 ```
 
-Try asking Claude for the following:
+Once mcpjungle is added as an MCP to your Claude, try asking it the following:
 ```text
 Use context7 to get the documentation for `/lodash/lodash`
 ```
@@ -100,7 +102,11 @@ Claude will then attempt to call the `context7__get-library-docs` tool via MCPJu
   <img src="./assets/quickstart-claude-call-tool.png" alt="claude calls context7 tool via mcpjungle" height="400">
 </p>
 
-Congratulations 🎉 You have successfully registered a remote MCP server in MCPJungle and called one of its tools via Claude
+Congratulations! 🎉
+
+You have successfully registered a remote MCP server in MCPJungle and called one of its tools via Claude
+
+You can now proceed to play around with the mcpjungle and explore the documentation & CLI for more details.
 
 # Installation
 

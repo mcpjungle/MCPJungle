@@ -177,7 +177,11 @@ func runCreateToolGroup(cmd *cobra.Command, args []string) error {
 
 	cmd.Printf("Tool Group %s created successfully\n", group.Name)
 	cmd.Print("It is now accessible at the following streamable http endpoint:\n\n")
-	cmd.Println("    " + resp.Endpoint + "\n")
+	cmd.Println("    " + resp.StreamableHTTPEndpoint + "\n")
+
+	cmd.Print("Tools using the SSE (server-sent events) transport are accessible at:\n\n")
+	cmd.Println("    " + resp.SSEEndpoint)
+	cmd.Println("    " + resp.SSEMessageEndpoint + "\n")
 
 	return nil
 }
