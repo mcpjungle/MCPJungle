@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/glebarez/sqlite"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
