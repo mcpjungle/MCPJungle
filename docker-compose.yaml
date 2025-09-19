@@ -29,6 +29,12 @@ services:
       OTEL_ENABLED: ${OTEL_ENABLED:-false}
     ports:
       - "${HOST_PORT:-8080}:8080"
+    volumes:
+      # Mount host filesystem current directory to enable filesystem MCP server access
+      - .:/host:ro
+      # Other options:
+      # - ${HOME}:/host/home:ro
+      # - /tmp:/host/tmp:rw
     depends_on:
       db:
         condition: service_healthy

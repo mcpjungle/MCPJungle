@@ -40,6 +40,15 @@ services:
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
     ports:
       - "8080:8080"
+    # volumes:
+      # Uncomment the following lines ONLY if you need filesystem MCP server access
+      # WARNING: This mounts the host filesystem and should only be used for personal/development use
+      # Production deployments should avoid mounting host filesystem for security reasons
+      # - /:/host:ro
+      # 
+      # Alternative: Mount specific directories for better security
+      # - ${HOME}:/host/home:ro
+      # - /tmp:/host/tmp:rw
     depends_on:
       db:
         condition: service_healthy
