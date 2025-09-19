@@ -145,7 +145,7 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 	r := gin.Default()
 
 	// if otel is enabled, setup prometheus metrics endpoint
-	if s.otelProviders.IsEnabled() {
+	if s.otelProviders != nil && s.otelProviders.IsEnabled() {
 		// instrument gin
 		r.Use(otelgin.Middleware(s.otelProviders.ServiceName()))
 
