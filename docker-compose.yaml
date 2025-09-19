@@ -28,7 +28,7 @@ services:
       SERVER_MODE: ${SERVER_MODE:-development}
       OTEL_ENABLED: ${OTEL_ENABLED:-false}
     ports:
-      - "8080:8080"
+      - "${HOST_PORT:-8080}:8080"
     volumes:
       # Mount host filesystem current directory to enable filesystem MCP server access
       - .:/host:ro

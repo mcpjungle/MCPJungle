@@ -39,7 +39,7 @@ services:
       SERVER_MODE: ${SERVER_MODE:-production}
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
     ports:
-      - "8080:8080"
+     - "${HOST_PORT:-8080}:8080"
     # volumes:
       # Uncomment the following lines ONLY if you need filesystem MCP server access
       # WARNING: This mounts the host filesystem and should only be used for personal/development use
