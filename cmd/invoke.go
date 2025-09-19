@@ -11,11 +11,12 @@ import (
 )
 
 var invokeCmdInput string
+var invokeCmdGroupName string
 
 var invokeToolCmd = &cobra.Command{
 	Use:   "invoke <name>",
 	Short: "Invoke a tool",
-	Long:  "Invokes a tool supplied by a registered MCP server",
+	Long:  "Invokes a tool supplied by a registered MCP server or from a specific tool group",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runInvokeTool,
 	Annotations: map[string]string{
@@ -26,6 +27,7 @@ var invokeToolCmd = &cobra.Command{
 
 func init() {
 	invokeToolCmd.Flags().StringVar(&invokeCmdInput, "input", "{}", "valid JSON payload")
+	invokeToolCmd.Flags().StringVar(&invokeCmdGroupName, "group", "", "invoke tool within group context")
 	rootCmd.AddCommand(invokeToolCmd)
 }
 
@@ -103,7 +105,36 @@ func runInvokeTool(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid input: %w", err)
 	}
 
-	result, err := apiClient.InvokeTool(args[0], input)
+	toolName := args[0]
+
+	// If group is specified, validate that the tool is in the group
+	if invokeCmdGroupName != "" {
+		group, err := apiClient.GetToolGroup(invokeCmdGroupName)
+		if err != nil {
+			return fmt.Errorf("failed to get tool group '%s': %w", invokeCmdGroupName, err)
+		}
+
+		// Check if the tool is included in the group
+		toolInGroup := false
+		for _, includedTool := range group.IncludedTools {
+			if includedTool == toolName {
+				toolInGroup = true
+				break
+			}
+		}
+
+		if !toolInGroup {
+			return fmt.Errorf("tool '%s' is not available in group '%s'", toolName, invokeCmdGroupName)
+		}
+
+		fmt.Printf("Invoking tool '%s' from group '%s'\n", toolName, invokeCmdGroupName)
+		if group.Description != "" {
+			fmt.Printf("Group description: %s\n", group.Description)
+		}
+		fmt.Println()
+	}
+
+	result, err := apiClient.InvokeTool(toolName, input)
 	if err != nil {
 		return fmt.Errorf("failed to invoke tool: %w", err)
 	}

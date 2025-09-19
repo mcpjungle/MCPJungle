@@ -508,6 +508,19 @@ mcpjungle get group claude-tools
 mcpjungle delete group claude-tools
 ```
 
+### Working with tools in groups
+You can list and invoke tools within specific groups using the `--group` flag:
+
+```bash
+# list tools in a specific group
+mcpjungle list tools --group claude-tools
+
+# invoke a tool from a specific group context
+mcpjungle invoke filesystem__read_file --group claude-tools --input '{"path": "README.md"}'
+```
+
+These commands provide group-scoped operations, making it easier to work with tools within specific contexts and validate that tools are available in your groups.
+
 > [!NOTE]
 > If a tool is included in a group but is later disabled globally or deleted, then it will not be available via the group's MCP endpoint.
 >

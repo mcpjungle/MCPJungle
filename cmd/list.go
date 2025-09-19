@@ -18,11 +18,12 @@ var listCmd = &cobra.Command{
 }
 
 var listToolsCmdServerName string
+var listToolsCmdGroupName string
 
 var listToolsCmd = &cobra.Command{
 	Use:   "tools",
 	Short: "List available tools",
-	Long:  "List tools available either from a specific MCP server or across all MCP servers registered in the registry.",
+	Long:  "List tools available either from a specific MCP server, tool group, or across all MCP servers registered in the registry.",
 	RunE:  runListTools,
 }
 
@@ -60,6 +61,12 @@ func init() {
 		"",
 		"Filter tools by server name",
 	)
+	listToolsCmd.Flags().StringVar(
+		&listToolsCmdGroupName,
+		"group",
+		"",
+		"Filter tools by group name",
+	)
 
 	listCmd.AddCommand(listToolsCmd)
 	listCmd.AddCommand(listServersCmd)
@@ -71,15 +78,73 @@ func init() {
 }
 
 func runListTools(cmd *cobra.Command, args []string) error {
-	tools, err := apiClient.ListTools(listToolsCmdServerName)
-	if err != nil {
-		return fmt.Errorf("failed to list tools: %w", err)
+	// Validate flag usage - prevent conflicting filters
+	if listToolsCmdServerName != "" && listToolsCmdGroupName != "" {
+		return fmt.Errorf("cannot use both --server and --group flags simultaneously")
+	}
+
+	var tools []*types.Tool
+	var err error
+	var contextInfo string
+
+	if listToolsCmdGroupName != "" {
+		// Get tools from specific group
+		group, err := apiClient.GetToolGroup(listToolsCmdGroupName)
+		if err != nil {
+			return fmt.Errorf("failed to get tool group '%s': %w", listToolsCmdGroupName, err)
+		}
+
+		// Get all tools first, then filter by group's included tools
+		allTools, err := apiClient.ListTools("")
+		if err != nil {
+			return fmt.Errorf("failed to list tools: %w", err)
+		}
+
+		// Create a map for efficient lookup
+		includedToolsMap := make(map[string]bool)
+		for _, toolName := range group.IncludedTools {
+			includedToolsMap[toolName] = true
+		}
+
+		// Filter tools that are in the group
+		for _, tool := range allTools {
+			if includedToolsMap[tool.Name] {
+				tools = append(tools, tool)
+			}
+		}
+
+		contextInfo = fmt.Sprintf("Tools in group '%s'", listToolsCmdGroupName)
+		if group.Description != "" {
+			contextInfo += fmt.Sprintf(" (%s)", group.Description)
+		}
+	} else {
+		// Use existing logic for server filtering or all tools
+		tools, err = apiClient.ListTools(listToolsCmdServerName)
+		if err != nil {
+			return fmt.Errorf("failed to list tools: %w", err)
+		}
+
+		if listToolsCmdServerName != "" {
+			contextInfo = fmt.Sprintf("Tools from server '%s'", listToolsCmdServerName)
+		}
 	}
 
 	if len(tools) == 0 {
-		fmt.Println("There are no tools in the registry")
+		if listToolsCmdGroupName != "" {
+			fmt.Printf("There are no tools in group '%s'\n", listToolsCmdGroupName)
+		} else if listToolsCmdServerName != "" {
+			fmt.Printf("There are no tools from server '%s'\n", listToolsCmdServerName)
+		} else {
+			fmt.Println("There are no tools in the registry")
+		}
 		return nil
 	}
+
+	// Display context information if filtering is applied
+	if contextInfo != "" {
+		fmt.Printf("%s:\n\n", contextInfo)
+	}
+
 	for i, t := range tools {
 		ed := "ENABLED"
 		if !t.Enabled {
