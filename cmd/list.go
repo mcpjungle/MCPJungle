@@ -17,13 +17,21 @@ var listCmd = &cobra.Command{
 	},
 }
 
-var listToolsCmdServerName string
+var (
+	listToolsCmdServerName string
+	listToolsCmdGroupName  string
+)
 
 var listToolsCmd = &cobra.Command{
 	Use:   "tools",
 	Short: "List available tools",
-	Long:  "List tools available either from a specific MCP server or across all MCP servers registered in the registry.",
-	RunE:  runListTools,
+	Long: "List tools available either from a specific MCP server, tool group, or across " +
+		"all MCP servers registered in mcpjungle.\n\n" +
+		"NOTE: When using --group flag, this command only displays tools that currently exist " +
+		"in mcpjungle and are part of the group.\n" +
+		"So if, for example, the group includes a tool that has been deleted, this command won't display it.\n" +
+		"To get the full list of tools included in a group, use the `get group` command instead.",
+	RunE: runListTools,
 }
 
 var listServersCmd = &cobra.Command{
@@ -60,6 +68,12 @@ func init() {
 		"",
 		"Filter tools by server name",
 	)
+	listToolsCmd.Flags().StringVar(
+		&listToolsCmdGroupName,
+		"group",
+		"",
+		"Filter tools by tool group name",
+	)
 
 	listCmd.AddCommand(listToolsCmd)
 	listCmd.AddCommand(listServersCmd)
@@ -71,26 +85,87 @@ func init() {
 }
 
 func runListTools(cmd *cobra.Command, args []string) error {
-	tools, err := apiClient.ListTools(listToolsCmdServerName)
-	if err != nil {
-		return fmt.Errorf("failed to list tools: %w", err)
+	// If both server and group flags are provided, reject the request.
+	if listToolsCmdServerName != "" && listToolsCmdGroupName != "" {
+		return fmt.Errorf("using both --server and --group flags together is currently not supported")
+	}
+
+	var tools []*types.Tool
+	var err error
+	var contextInfo string
+
+	if listToolsCmdGroupName != "" {
+		// Get tools from specific group
+		group, err := apiClient.GetToolGroup(listToolsCmdGroupName)
+		if err != nil {
+			return fmt.Errorf("failed to get tool group '%s': %w", listToolsCmdGroupName, err)
+		}
+
+		// Get all tools first, then filter by group's included tools.
+		// This is necessary because a group might contain tools that do not currently exist in mcpjungle.
+		// for eg- the tool was deleted after group creation or the group includes a non-existent tool.
+		// ListTools only returns tools that actually exist in mcpjungle, so we must cross-check.
+		allTools, err := apiClient.ListTools("")
+		if err != nil {
+			return fmt.Errorf("failed to list all tools: %w", err)
+		}
+
+		// Create a map for efficient lookup
+		includedToolsMap := make(map[string]bool)
+		for _, toolName := range group.IncludedTools {
+			includedToolsMap[toolName] = true
+		}
+
+		// Filter tools that are in the group
+		for _, tool := range allTools {
+			if includedToolsMap[tool.Name] {
+				tools = append(tools, tool)
+			}
+		}
+
+		contextInfo = fmt.Sprintf("Tools in group '%s'", listToolsCmdGroupName)
+		if group.Description != "" {
+			contextInfo += fmt.Sprintf(" (%s)", group.Description)
+		}
+	} else {
+		// no group specified, list tools from specific server (if flag is set) or all servers
+		tools, err = apiClient.ListTools(listToolsCmdServerName)
+		if err != nil {
+			return fmt.Errorf("failed to list tools: %w", err)
+		}
+
+		if listToolsCmdServerName != "" {
+			contextInfo = fmt.Sprintf("Tools from server '%s'", listToolsCmdServerName)
+		}
 	}
 
 	if len(tools) == 0 {
-		fmt.Println("There are no tools in the registry")
+		if listToolsCmdGroupName != "" {
+			cmd.Printf("There are no valid tools in group '%s'\n", listToolsCmdGroupName)
+		} else if listToolsCmdServerName != "" {
+			cmd.Printf("There are no tools from mcp server '%s'\n", listToolsCmdServerName)
+		} else {
+			cmd.Println("There are currently no tools in the registry")
+		}
 		return nil
 	}
+
+	// Display context information if filtering is applied
+	if contextInfo != "" {
+		cmd.Printf("%s:\n\n", contextInfo)
+	}
+
 	for i, t := range tools {
 		ed := "ENABLED"
 		if !t.Enabled {
 			ed = "DISABLED"
 		}
-		fmt.Printf("%d. %s  [%s]\n", i+1, t.Name, ed)
-		fmt.Println(t.Description)
-		fmt.Println()
+		cmd.Printf("%d. %s  [%s]\n", i+1, t.Name, ed)
+		cmd.Println(t.Description)
+		cmd.Println()
 	}
 
-	fmt.Println("Run 'usage <tool name>' to see a tool's usage or 'invoke <tool name>' to call one")
+	cmd.Println("Run 'usage <tool name>' to see a tool's usage or 'invoke <tool name>' to call one")
 
 	return nil
 }

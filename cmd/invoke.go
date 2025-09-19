@@ -10,7 +10,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var invokeCmdInput string
+var (
+	invokeCmdInput     string
+	invokeCmdGroupName string
+)
 
 var invokeToolCmd = &cobra.Command{
 	Use:   "invoke <name>",
@@ -26,6 +29,7 @@ var invokeToolCmd = &cobra.Command{
 
 func init() {
 	invokeToolCmd.Flags().StringVar(&invokeCmdInput, "input", "{}", "valid JSON payload")
+	invokeToolCmd.Flags().StringVar(&invokeCmdGroupName, "group", "", "invoke the tool within a tool group's context")
 	rootCmd.AddCommand(invokeToolCmd)
 }
 
@@ -103,29 +107,58 @@ func runInvokeTool(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid input: %w", err)
 	}
 
-	result, err := apiClient.InvokeTool(args[0], input)
+	toolName := args[0]
+
+	// If group is specified, validate that the tool is in the group
+	if invokeCmdGroupName != "" {
+		group, err := apiClient.GetToolGroup(invokeCmdGroupName)
+		if err != nil {
+			return fmt.Errorf("failed to get tool group '%s': %w", invokeCmdGroupName, err)
+		}
+
+		// Check if the tool is included in the group
+		toolInGroup := false
+		for _, includedTool := range group.IncludedTools {
+			if includedTool == toolName {
+				toolInGroup = true
+				break
+			}
+		}
+
+		if !toolInGroup {
+			return fmt.Errorf("tool '%s' is not available in group '%s'", toolName, invokeCmdGroupName)
+		}
+
+		cmd.Printf("Invoking tool '%s' from group '%s'\n", toolName, invokeCmdGroupName)
+		if group.Description != "" {
+			cmd.Printf("Group description: %s\n", group.Description)
+		}
+		cmd.Println()
+	}
+
+	result, err := apiClient.InvokeTool(toolName, input)
 	if err != nil {
 		return fmt.Errorf("failed to invoke tool: %w", err)
 	}
 
 	if result.IsError {
-		fmt.Println("The tool returned an error:")
+		cmd.Println("The tool returned an error:")
 		for k, v := range result.Meta {
-			fmt.Printf("%s: %v\n", k, v)
+			cmd.Printf("%s: %v\n", k, v)
 		}
 	} else {
-		fmt.Println("Response from tool:")
+		cmd.Println("Response from tool:")
 	}
 
 	// result Content needs to be printed regardless of whether the tool returned an error or not
 	// because it may contain useful information
-	fmt.Println()
+	cmd.Println()
 	for _, c := range result.Content {
 		cType, ok := c["type"]
 		if !ok {
 			return fmt.Errorf("content item does not have a 'type' field: %v", c)
 		}
-		fmt.Printf("[Content type: %s]\n", cType)
+		cmd.Printf("[Content type: %s]\n", cType)
 
 		switch cType {
 		case "text":
@@ -133,7 +166,7 @@ func runInvokeTool(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return err
 			}
-			fmt.Println(textContent)
+			cmd.Println(textContent)
 
 		case "image":
 			imgData, ext, err := getImageContent(c)
@@ -144,7 +177,7 @@ func runInvokeTool(cmd *cobra.Command, args []string) error {
 			if err := os.WriteFile(filename, imgData, 0o644); err != nil {
 				return fmt.Errorf("failed to write image to disk: %w", err)
 			}
-			fmt.Printf("[Image saved as %s]\n", filename)
+			cmd.Printf("[Image saved as %s]\n", filename)
 
 		case "audio":
 			audioData, ext, err := getAudioContent(c)
@@ -155,7 +188,7 @@ func runInvokeTool(cmd *cobra.Command, args []string) error {
 			if err := os.WriteFile(filename, audioData, 0o644); err != nil {
 				return fmt.Errorf("failed to write audio to disk: %w", err)
 			}
-			fmt.Printf("[Audio saved as %s]\n", filename)
+			cmd.Printf("[Audio saved as %s]\n", filename)
 		}
 	}
 
