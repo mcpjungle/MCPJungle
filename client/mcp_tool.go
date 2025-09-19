@@ -11,6 +11,7 @@ import (
 )
 
 // ListTools fetches the list of tools, optionally filtered by server name.
+// If server is an empty string, this method fetches all tools.
 func (c *Client) ListTools(server string) ([]*types.Tool, error) {
 	u, _ := c.constructAPIEndpoint("/tools")
 	req, _ := c.newRequest(http.MethodGet, u, nil)
