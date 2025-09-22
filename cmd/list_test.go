@@ -53,7 +53,7 @@ func TestListServersSubcommand(t *testing.T) {
 func TestListMcpClientsSubcommand(t *testing.T) {
 	// Test command properties
 	testhelpers.AssertEqual(t, "mcp-clients", listMcpClientsCmd.Use)
-	testhelpers.AssertEqual(t, "List MCP clients (Production mode)", listMcpClientsCmd.Short)
+	testhelpers.AssertEqual(t, "List MCP clients (Enterprise mode)", listMcpClientsCmd.Short)
 	testhelpers.AssertNotNil(t, listMcpClientsCmd.Long)
 	testhelpers.AssertTrue(t, len(listMcpClientsCmd.Long) > 0, "Long description should not be empty")
 
@@ -64,7 +64,7 @@ func TestListMcpClientsSubcommand(t *testing.T) {
 func TestListUsersSubcommand(t *testing.T) {
 	// Test command properties
 	testhelpers.AssertEqual(t, "users", listUsersCmd.Use)
-	testhelpers.AssertEqual(t, "List users (Production mode)", listUsersCmd.Short)
+	testhelpers.AssertEqual(t, "List users (Enterprise mode)", listUsersCmd.Short)
 	testhelpers.AssertNotNil(t, listUsersCmd.Long)
 	testhelpers.AssertTrue(t, len(listUsersCmd.Long) > 0, "Long description should not be empty")
 

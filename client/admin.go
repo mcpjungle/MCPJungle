@@ -15,14 +15,14 @@ type InitServerResponse struct {
 	AdminAccessToken string `json:"admin_access_token"`
 }
 
-// InitServer sends a request to initialize the server in production mode
+// InitServer sends a request to initialize the server in enterprise mode
 func (c *Client) InitServer() (*InitServerResponse, error) {
 	u, _ := url.JoinPath(c.baseURL, "/init")
 
 	payload := struct {
 		Mode string `json:"mode"`
 	}{
-		Mode: string(model.ModeProd),
+		Mode: string(model.ModeEnterprise),
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {

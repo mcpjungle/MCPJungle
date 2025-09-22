@@ -39,7 +39,7 @@ var startServerCmd = &cobra.Command{
 	Short: "Start the MCPJungle server",
 	Long: "Starts the MCPJungle HTTP registry server and the MCP Proxy server.\n" +
 		"The server is started in development mode by default, which is ideal for individual users.\n" +
-		"Teams & Enterprises should run mcpjungle in production mode.\n",
+		"Teams & Enterprises should run mcpjungle in enterprise mode.\n",
 	RunE: runStartServer,
 	Annotations: map[string]string{
 		"group": string(subCommandGroupBasic),
@@ -59,9 +59,9 @@ func init() {
 		"prod",
 		false,
 		fmt.Sprintf(
-			"Run the server in Production mode (ideal for teams and enterprises)."+
+			"Run the server in Enterprise mode (ideal for teams and enterprises)."+
 				" Alternatively, set the %s environment variable ('%s' | '%s')",
-			ServerModeEnvVar, model.ModeDev, model.ModeProd,
+			ServerModeEnvVar, model.ModeDev, model.ModeEnterprise,
 		),
 	)
 
@@ -78,10 +78,10 @@ func getDesiredServerMode() (model.ServerMode, error) {
 		// the value of the environment variable is allowed to be case-insensitive
 		envMode = strings.ToLower(envMode)
 
-		if envMode != string(model.ModeDev) && envMode != string(model.ModeProd) {
+		if envMode != string(model.ModeDev) && envMode != string(model.ModeEnterprise) {
 			return "", fmt.Errorf(
 				"invalid value for %s environment variable: '%s', valid values are '%s' and '%s'",
-				ServerModeEnvVar, envMode, model.ModeDev, model.ModeProd,
+				ServerModeEnvVar, envMode, model.ModeDev, model.ModeEnterprise,
 			)
 		}
 
@@ -89,7 +89,7 @@ func getDesiredServerMode() (model.ServerMode, error) {
 	}
 	if startServerCmdProdEnabled {
 		// If the --prod flag is set, it gets precedence over the environment variable
-		desiredServerMode = model.ModeProd
+		desiredServerMode = model.ModeEnterprise
 	}
 
 	return desiredServerMode, nil
@@ -99,7 +99,7 @@ func getDesiredServerMode() (model.ServerMode, error) {
 // If an env var is specified, it takes precedence over the defaults.
 // Otherwise, by default, telemetry is disabled in dev mode and enabled in prod mode.
 func isTelemetryEnabled(desiredServerMode model.ServerMode) (bool, error) {
-	telemetryEnabled := desiredServerMode == model.ModeProd
+	telemetryEnabled := desiredServerMode == model.ModeEnterprise
 
 	envTelemetryEnabled := os.Getenv(TelemetryEnabledEnvVar)
 	if envTelemetryEnabled != "" {
@@ -266,7 +266,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 			// If desired mode is prod, then server initialization is a manual next step to be taken by the user.
 			// This is so that they can obtain the admin access token on their client machine.
 			cmd.Println(
-				"Starting server in Production mode," +
+				"Starting server in Enterprise mode," +
 					" don't forget to initialize it by running the `init-server` command",
 			)
 		}

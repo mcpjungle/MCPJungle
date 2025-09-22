@@ -25,7 +25,7 @@ func (s *Server) requireInitialized() gin.HandlerFunc {
 	}
 }
 
-// verifyUserAuthForAPIAccess is middleware that checks for a valid user token if the server is in production mode.
+// verifyUserAuthForAPIAccess is middleware that checks for a valid user token if the server is in enterprise mode.
 // this middleware doesn't care about the role of the user, it just verifies that they're authenticated.
 func (s *Server) verifyUserAuthForAPIAccess() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -65,7 +65,7 @@ func (s *Server) verifyUserAuthForAPIAccess() gin.HandlerFunc {
 	}
 }
 
-// requireAdminUser is middleware that ensures the authenticated user has an admin role when in production mode.
+// requireAdminUser is middleware that ensures the authenticated user has an admin role when in enterprise mode.
 // It assumes that verifyUserAuthForAPIAccess middleware has already run and set the user in context.
 func (s *Server) requireAdminUser() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -127,7 +127,7 @@ func (s *Server) requireServerMode(m model.ServerMode) gin.HandlerFunc {
 }
 
 // checkAuthForMcpProxyAccess is middleware for MCP proxy that checks for a valid MCP client token
-// if the server is in production mode.
+// if the server is in enterprise mode.
 // In development mode, mcp clients do not require auth to access the MCP proxy.
 func (s *Server) checkAuthForMcpProxyAccess() gin.HandlerFunc {
 	return func(c *gin.Context) {

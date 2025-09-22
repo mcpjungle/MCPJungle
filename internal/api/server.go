@@ -175,7 +175,7 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 
 	r.POST("/init", s.registerInitServerHandler())
 
-	requireProdMode := s.requireServerMode(model.ModeProd)
+	requireProdMode := s.requireServerMode(model.ModeEnterprise)
 
 	// Set up the MCP proxy server on /mcp
 	streamableHTTPServer := server.NewStreamableHTTPServer(s.mcpProxyServer)
@@ -228,7 +228,7 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		s.verifyUserAuthForAPIAccess(),
 	)
 
-	// endpoints accessible by a standard user in production mode or anyone in development mode
+	// endpoints accessible by a standard user in enterprise mode or anyone in development mode
 	userAPI := apiV0.Group("/")
 	{
 		userAPI.GET("/servers", s.listServersHandler())
@@ -240,7 +240,7 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		userAPI.GET("/users/whoami", requireProdMode, s.whoAmIHandler())
 	}
 
-	// endpoints only accessible by an admin user in production mode or anyone in development mode
+	// endpoints only accessible by an admin user in enterprise mode or anyone in development mode
 	adminAPI := apiV0.Group("/", s.requireAdminUser())
 	{
 		adminAPI.POST("/servers", s.registerServerHandler())
@@ -249,7 +249,7 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		adminAPI.POST("/tools/enable", s.enableToolsHandler())
 		adminAPI.POST("/tools/disable", s.disableToolsHandler())
 
-		// endpoints for managing MCP clients (production mode only)
+		// endpoints for managing MCP clients (enterprise mode only)
 		adminAPI.GET(
 			"/clients",
 			requireProdMode,
@@ -266,7 +266,7 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 			s.deleteMcpClientHandler(),
 		)
 
-		// endpoints for managing human users (production mode only)
+		// endpoints for managing human users (enterprise mode only)
 		adminAPI.POST("/users",
 			requireProdMode,
 			s.createUserHandler(),

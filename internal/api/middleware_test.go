@@ -107,8 +107,8 @@ func TestVerifyUserAuthForAPIAccess(t *testing.T) {
 			expectedBody:   "",
 		},
 		{
-			name:       "production mode - valid token",
-			mode:       model.ModeProd,
+			name:       "enterprise mode - valid token",
+			mode:       model.ModeEnterprise,
 			authHeader: "Bearer test-token",
 			setupUser: func() error {
 				_, err := userService.CreateAdminUser()
@@ -127,8 +127,8 @@ func TestVerifyUserAuthForAPIAccess(t *testing.T) {
 			expectedBody:   "",
 		},
 		{
-			name:           "production mode - missing token",
-			mode:           model.ModeProd,
+			name:           "enterprise mode - missing token",
+			mode:           model.ModeEnterprise,
 			authHeader:     "",
 			setupUser:      func() error { return nil },
 			expectedStatus: http.StatusUnauthorized,
@@ -194,8 +194,8 @@ func TestRequireAdminUser(t *testing.T) {
 			expectedBody:   "",
 		},
 		{
-			name: "production mode - admin user",
-			mode: model.ModeProd,
+			name: "enterprise mode - admin user",
+			mode: model.ModeEnterprise,
 			user: &model.User{
 				Model:    gorm.Model{ID: 1},
 				Username: "admin",
@@ -205,8 +205,8 @@ func TestRequireAdminUser(t *testing.T) {
 			expectedBody:   "",
 		},
 		{
-			name: "production mode - regular user",
-			mode: model.ModeProd,
+			name: "enterprise mode - regular user",
+			mode: model.ModeEnterprise,
 			user: &model.User{
 				Model:    gorm.Model{ID: 1},
 				Username: "user",
@@ -268,7 +268,7 @@ func TestRequireServerMode(t *testing.T) {
 		},
 		{
 			name:           "non-matching mode - dev required, prod context",
-			contextMode:    model.ModeProd,
+			contextMode:    model.ModeEnterprise,
 			requiredMode:   model.ModeDev,
 			expectedStatus: http.StatusForbidden,
 			expectedBody:   `{"error":"this request is only allowed in development mode"}`,
@@ -329,8 +329,8 @@ func TestCheckAuthForMcpProxyAccess(t *testing.T) {
 			expectedBody:   "",
 		},
 		{
-			name:       "production mode - valid token",
-			mode:       model.ModeProd,
+			name:       "enterprise mode - valid token",
+			mode:       model.ModeEnterprise,
 			authHeader: "Bearer test-token",
 			setupClient: func() error {
 				client := model.McpClient{
@@ -354,8 +354,8 @@ func TestCheckAuthForMcpProxyAccess(t *testing.T) {
 			expectedBody:   "",
 		},
 		{
-			name:           "production mode - missing token",
-			mode:           model.ModeProd,
+			name:           "enterprise mode - missing token",
+			mode:           model.ModeEnterprise,
 			authHeader:     "",
 			setupClient:    func() error { return nil },
 			expectedStatus: http.StatusUnauthorized,
@@ -410,7 +410,7 @@ func TestMiddlewareIntegration(t *testing.T) {
 	userService := user.NewUserService(testDB)
 
 	// Setup config
-	_, err := configService.Init(model.ModeProd)
+	_, err := configService.Init(model.ModeEnterprise)
 	if err != nil {
 		t.Fatalf("Setup config failed: %v", err)
 	}

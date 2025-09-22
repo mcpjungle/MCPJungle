@@ -13,8 +13,8 @@ const (
 	// their personal MCP clients like Claude, Cursor, etc. and small use cases.
 	ModeDev ServerMode = "development"
 
-	// ModeProd is ideal for production (enterprise) deployments
-	ModeProd ServerMode = "production"
+	// ModeEnterprise is ideal for enterprise (production) deployments
+	ModeEnterprise ServerMode = "enterprise"
 )
 
 // ServerConfig represents the configuration for the MCPJungle server.
@@ -30,7 +30,7 @@ type ServerConfig struct {
 
 func (c *ServerConfig) BeforeSave(tx *gorm.DB) (err error) {
 	// Make sure that the server mode is valid before saving
-	if c.Mode != ModeDev && c.Mode != ModeProd {
+	if c.Mode != ModeDev && c.Mode != ModeEnterprise {
 		return fmt.Errorf("invalid server mode: %s", c.Mode)
 	}
 	return nil

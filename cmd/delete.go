@@ -18,16 +18,16 @@ var deleteCmd = &cobra.Command{
 var deleteMcpClientCmd = &cobra.Command{
 	Use:   "mcp-client [name]",
 	Args:  cobra.ExactArgs(1),
-	Short: "Delete an MCP client (Production mode)",
+	Short: "Delete an MCP client (Enterprise mode)",
 	Long: "Delete an MCP client from the registry. This instantly revokes all access of this client.\n" +
-		"This command is only available in Production mode.",
+		"This command is only available in Enterprise mode.",
 	RunE: runDeleteMcpClient,
 }
 
 var deleteUserCmd = &cobra.Command{
 	Use:   "user [username]",
 	Args:  cobra.ExactArgs(1),
-	Short: "Delete a user (Production mode)",
+	Short: "Delete a user (Enterprise mode)",
 	Long:  "Delete a user from mcpjungle.\nThis instantly revokes all access of this user.",
 	RunE:  runDeleteUser,
 }

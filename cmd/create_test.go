@@ -31,7 +31,7 @@ func TestCreateMcpClientSubcommand(t *testing.T) {
 
 	// Test command properties
 	testhelpers.AssertEqual(t, "mcp-client [name]", createMcpClientCmd.Use)
-	testhelpers.AssertEqual(t, "Create an authenticated MCP client (Production mode)", createMcpClientCmd.Short)
+	testhelpers.AssertEqual(t, "Create an authenticated MCP client (Enterprise mode)", createMcpClientCmd.Short)
 	testhelpers.AssertNotNil(t, createMcpClientCmd.Long)
 	testhelpers.AssertTrue(t, len(createMcpClientCmd.Long) > 0, "Long description should not be empty")
 
@@ -52,7 +52,7 @@ func TestCreateMcpClientSubcommand(t *testing.T) {
 func TestCreateUserSubcommand(t *testing.T) {
 	// Test command properties
 	testhelpers.AssertEqual(t, "user [username]", createUserCmd.Use)
-	testhelpers.AssertEqual(t, "Create a new user (Production mode)", createUserCmd.Short)
+	testhelpers.AssertEqual(t, "Create a new user (Enterprise mode)", createUserCmd.Short)
 	testhelpers.AssertNotNil(t, createUserCmd.Long)
 	testhelpers.AssertTrue(t, len(createUserCmd.Long) > 0, "Long description should not be empty")
 

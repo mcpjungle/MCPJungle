@@ -157,7 +157,7 @@ curl -O https://raw.githubusercontent.com/mcpjungle/MCPJungle/refs/heads/main/do
 docker compose up -d
 
 # docker-compose.prod.yaml is optimized for orgs deploying mcpjungle on a remote server for multiple users.
-# mcpjungle will run in `production` mode by default, which enables enterprise features.
+# mcpjungle will run in `enterprise` mode by default, which enables enterprise features.
 curl -O https://raw.githubusercontent.com/mcpjungle/MCPJungle/refs/heads/main/docker-compose.prod.yaml
 
 docker compose -f docker-compose.prod.yaml up -d
@@ -528,7 +528,7 @@ These commands provide group-scoped operations, making it easier to work with to
 
 **Limitations** 🚧
 1. Currently, you cannot update an existing tool group. You must delete the group and create a new one with the modified configuration file.
-2. In `production` mode, currently only an admin can create a Tool Group. We're working on allowing standard Users to create their own groups as well.
+2. In `enterprise` mode, currently only an admin can create a Tool Group. We're working on allowing standard Users to create their own groups as well.
 
 ## Authentication
 MCPJungle currently supports authentication if your Streamable HTTP MCP Server accepts static tokens for auth.
@@ -556,13 +556,13 @@ Support for Oauth flow is coming soon!
 
 ## Enterprise Features 🔒
 
-If you're running MCPJungle in your organisation, we recommend running the Server in the `production` mode:
+If you're running MCPJungle in your organisation, we recommend running the Server in the `enterprise` mode:
 ```bash
-# enable enterprise features by running in production mode
+# enable enterprise features by running in enterprise mode
 mcpjungle start --prod
 
-# you can also specify the server mode as environment variable (valid values are `development` and `production`)
-export SERVER_MODE=production
+# you can also specify the server mode as environment variable (valid values are `development` and `enterprise`)
+export SERVER_MODE=enterprise
 mcpjungle start
 
 # Or use the production docker compose file as described above
@@ -571,9 +571,9 @@ docker compose -f docker-compose.prod.yaml up -d
 
 By default, mcpjungle server runs in `development` mode which is ideal for individuals running it locally.
 
-In Production mode, the server enforces stricter security policies and will provide additional features like Authentication, ACLs, observability and more.
+In Enterprise mode, the server enforces stricter security policies and will provide additional features like Authentication, ACLs, observability and more.
 
-After starting the server in production mode, you must initialize it by running the following command on your client machine:
+After starting the server in enterprise mode, you must initialize it by running the following command on your client machine:
 ```bash
 mcpjungle init-server
 ```
@@ -586,7 +586,7 @@ You can then use the mcpjungle cli to make authenticated requests to the server.
 
 In `development` mode, all MCP clients have full access to all the MCP servers registered in MCPJungle Proxy.
 
-`production` mode lets you control which MCP clients can access which MCP servers.
+`enterprise` mode lets you control which MCP clients can access which MCP servers.
 
 Suppose you have registered 2 MCP servers `calculator` and `github` in MCPJungle in production mode.
 
@@ -629,7 +629,7 @@ A client that has access to a particular server this way can view and call all t
 ### OpenTelemetry
 MCPJungle supports Prometheus-compatible OpenTelemetry Metrics for observability.
 
-- In `production` mode, OpenTelemetry is enabled by default.
+- In `enterprise` mode, OpenTelemetry is enabled by default.
 - In `development` mode, telemetry is disabled by default. You can enable it by setting the `OTEL_ENABLED` environment variable to `true` before starting the server:
 
 ```bash
@@ -637,7 +637,7 @@ MCPJungle supports Prometheus-compatible OpenTelemetry Metrics for observability
 export OTEL_ENABLED=true
 
 # optionally, set additional attributes to be added to all metrics
-export OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=production
+export OTEL_RESOURCE_ATTRIBUTES=deployment.environment.name=enterprise
 
 # start the server
 mcpjungle start
