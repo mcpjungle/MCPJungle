@@ -44,7 +44,11 @@ func runGetGroup(cmd *cobra.Command, args []string) error {
 	}
 
 	cmd.Println()
-	cmd.Println("MCP Server endpoint: ", group.Endpoint)
+	cmd.Println("MCP Server streamable http endpoint: ", group.StreamableHTTPEndpoint)
+	cmd.Println()
+	cmd.Println("MCP server SSE endpoints:")
+	cmd.Println(group.SSEEndpoint)
+	cmd.Println(group.SSEMessageEndpoint)
 	cmd.Println()
 
 	if len(group.IncludedTools) == 0 {

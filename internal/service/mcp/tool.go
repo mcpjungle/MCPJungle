@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/internal/telemetry"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
@@ -23,6 +25,9 @@ type ToolDeletionCallback func(toolNames ...string)
 type ToolAdditionCallback func(toolName string) error
 
 // ListTools returns all tools registered in the registry.
+// It sets each tool's name to its canonical form by prepending its mcp server's name.
+// For example, if a tool named "commit" is provided by a server named "git",
+// its name will be set to "git__commit".
 func (m *MCPService) ListTools() ([]model.Tool, error) {
 	var tools []model.Tool
 	if err := m.db.Find(&tools).Error; err != nil {
@@ -92,12 +97,31 @@ func (m *MCPService) GetToolInstance(name string) (mcp.Tool, bool) {
 	return tool, exists
 }
 
+// GetToolParentServer returns the MCP server that provides the given tool.
+// The input name must be the canonical tool name, ie, it must contain the server name prefix (eg- "server__tool").
+func (m *MCPService) GetToolParentServer(name string) (*model.McpServer, error) {
+	serverName, _, ok := splitServerToolName(name)
+	if !ok {
+		return nil, fmt.Errorf("invalid input: tool name does not contain a %s separator", serverToolNameSep)
+	}
+	return m.GetMcpServer(serverName)
+}
+
 // InvokeTool invokes a tool from a registered MCP server and returns its response.
 func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[string]any) (*types.ToolInvokeResult, error) {
+	started := time.Now()
+	outcome := telemetry.ToolCallOutcomeError
+
 	serverName, toolName, ok := splitServerToolName(name)
 	if !ok {
 		return nil, fmt.Errorf("invalid input: tool name does not contain a %s separator", serverToolNameSep)
 	}
+
+	// record the tool call metrics when the function returns
+	defer func() {
+		m.metrics.RecordToolCall(ctx, serverName, toolName, outcome, time.Since(started))
+	}()
+
 	serverModel, err := m.GetMcpServer(serverName)
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -152,6 +176,9 @@ func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[strin
 		IsError: callToolResp.IsError,
 		Content: contentList,
 	}
+
+	outcome = telemetry.ToolCallOutcomeSuccess
+
 	return result, nil
 }
 
@@ -190,6 +217,9 @@ func (m *MCPService) DisableTools(entity string) ([]string, error) {
 }
 
 // setToolsEnabled does the heavy lifting of enabling or disabling one or more tools.
+// entity can be either a tool name or a server name.
+// If entity is a tool name, only that tool is enabled/disabled.
+// If entity is a server name, all tools of that server are enabled/disabled.
 func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, error) {
 	serverName, toolName, ok := splitServerToolName(entity)
 	if ok {
@@ -215,22 +245,32 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 		}
 
 		if enabled {
-			// if the tool was enabled, add it back to the MCP proxy server
+			// if the tool was enabled, add it back to the appropriate MCP proxy server
 			mcpTool, err := convertToolModelToMcpObject(&tool)
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert tool model to MCP object for tool %s: %w", tool.Name, err)
 			}
 			// set the tool name to its canonical form in the proxy
 			mcpTool.Name = entity
-			m.mcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
+
+			if s.Transport == types.TransportSSE {
+				m.sseMcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
+			} else {
+				m.mcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
+			}
 
 			// also add the tool to the in-memory tool instance tracker
 			m.addToolInstance(mcpTool)
 			// notify any registered callbacks about the tool addition (re-enabling)
 			m.notifyToolAddition(mcpTool.Name)
 		} else {
-			// if the tool was disabled, remove it from the MCP proxy server
-			m.mcpProxyServer.DeleteTools(entity)
+			// if the tool was disabled, remove it from the appropriate MCP proxy server
+			if s.Transport == types.TransportSSE {
+				m.sseMcpProxyServer.DeleteTools(entity)
+			} else {
+				m.mcpProxyServer.DeleteTools(entity)
+			}
+
 			// also remove the tool from the in-memory tool instance tracker
 			m.deleteToolInstances(entity)
 			// notify any registered callbacks about the tool deletion
@@ -271,11 +311,21 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 			// set the tool name to its canonical form in the proxy
 			mcpTool.Name = canonicalToolName
 
-			m.mcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
+			if s.Transport == types.TransportSSE {
+				m.sseMcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
+			} else {
+				m.mcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
+			}
+
 			m.addToolInstance(mcpTool)
 			m.notifyToolAddition(mcpTool.Name)
 		} else {
-			m.mcpProxyServer.DeleteTools(canonicalToolName)
+			if s.Transport == types.TransportSSE {
+				m.sseMcpProxyServer.DeleteTools(canonicalToolName)
+			} else {
+				m.mcpProxyServer.DeleteTools(canonicalToolName)
+			}
+
 			m.deleteToolInstances(canonicalToolName)
 			m.notifyToolDeletion(canonicalToolName)
 		}
@@ -310,17 +360,23 @@ func (m *MCPService) registerServerTools(ctx context.Context, s *model.McpServer
 			// If registration of a tool fails, we should not fail the entire server registration.
 			// Instead, continue with the next tool.
 			log.Printf("[ERROR] failed to register tool %s in DB: %v", canonicalToolName, err)
-		} else {
-			// Set tool name to include the server name prefix to make it recognizable by MCPJungle
-			// then add the tool to the MCP proxy server
-			tool.Name = canonicalToolName
-			m.mcpProxyServer.AddTool(tool, m.MCPProxyToolCallHandler)
-
-			// also add the tool to the in-memory tool instance tracker
-			m.addToolInstance(tool)
-			// notify any registered callbacks about the tool addition
-			m.notifyToolAddition(tool.Name)
+			continue
 		}
+
+		// Set tool name to include the server name prefix to make it recognizable by MCPJungle
+		// then add the tool to the appropriate MCP proxy server
+		tool.Name = canonicalToolName
+
+		if s.Transport == types.TransportSSE {
+			m.sseMcpProxyServer.AddTool(tool, m.MCPProxyToolCallHandler)
+		} else {
+			m.mcpProxyServer.AddTool(tool, m.MCPProxyToolCallHandler)
+		}
+
+		// also add the tool to the in-memory tool instance tracker
+		m.addToolInstance(tool)
+		// notify any registered callbacks about the tool addition
+		m.notifyToolAddition(tool.Name)
 	}
 	return nil
 }
@@ -345,7 +401,12 @@ func (m *MCPService) deregisterServerTools(s *model.McpServer) error {
 	for i, tool := range tools {
 		toolNames[i] = tool.Name
 	}
-	m.mcpProxyServer.DeleteTools(toolNames...)
+
+	if s.Transport == types.TransportSSE {
+		m.sseMcpProxyServer.DeleteTools(toolNames...)
+	} else {
+		m.mcpProxyServer.DeleteTools(toolNames...)
+	}
 
 	// delete tools from Tool instance tracker
 	m.deleteToolInstances(toolNames...)

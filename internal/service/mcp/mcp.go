@@ -7,14 +7,17 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/mcpjungle/mcpjungle/internal/telemetry"
 	"gorm.io/gorm"
 )
 
 // MCPService coordinates operations amongst the registry database, mcp proxy server and upstream MCP servers.
 // It is responsible for maintaining data consistency and providing a unified interface for MCP operations.
 type MCPService struct {
-	db             *gorm.DB
-	mcpProxyServer *server.MCPServer
+	db *gorm.DB
+
+	mcpProxyServer    *server.MCPServer
+	sseMcpProxyServer *server.MCPServer
 
 	// toolInstances keeps track of all the in-memory mcp.Tool instances, keyed by their unique names.
 	toolInstances map[string]mcp.Tool
@@ -26,14 +29,23 @@ type MCPService struct {
 	// toolAdditionCallback is a callback that gets invoked when one or more tools is added
 	// (registered or (re)enabled) in mcpjungle.
 	toolAdditionCallback ToolAdditionCallback
+
+	metrics telemetry.CustomMetrics
 }
 
 // NewMCPService creates a new instance of MCPService.
 // It initializes the MCP proxy server by loading all registered tools from the database.
-func NewMCPService(db *gorm.DB, mcpProxyServer *server.MCPServer) (*MCPService, error) {
+func NewMCPService(
+	db *gorm.DB,
+	mcpProxyServer *server.MCPServer,
+	sseMcpProxyServer *server.MCPServer,
+	metrics telemetry.CustomMetrics,
+) (*MCPService, error) {
 	s := &MCPService{
-		db:             db,
-		mcpProxyServer: mcpProxyServer,
+		db: db,
+
+		mcpProxyServer:    mcpProxyServer,
+		sseMcpProxyServer: sseMcpProxyServer,
 
 		toolInstances: make(map[string]mcp.Tool),
 		mu:            sync.RWMutex{},
@@ -41,6 +53,8 @@ func NewMCPService(db *gorm.DB, mcpProxyServer *server.MCPServer) (*MCPService, 
 		// initialize the callbacks to NOOP functions
 		toolDeletionCallback: func(toolNames ...string) {},
 		toolAdditionCallback: func(toolName string) error { return nil },
+
+		metrics: metrics,
 	}
 	if err := s.initMCPProxyServer(); err != nil {
 		return nil, fmt.Errorf("failed to initialize MCP proxy server: %w", err)

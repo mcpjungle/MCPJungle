@@ -6,11 +6,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mcpjungle/mcpjungle/internal/model"
-	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
-func registerServerHandler(mcpService *mcp.MCPService) gin.HandlerFunc {
+func (s *Server) registerServerHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input types.RegisterServerInput
 		if err := c.ShouldBindJSON(&input); err != nil {
@@ -25,7 +24,9 @@ func registerServerHandler(mcpService *mcp.MCPService) gin.HandlerFunc {
 		}
 
 		var server *model.McpServer
-		if transport == types.TransportStreamableHTTP {
+
+		switch transport {
+		case types.TransportStreamableHTTP:
 			server, err = model.NewStreamableHTTPServer(
 				input.Name,
 				input.Description,
@@ -39,7 +40,7 @@ func registerServerHandler(mcpService *mcp.MCPService) gin.HandlerFunc {
 				)
 				return
 			}
-		} else {
+		case types.TransportStdio:
 			server, err = model.NewStdioServer(
 				input.Name,
 				input.Description,
@@ -54,42 +55,64 @@ func registerServerHandler(mcpService *mcp.MCPService) gin.HandlerFunc {
 				)
 				return
 			}
+		default:
+			// transport is SSE
+			server, err = model.NewSSEServer(
+				input.Name,
+				input.Description,
+				input.URL,
+				input.BearerToken,
+			)
+			if err != nil {
+				c.JSON(
+					http.StatusBadRequest,
+					gin.H{"error": fmt.Sprintf("Error creating SSE server: %v", err)},
+				)
+				return
+			}
 		}
 
-		if err := mcpService.RegisterMcpServer(c, server); err != nil {
+		if err := s.mcpService.RegisterMcpServer(c, server); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+
 		c.JSON(http.StatusCreated, server)
 	}
 }
 
-func deregisterServerHandler(mcpService *mcp.MCPService) gin.HandlerFunc {
+func (s *Server) deregisterServerHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		name := c.Param("name")
-		if err := mcpService.DeregisterMcpServer(name); err != nil {
+
+		if err := s.mcpService.DeregisterMcpServer(name); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+
 		c.Status(http.StatusNoContent)
 	}
 }
 
-func listServersHandler(mcpService *mcp.MCPService) gin.HandlerFunc {
+func (s *Server) listServersHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		records, err := mcpService.ListMcpServers()
+		records, err := s.mcpService.ListMcpServers()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+
 		servers := make([]*types.McpServer, len(records))
+
 		for i, record := range records {
 			servers[i] = &types.McpServer{
 				Name:        record.Name,
 				Transport:   string(record.Transport),
 				Description: record.Description,
 			}
-			if record.Transport == types.TransportStreamableHTTP {
+
+			switch record.Transport {
+			case types.TransportStreamableHTTP:
 				conf, err := record.GetStreamableHTTPConfig()
 				if err != nil {
 					c.JSON(
@@ -101,7 +124,7 @@ func listServersHandler(mcpService *mcp.MCPService) gin.HandlerFunc {
 					return
 				}
 				servers[i].URL = conf.URL
-			} else {
+			case types.TransportStdio:
 				conf, err := record.GetStdioConfig()
 				if err != nil {
 					c.JSON(
@@ -115,8 +138,22 @@ func listServersHandler(mcpService *mcp.MCPService) gin.HandlerFunc {
 				servers[i].Command = conf.Command
 				servers[i].Args = conf.Args
 				servers[i].Env = conf.Env
+			default:
+				// transport is SSE
+				conf, err := record.GetSSEConfig()
+				if err != nil {
+					c.JSON(
+						http.StatusInternalServerError,
+						gin.H{
+							"error": fmt.Sprintf("Error getting SSE config for server %s: %v", record.Name, err),
+						},
+					)
+					return
+				}
+				servers[i].URL = conf.URL
 			}
 		}
+
 		c.JSON(http.StatusOK, servers)
 	}
 }

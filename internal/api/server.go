@@ -3,6 +3,7 @@ package api
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mark3labs/mcp-go/server"
@@ -12,6 +13,9 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
+	"github.com/mcpjungle/mcpjungle/internal/telemetry"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 const (
@@ -23,12 +27,24 @@ type ServerOptions struct {
 	// Port is the HTTP ports to bind the server to
 	Port string
 
-	MCPProxyServer   *server.MCPServer
+	// MCPProxyServer is the MCP proxy server instance that contains tools for all MCP servers
+	// using the stdio or streamable http transport.
+	MCPProxyServer *server.MCPServer
+	// SseMcpProxyServer is the MCP proxy server instance that contains tools for all MCP servers
+	// using the SSE transport.
+	// sse tools are kept separate because SSE is supported for backward compatibility reasons, and
+	// we don't want it to interfere with the usual mcp proxy server.
+	// Both sse & streamable http use http, and we don't want to mix them up either.
+	SseMcpProxyServer *server.MCPServer
+
 	MCPService       *mcp.MCPService
 	MCPClientService *mcpclient.McpClientService
 	ConfigService    *config.ServerConfigService
 	UserService      *user.UserService
 	ToolGroupService *toolgroup.ToolGroupService
+
+	OtelProviders *telemetry.Providers
+	Metrics       telemetry.CustomMetrics
 }
 
 // Server represents the MCPJungle registry server that handles MCP proxy and API requests
@@ -36,29 +52,47 @@ type Server struct {
 	port   string
 	router *gin.Engine
 
-	mcpProxyServer   *server.MCPServer
+	mcpProxyServer    *server.MCPServer
+	sseMcpProxyServer *server.MCPServer
+
 	mcpService       *mcp.MCPService
 	mcpClientService *mcpclient.McpClientService
 
-	configService *config.ServerConfigService
-	userService   *user.UserService
+	configService    *config.ServerConfigService
+	userService      *user.UserService
+	toolGroupService *toolgroup.ToolGroupService
+
+	otelProviders *telemetry.Providers
+	metrics       telemetry.CustomMetrics
+
+	// groupMcpServers keeps track of mcp-go's server.SSEServer instances created for each tool group.
+	// These instances serve the requests made to tool groups' SSE tools.
+	// We need to maintain one instance for each group for sse to work correctly.
+	groupSseServers sync.Map
 }
 
 // NewServer initializes a new Gin server for MCPJungle registry and MCP proxy
 func NewServer(opts *ServerOptions) (*Server, error) {
-	r, err := newRouter(opts)
+	s := &Server{
+		port:              opts.Port,
+		mcpProxyServer:    opts.MCPProxyServer,
+		sseMcpProxyServer: opts.SseMcpProxyServer,
+		mcpService:        opts.MCPService,
+		mcpClientService:  opts.MCPClientService,
+		configService:     opts.ConfigService,
+		userService:       opts.UserService,
+		toolGroupService:  opts.ToolGroupService,
+		otelProviders:     opts.OtelProviders,
+		metrics:           opts.Metrics,
+	}
+
+	// Set up the router after the server is fully initialized
+	r, err := s.setupRouter()
 	if err != nil {
 		return nil, err
 	}
-	s := &Server{
-		port:             opts.Port,
-		router:           r,
-		mcpProxyServer:   opts.MCPProxyServer,
-		mcpService:       opts.MCPService,
-		mcpClientService: opts.MCPClientService,
-		configService:    opts.ConfigService,
-		userService:      opts.UserService,
-	}
+	s.router = r
+
 	return s, nil
 }
 
@@ -105,10 +139,19 @@ func (s *Server) Start() error {
 	return nil
 }
 
-// newRouter sets up the Gin router with the MCP proxy server and API endpoints.
-func newRouter(opts *ServerOptions) (*gin.Engine, error) {
+// setupRouter sets up the Gin router with the MCP proxy server and API endpoints.
+func (s *Server) setupRouter() (*gin.Engine, error) {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
+
+	// if otel is enabled, setup prometheus metrics endpoint
+	if s.otelProviders != nil && s.otelProviders.IsEnabled() {
+		// instrument gin
+		r.Use(otelgin.Middleware(s.otelProviders.ServiceName()))
+
+		// expose prometheus metrics endpoint
+		r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	}
 
 	r.GET(
 		"/health",
@@ -117,90 +160,118 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 		},
 	)
 
-	r.POST("/init", registerInitServerHandler(opts.ConfigService, opts.UserService))
+	r.POST("/init", s.registerInitServerHandler())
 
-	requireProdMode := requireServerMode(model.ModeProd)
+	requireProdMode := s.requireServerMode(model.ModeProd)
 
 	// Set up the MCP proxy server on /mcp
-	streamableHTTPServer := server.NewStreamableHTTPServer(opts.MCPProxyServer)
+	streamableHTTPServer := server.NewStreamableHTTPServer(s.mcpProxyServer)
 	r.Any(
 		"/mcp",
-		requireInitialized(opts.ConfigService),
-		checkAuthForMcpProxyAccess(opts.MCPClientService),
+		s.requireInitialized(),
+		s.checkAuthForMcpProxyAccess(),
 		gin.WrapH(streamableHTTPServer),
 	)
 
 	r.Any(
 		V0PathPrefix+"/groups/:name/mcp",
-		requireInitialized(opts.ConfigService),
-		checkAuthForMcpProxyAccess(opts.MCPClientService),
-		toolGroupMCPServerCallHandler(opts.ToolGroupService),
+		s.requireInitialized(),
+		s.checkAuthForMcpProxyAccess(),
+		s.toolGroupMCPServerCallHandler(),
+	)
+
+	// Set up the SSE transport-based MCP proxy server for the global /sse endpoint
+	sseServer := server.NewSSEServer(s.sseMcpProxyServer)
+	r.Any(
+		"/sse",
+		s.requireInitialized(),
+		s.checkAuthForMcpProxyAccess(),
+		gin.WrapH(sseServer.SSEHandler()),
+	)
+	r.Any(
+		"/message",
+		s.requireInitialized(),
+		s.checkAuthForMcpProxyAccess(),
+		gin.WrapH(sseServer.MessageHandler()),
+	)
+
+	r.Any(
+		V0PathPrefix+"/groups/:name/sse",
+		s.requireInitialized(),
+		s.checkAuthForMcpProxyAccess(),
+		s.toolGroupSseMCPServerCallHandler(),
+	)
+	r.Any(
+		V0PathPrefix+"/groups/:name/message",
+		s.requireInitialized(),
+		s.checkAuthForMcpProxyAccess(),
+		s.toolGroupSseMCPServerCallMessageHandler(),
 	)
 
 	// Setup /v0 API endpoints
 	apiV0 := r.Group(
 		V0ApiPathPrefix,
-		requireInitialized(opts.ConfigService),
-		verifyUserAuthForAPIAccess(opts.UserService),
+		s.requireInitialized(),
+		s.verifyUserAuthForAPIAccess(),
 	)
 
 	// endpoints accessible by a standard user in production mode or anyone in development mode
 	userAPI := apiV0.Group("/")
 	{
-		userAPI.GET("/servers", listServersHandler(opts.MCPService))
+		userAPI.GET("/servers", s.listServersHandler())
 
-		userAPI.GET("/tools", listToolsHandler(opts.MCPService))
-		userAPI.POST("/tools/invoke", invokeToolHandler(opts.MCPService))
-		userAPI.GET("/tool", getToolHandler(opts.MCPService))
+		userAPI.GET("/tools", s.listToolsHandler())
+		userAPI.POST("/tools/invoke", s.invokeToolHandler())
+		userAPI.GET("/tool", s.getToolHandler())
 
-		userAPI.GET("/users/whoami", requireProdMode, whoAmIHandler())
+		userAPI.GET("/users/whoami", requireProdMode, s.whoAmIHandler())
 	}
 
 	// endpoints only accessible by an admin user in production mode or anyone in development mode
-	adminAPI := apiV0.Group("/", requireAdminUser())
+	adminAPI := apiV0.Group("/", s.requireAdminUser())
 	{
-		adminAPI.POST("/servers", registerServerHandler(opts.MCPService))
-		adminAPI.DELETE("/servers/:name", deregisterServerHandler(opts.MCPService))
+		adminAPI.POST("/servers", s.registerServerHandler())
+		adminAPI.DELETE("/servers/:name", s.deregisterServerHandler())
 
-		adminAPI.POST("/tools/enable", enableToolsHandler(opts.MCPService))
-		adminAPI.POST("/tools/disable", disableToolsHandler(opts.MCPService))
+		adminAPI.POST("/tools/enable", s.enableToolsHandler())
+		adminAPI.POST("/tools/disable", s.disableToolsHandler())
 
 		// endpoints for managing MCP clients (production mode only)
 		adminAPI.GET(
 			"/clients",
 			requireProdMode,
-			listMcpClientsHandler(opts.MCPClientService),
+			s.listMcpClientsHandler(),
 		)
 		adminAPI.POST(
 			"/clients",
 			requireProdMode,
-			createMcpClientHandler(opts.MCPClientService),
+			s.createMcpClientHandler(),
 		)
 		adminAPI.DELETE(
 			"/clients/:name",
 			requireProdMode,
-			deleteMcpClientHandler(opts.MCPClientService),
+			s.deleteMcpClientHandler(),
 		)
 
 		// endpoints for managing human users (production mode only)
 		adminAPI.POST("/users",
 			requireProdMode,
-			createUserHandler(opts.UserService),
+			s.createUserHandler(),
 		)
 		adminAPI.GET("/users",
 			requireProdMode,
-			listUsersHandler(opts.UserService),
+			s.listUsersHandler(),
 		)
 		adminAPI.DELETE("/users/:username",
 			requireProdMode,
-			deleteUserHandler(opts.UserService),
+			s.deleteUserHandler(),
 		)
 
 		// endpoints for managing tool groups
-		adminAPI.POST("/tool-groups", createToolGroupHandler(opts.ToolGroupService))
-		adminAPI.GET("/tool-groups/:name", getToolGroupHandler(opts.ToolGroupService))
-		adminAPI.GET("/tool-groups", listToolGroupsHandler(opts.ToolGroupService))
-		adminAPI.DELETE("/tool-groups/:name", deleteToolGroupHandler(opts.ToolGroupService))
+		adminAPI.POST("/tool-groups", s.createToolGroupHandler())
+		adminAPI.GET("/tool-groups/:name", s.getToolGroupHandler())
+		adminAPI.GET("/tool-groups", s.listToolGroupsHandler())
+		adminAPI.DELETE("/tool-groups/:name", s.deleteToolGroupHandler())
 	}
 
 	return r, nil
