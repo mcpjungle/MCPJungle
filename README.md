@@ -34,6 +34,7 @@ MCPJungle is a single source-of-truth registry for all [Model Context Protocol](
     - [Running mcpjungle server inside Docker](#running-inside-docker)
     - [Running mcpjungle server directly on the host machine](#running-directly-on-host)
   - [Client](#client)
+    - [Installing MCP servers from registry](#installing-mcp-servers-from-registry)
     - [Adding Streamable HTTP-based MCP servers](#registering-streamable-http-based-servers)
     - [Adding STDIO-based MCP servers](#registering-stdio-based-servers)
     - [Removing MCP servers](#deregistering-mcp-servers)
