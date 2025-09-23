@@ -162,6 +162,10 @@ func (s *InstallService) validateDependencies(serverConfig *types.ServerRegistry
 		if !s.isCommandAvailable("pip") {
 			return fmt.Errorf("pip is required but not installed. Please install pip (usually comes with Python)")
 		}
+	case "uvx":
+		if !s.isCommandAvailable("uvx") {
+			return fmt.Errorf("uvx is required but not installed. Please install uv from https://github.com/astral-sh/uv (includes uvx)")
+		}
 	case "none":
 		// No dependencies needed for HTTP servers
 		return nil
