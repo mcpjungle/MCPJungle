@@ -24,6 +24,11 @@ func NewClient(baseURL string, accessToken string, httpClient *http.Client) *Cli
 	}
 }
 
+// BaseURL returns the base URL of the MCPJungle server
+func (c *Client) BaseURL() string {
+	return c.baseURL
+}
+
 // constructAPIEndpoint constructs the full API endpoint URL where a request must be sent
 func (c *Client) constructAPIEndpoint(suffixPath string) (string, error) {
 	return url.JoinPath(c.baseURL, api.V0ApiPathPrefix, suffixPath)

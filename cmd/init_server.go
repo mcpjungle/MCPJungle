@@ -37,6 +37,7 @@ func runInitServer(cmd *cobra.Command, args []string) error {
 
 	// Create new client configuration
 	cfg := &config.ClientConfig{
+		RegistryURL: apiClient.BaseURL(),
 		AccessToken: resp.AdminAccessToken,
 	}
 	if err := config.Save(cfg); err != nil {

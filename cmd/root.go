@@ -110,7 +110,32 @@ func Execute() error {
 	// Initialize the API client with the registry server URL & client configuration (if any)
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
 		cfg := config.Load()
-		apiClient = client.NewClient(registryServerURL, cfg.AccessToken, http.DefaultClient)
+
+		// determine the registry server URL to use
+		// precedence: command line flag explicitly set by user > config file > flag default value
+		var u string
+		if cmd.Flags().Changed("registry") {
+			u = registryServerURL
+
+			// if the user explicitly set the --registry flag, but the config file doesn't have
+			// a registry_url entry, print a tip to let them know they can set it in the config file
+			if cfg.RegistryURL == "" {
+				if cfgFilePath, err := config.AbsPath(); err == nil {
+					cmd.Printf(
+						"TIP: You can set `registry_url: %s` in %s to avoid setting the --registry flag every time.\n\n",
+						registryServerURL,
+						cfgFilePath,
+					)
+				}
+			}
+
+		} else if cfg.RegistryURL != "" {
+			u = cfg.RegistryURL
+		} else {
+			u = registryServerURL
+		}
+
+		apiClient = client.NewClient(u, cfg.AccessToken, http.DefaultClient)
 	}
 
 	return rootCmd.Execute()
