@@ -115,6 +115,10 @@ else
   log "'context7' already registered"
 fi
 
+# Install time server from config
+log "Installing time MCP server from config"
+"$BIN_PATH" --registry "$REGISTRY_URL" install time
+
 # 5) Exercise tools via registry
 log "Listing tools"
 "$BIN_PATH" --registry "$REGISTRY_URL" list tools
@@ -126,6 +130,10 @@ log "Invoking context7__resolve-library-id"
 log "Invoking context7__get-library-docs"
 "$BIN_PATH" --registry "$REGISTRY_URL" invoke context7__get-library-docs \
   --input '{"context7CompatibleLibraryID":"/lodash/lodash","tokens":500}' >/dev/null
+
+log "Invoking time__current_time"
+"$BIN_PATH" --registry "$REGISTRY_URL" invoke time__current_time \
+  --input '{"format":"YYYY-MM-DD HH:mm:ss"}' >/dev/null
 
 # 6) Start local binary server on port 9090 + verify
 log "Starting server via local binary on port 9090"
