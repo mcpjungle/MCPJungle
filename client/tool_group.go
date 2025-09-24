@@ -119,3 +119,35 @@ func (c *Client) GetToolGroup(name string) (*types.GetToolGroupResponse, error) 
 	}
 	return &group, nil
 }
+
+func (c *Client) UpdateToolGroup(group *types.ToolGroup) (*types.UpdateToolGroupResponse, error) {
+	u, _ := c.constructAPIEndpoint("/tool-groups/" + group.Name)
+
+	body, err := json.Marshal(group)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := c.newRequest(http.MethodPut, u, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request to %s: %w", u, err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request to %s: %w", u, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+	}
+
+	var updateResp types.UpdateToolGroupResponse
+	if err := json.NewDecoder(resp.Body).Decode(&updateResp); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return &updateResp, nil
+}
