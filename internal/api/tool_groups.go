@@ -131,7 +131,7 @@ func (s *Server) updateToolGroupHandler() gin.HandlerFunc {
 		originalConf, err := s.toolGroupService.UpdateToolGroup(name, &input)
 		if err != nil {
 			if errors.Is(err, toolgroup.ErrToolGroupNotFound) {
-				c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("tool group %s not found", name)})
+				c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("tool group %s does not exist", name)})
 				return
 			}
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
