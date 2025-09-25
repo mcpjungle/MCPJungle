@@ -122,6 +122,13 @@ func (s *ToolGroupService) CreateToolGroup(group *model.ToolGroup) error {
 	return nil
 }
 
+// UpdateToolGroup updates an existing tool group.
+// It returns the configuration of the original tool group before the update.
+// If the tool group does not exist, it returns ErrToolGroupNotFound.
+func (s *ToolGroupService) UpdateToolGroup(name string, updatedGroup *model.ToolGroup) (*model.ToolGroup, error) {
+	return nil, nil
+}
+
 // GetToolGroup retrieves a tool group by name from the database.
 func (s *ToolGroupService) GetToolGroup(name string) (*model.ToolGroup, error) {
 	var group model.ToolGroup

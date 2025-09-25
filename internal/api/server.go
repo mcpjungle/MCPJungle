@@ -272,6 +272,7 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		adminAPI.GET("/tool-groups/:name", s.getToolGroupHandler())
 		adminAPI.GET("/tool-groups", s.listToolGroupsHandler())
 		adminAPI.DELETE("/tool-groups/:name", s.deleteToolGroupHandler())
+		adminAPI.PUT("/tool-groups/:name", s.updateToolGroupHandler())
 	}
 
 	return r, nil

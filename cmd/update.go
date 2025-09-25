@@ -21,6 +21,7 @@ var updateToolGroupCmd = &cobra.Command{
 	Long: "Update an existing Tool Group\n" +
 		"This option allows you to supply the modified configuration file of an existing Tool group.\n" +
 		"The new configuration completely overrides the existing one.\n" +
+		"Note that you cannot update the name of a group once it is created.\n" +
 		"Updating a group does not cause any downtime for the MCP clients relying on the group.\n\n" +
 		"CAUTION: If you remove any tools from the configuration, calling update will immediately remove them from " +
 		"the group. They will no longer be accessible by MCP clients using the group.",
