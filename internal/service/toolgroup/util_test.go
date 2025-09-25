@@ -2,6 +2,7 @@ package toolgroup
 
 import (
 	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -19,6 +20,11 @@ func TestDiffTools_OnlyAdded(t *testing.T) {
 	newT := []string{"a", "b", "c", "d"}
 	added, removed := diffTools(old, newT)
 	expectedAdded := []string{"c", "d"}
+
+	// ensure order does not affect the test outcome
+	sort.Strings(added)
+	sort.Strings(expectedAdded)
+
 	if !reflect.DeepEqual(added, expectedAdded) || len(removed) != 0 {
 		t.Errorf("Expected added=%v, removed=[], got added=%v removed=%v", expectedAdded, added, removed)
 	}
@@ -29,6 +35,11 @@ func TestDiffTools_OnlyRemoved(t *testing.T) {
 	newT := []string{"a"}
 	added, removed := diffTools(old, newT)
 	expectedRemoved := []string{"b", "c"}
+
+	// ensure order does not affect the test outcome
+	sort.Strings(removed)
+	sort.Strings(expectedRemoved)
+
 	if !reflect.DeepEqual(removed, expectedRemoved) || len(added) != 0 {
 		t.Errorf("Expected added=[], removed=%v, got added=%v removed=%v", expectedRemoved, added, removed)
 	}
@@ -40,6 +51,13 @@ func TestDiffTools_AddedAndRemoved(t *testing.T) {
 	added, removed := diffTools(old, newT)
 	expectedAdded := []string{"d", "e"}
 	expectedRemoved := []string{"a", "c"}
+
+	// ensure order does not affect the test outcome
+	sort.Strings(added)
+	sort.Strings(expectedAdded)
+	sort.Strings(removed)
+	sort.Strings(expectedRemoved)
+
 	if !reflect.DeepEqual(added, expectedAdded) || !reflect.DeepEqual(removed, expectedRemoved) {
 		t.Errorf("Expected added=%v, removed=%v, got added=%v removed=%v", expectedAdded, expectedRemoved, added, removed)
 	}
@@ -50,6 +68,11 @@ func TestDiffTools_EmptyOld(t *testing.T) {
 	newT := []string{"x", "y"}
 	added, removed := diffTools(old, newT)
 	expectedAdded := []string{"x", "y"}
+
+	// ensure order does not affect the test outcome
+	sort.Strings(added)
+	sort.Strings(expectedAdded)
+
 	if !reflect.DeepEqual(added, expectedAdded) || len(removed) != 0 {
 		t.Errorf("Expected added=%v, removed=[], got added=%v removed=%v", expectedAdded, added, removed)
 	}
@@ -60,6 +83,11 @@ func TestDiffTools_EmptyNew(t *testing.T) {
 	var newT []string
 	added, removed := diffTools(old, newT)
 	expectedRemoved := []string{"x", "y"}
+
+	// ensure order does not affect the test outcome
+	sort.Strings(removed)
+	sort.Strings(expectedRemoved)
+
 	if !reflect.DeepEqual(removed, expectedRemoved) || len(added) != 0 {
 		t.Errorf("Expected added=[], removed=%v, got added=%v removed=%v", expectedRemoved, added, removed)
 	}
@@ -79,7 +107,14 @@ func TestDiffTools_Duplicates(t *testing.T) {
 	newT := []string{"a", "b", "b", "c"}
 	added, removed := diffTools(old, newT)
 	expectedAdded := []string{"c"}
-	expectedRemoved := []string{}
+	var expectedRemoved []string
+
+	// ensure order does not affect the test outcome
+	sort.Strings(added)
+	sort.Strings(expectedAdded)
+	sort.Strings(removed)
+	sort.Strings(expectedRemoved)
+
 	if !reflect.DeepEqual(added, expectedAdded) || !reflect.DeepEqual(removed, expectedRemoved) {
 		t.Errorf("Expected added=%v, removed=%v, got added=%v removed=%v", expectedAdded, expectedRemoved, added, removed)
 	}
