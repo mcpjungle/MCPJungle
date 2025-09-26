@@ -11,6 +11,7 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
+	"github.com/mcpjungle/mcpjungle/pkg/util"
 	"gorm.io/gorm"
 )
 
@@ -144,7 +145,12 @@ func (s *ToolGroupService) UpdateToolGroup(name string, updatedGroup *model.Tool
 		return nil, fmt.Errorf("failed to get tools of the updated group: %w", err)
 	}
 
-	toolsAdded, toolsRemoved := diffTools(oldToolNames, updatedToolNames)
+	toolsAdded, toolsRemoved := util.DiffTools(oldToolNames, updatedToolNames)
+
+	// if nothing was actually changed in the group, no need to proceed further
+	if updatedGroup.Description == oldGroup.Description && len(toolsAdded) == 0 && len(toolsRemoved) == 0 {
+		return oldGroup, nil
+	}
 
 	// update the tool group's proxy MCP tools (if there are changes)
 	mcpServer, exists := s.GetToolGroupMCPServer(name)

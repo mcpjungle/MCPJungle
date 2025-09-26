@@ -1,7 +1,7 @@
-package toolgroup
+package util
 
-// diffTools detects which tools have been added and removed between two slices containing tool names.
-func diffTools(oldTools, newTools []string) (added, removed []string) {
+// DiffTools detects which tools have been added and removed between two slices containing tool names.
+func DiffTools(oldTools, newTools []string) (added, removed []string) {
 	oldSet := make(map[string]struct{}, len(oldTools))
 	newSet := make(map[string]struct{}, len(newTools))
 
