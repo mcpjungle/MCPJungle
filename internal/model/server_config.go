@@ -15,6 +15,10 @@ const (
 
 	// ModeEnterprise is ideal for enterprise (production) deployments
 	ModeEnterprise ServerMode = "enterprise"
+
+	// production mode is now refered to as enterprise mode
+	// but this mode is kept here for the sake of backward compatibility (for older version of CLI)
+	ModeProd ServerMode = "production"
 )
 
 // ServerConfig represents the configuration for the MCPJungle server.

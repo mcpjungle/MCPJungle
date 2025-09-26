@@ -30,8 +30,8 @@ const (
 )
 
 var (
-	startServerCmdBindPort    string
-	startServerCmdProdEnabled bool
+	startServerCmdBindPort          string
+	startServerCmdEnterpriseEnabled bool
 )
 
 var startServerCmd = &cobra.Command{
@@ -55,8 +55,8 @@ func init() {
 		fmt.Sprintf("port to bind the HTTP server to (overrides env var %s)", BindPortEnvVar),
 	)
 	startServerCmd.Flags().BoolVar(
-		&startServerCmdProdEnabled,
-		"prod",
+		&startServerCmdEnterpriseEnabled,
+		"enterprise",
 		false,
 		fmt.Sprintf(
 			"Run the server in Enterprise mode (ideal for teams and enterprises)."+
@@ -78,6 +78,10 @@ func getDesiredServerMode() (model.ServerMode, error) {
 		// the value of the environment variable is allowed to be case-insensitive
 		envMode = strings.ToLower(envMode)
 
+		if envMode == string(model.ModeProd) {
+			envMode = string(model.ModeEnterprise)
+		}
+
 		if envMode != string(model.ModeDev) && envMode != string(model.ModeEnterprise) {
 			return "", fmt.Errorf(
 				"invalid value for %s environment variable: '%s', valid values are '%s' and '%s'",
@@ -87,8 +91,8 @@ func getDesiredServerMode() (model.ServerMode, error) {
 
 		desiredServerMode = model.ServerMode(envMode)
 	}
-	if startServerCmdProdEnabled {
-		// If the --prod flag is set, it gets precedence over the environment variable
+	if startServerCmdEnterpriseEnabled {
+		// If the --enterprise flag is set, it gets precedence over the environment variable
 		desiredServerMode = model.ModeEnterprise
 	}
 
@@ -263,7 +267,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("failed to initialize server in development mode: %v", err)
 			}
 		} else {
-			// If desired mode is prod, then server initialization is a manual next step to be taken by the user.
+			// If desired mode is enterprise, then server initialization is a manual next step to be taken by the user.
 			// This is so that they can obtain the admin access token on their client machine.
 			cmd.Println(
 				"Starting server in Enterprise mode," +

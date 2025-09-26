@@ -158,6 +158,8 @@ docker compose up -d
 
 # docker-compose.prod.yaml is optimized for orgs deploying mcpjungle on a remote server for multiple users.
 # mcpjungle will run in `enterprise` mode by default, which enables enterprise features.
+# the "enterprise" mode used to be called "production" mode. The mode has now been renamed for better clarity. Everything else remains the same.
+
 curl -O https://raw.githubusercontent.com/mcpjungle/MCPJungle/refs/heads/main/docker-compose.prod.yaml
 
 docker compose -f docker-compose.prod.yaml up -d
@@ -559,7 +561,7 @@ Support for Oauth flow is coming soon!
 If you're running MCPJungle in your organisation, we recommend running the Server in the `enterprise` mode:
 ```bash
 # enable enterprise features by running in enterprise mode
-mcpjungle start --prod
+mcpjungle start --enterprise
 
 # you can also specify the server mode as environment variable (valid values are `development` and `enterprise`)
 export SERVER_MODE=enterprise
