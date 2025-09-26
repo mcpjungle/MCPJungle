@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"sync"
 
+	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
@@ -152,7 +153,7 @@ func (s *ToolGroupService) UpdateToolGroup(name string, updatedGroup *model.Tool
 		return oldGroup, nil
 	}
 
-	// update the tool group's proxy MCP tools (if there are changes)
+	// determine the changes to make to the tool group's proxy MCP server instances (normal + SSE)
 	mcpServer, exists := s.GetToolGroupMCPServer(name)
 	if !exists {
 		return nil, fmt.Errorf("MCP server for tool group %s does not exist", name)
@@ -162,21 +163,8 @@ func (s *ToolGroupService) UpdateToolGroup(name string, updatedGroup *model.Tool
 		return nil, fmt.Errorf("SSE MCP server for tool group %s does not exist", name)
 	}
 
-	// tools removed from the group must be removed from its MCP server instances as well
-	for _, toolName := range toolsRemoved {
-		parentServer, err := s.mcpService.GetToolParentServer(toolName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get parent MCP server of the tool %s: %w", toolName, err)
-		}
-
-		if parentServer.Transport == types.TransportSSE {
-			sseMcpServer.DeleteTools(toolName)
-		} else {
-			mcpServer.DeleteTools(toolName)
-		}
-	}
-
-	// tools added to the group must be added to its MCP server instances as well
+	// tools added to the group must be added to its MCP server instances
+	var sseToolsToAdd, normalToolsToAdd []mcpgo.Tool
 	for _, toolName := range toolsAdded {
 		tool, exists := s.mcpService.GetToolInstance(toolName)
 		if !exists {
@@ -189,17 +177,43 @@ func (s *ToolGroupService) UpdateToolGroup(name string, updatedGroup *model.Tool
 		}
 
 		if parentServer.Transport == types.TransportSSE {
-			sseMcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+			sseToolsToAdd = append(sseToolsToAdd, tool)
 		} else {
-			mcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+			normalToolsToAdd = append(normalToolsToAdd, tool)
 		}
 	}
 
-	// ensure the name is not changed in the new record
-	updatedGroup.Name = name
+	// tools removed from the group must be removed from its MCP server instances
+	var sseToolsToRemove, normalToolsToRemove []string
+	for _, toolName := range toolsRemoved {
+		parentServer, err := s.mcpService.GetToolParentServer(toolName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get parent MCP server of the tool %s: %w", toolName, err)
+		}
+
+		if parentServer.Transport == types.TransportSSE {
+			sseToolsToRemove = append(sseToolsToRemove, toolName)
+		} else {
+			normalToolsToRemove = append(normalToolsToRemove, toolName)
+		}
+	}
+
+	// make all the changes together to avoid inconsistent state in case of errors
+	mcpServer.DeleteTools(normalToolsToRemove...)
+	sseMcpServer.DeleteTools(sseToolsToRemove...)
+
+	for _, tool := range normalToolsToAdd {
+		mcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+	}
+	for _, tool := range sseToolsToAdd {
+		sseMcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+	}
 
 	// as a final step, update the tool group record in the database
 	// we only persist this update after successfully updating the in-memory state
+
+	// ensure the group name remains unchanged in the db record
+	updatedGroup.Name = name
 	if err := s.db.Model(&model.ToolGroup{}).Where("name = ?", name).Updates(updatedGroup).Error; err != nil {
 		return nil, fmt.Errorf("failed to update tool group in DB: %w", err)
 	}
