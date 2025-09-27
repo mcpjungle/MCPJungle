@@ -50,10 +50,11 @@ func TestStartCommandFlags(t *testing.T) {
 
 	t.Run("start command has enterprise flag", func(t *testing.T) {
 		enterpriseFlag := startServerCmd.Flags().Lookup("enterprise")
-		if enterpriseFlag == nil {
+		prodFlag := startServerCmd.Flags().Lookup("enterprise")
+		if enterpriseFlag == nil && prodFlag == nil {
 			t.Fatal("Start command missing 'enterprise' flag")
 		}
-		if enterpriseFlag.Usage == "" {
+		if enterpriseFlag.Usage == "" && prodFlag.Usage == "" {
 			t.Error("enterprise flag should have usage description")
 		}
 	})

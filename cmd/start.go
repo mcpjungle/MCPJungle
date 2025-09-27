@@ -32,6 +32,7 @@ const (
 var (
 	startServerCmdBindPort          string
 	startServerCmdEnterpriseEnabled bool
+	startServerCmdProdEnabled       bool
 )
 
 var startServerCmd = &cobra.Command{
@@ -64,6 +65,16 @@ func init() {
 			ServerModeEnvVar, model.ModeDev, model.ModeEnterprise,
 		),
 	)
+	startServerCmd.Flags().BoolVar(
+		&startServerCmdProdEnabled,
+		"prod",
+		false,
+		fmt.Sprintf(
+			"[DEPRECATED] Run the server in Prod mode (ideal for teams and enterprises)."+
+				" Use `--enterprise` or set the %s environment variable ('%s' | '%s' | '%s')",
+			ServerModeEnvVar, model.ModeDev, model.ModeEnterprise, model.ModeProd,
+		),
+	)
 
 	rootCmd.AddCommand(startServerCmd)
 }
@@ -91,6 +102,7 @@ func getDesiredServerMode() (model.ServerMode, error) {
 
 		desiredServerMode = model.ServerMode(envMode)
 	}
+	startServerCmdEnterpriseEnabled = startServerCmdEnterpriseEnabled || startServerCmdProdEnabled
 	if startServerCmdEnterpriseEnabled {
 		// If the --enterprise flag is set, it gets precedence over the environment variable
 		desiredServerMode = model.ModeEnterprise
