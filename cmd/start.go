@@ -77,7 +77,7 @@ func init() {
 
 // getDesiredServerMode returns the desired server mode for mcpjungle server.
 // unless explicitly specified, the desired mode is dev
-func getDesiredServerMode() (model.ServerMode, error) {
+func getDesiredServerMode(cmd *cobra.Command) (model.ServerMode, error) {
 	desiredServerMode := model.ModeDev
 
 	envMode := os.Getenv(ServerModeEnvVar)
@@ -87,6 +87,10 @@ func getDesiredServerMode() (model.ServerMode, error) {
 
 		// If user is using the deprecated 'production' mode, replace it with 'enterprise'
 		if envMode == string(model.ModeProd) {
+			cmd.Printf(
+				"Warning: '%s' value is deprecated for env var %s, please use '%s' instead\n\n",
+				model.ModeProd, ServerModeEnvVar, model.ModeEnterprise,
+			)
 			envMode = string(model.ModeEnterprise)
 		}
 
@@ -103,6 +107,9 @@ func getDesiredServerMode() (model.ServerMode, error) {
 	// If the --enterprise or --prod flag is set, it gets precedence over the environment variable
 	if startServerCmdEnterpriseEnabled || startServerCmdProdEnabled {
 		desiredServerMode = model.ModeEnterprise
+	}
+	if startServerCmdProdEnabled {
+		cmd.Println("Warning: --prod flag is deprecated, please use --enterprise flag instead")
 	}
 
 	return desiredServerMode, nil
@@ -150,7 +157,7 @@ func getBindPort() string {
 func runStartServer(cmd *cobra.Command, args []string) error {
 	_ = godotenv.Load()
 
-	desiredServerMode, err := getDesiredServerMode()
+	desiredServerMode, err := getDesiredServerMode(cmd)
 	if err != nil {
 		return err
 	}
