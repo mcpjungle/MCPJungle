@@ -329,9 +329,9 @@ func (s *ToolGroupService) initToolGroupMCPServers() error {
 	}
 
 	for _, group := range groups {
-		toolNames, err := group.GetTools()
+		toolNames, err := group.ResolveEffectiveTools(s.mcpService)
 		if err != nil {
-			return fmt.Errorf("failed to parse toolNames for group %s: %w", group.Name, err)
+			return fmt.Errorf("failed to resolve effective tools for group %s: %w", group.Name, err)
 		}
 		// TODO: Log a warning if a group has no tools, ie, len(toolNames) == 0
 
@@ -397,9 +397,9 @@ func (s *ToolGroupService) handleToolAddition(newTool string) error {
 	groupsToUpdate := make([]string, 0, len(groups))
 	for i := range groups {
 		name := groups[i].Name
-		groupTools, err := groups[i].GetTools()
+		groupTools, err := groups[i].ResolveEffectiveTools(s.mcpService)
 		if err != nil {
-			return fmt.Errorf("failed to get tool names for group %s: %w", name, err)
+			return fmt.Errorf("failed to resolve effective tools for group %s: %w", name, err)
 		}
 		for _, t := range groupTools {
 			if t != newTool {
