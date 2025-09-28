@@ -9,15 +9,14 @@ import (
 type ServerMode string
 
 const (
-	// ModeDev is ideal for individual developers running the server locally for
-	// their personal MCP clients like Claude, Cursor, etc. and small use cases.
+	// ModeDev is ideal for developers running the mcpjungle locally for personal MCP workflows.
 	ModeDev ServerMode = "development"
 
-	// ModeEnterprise is ideal for enterprise (production) deployments
+	// ModeEnterprise is ideal for enterprise (production) deployments where multiple users will be using mcpjungle.
 	ModeEnterprise ServerMode = "enterprise"
 
-	// production mode is now refered to as enterprise mode
-	// but this mode is kept here for the sake of backward compatibility (for older version of CLI)
+	// ModeProd is a deprecated alias for ModeEnterprise.
+	// It exists for the sake of backward compatibility.
 	ModeProd ServerMode = "production"
 )
 

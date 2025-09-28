@@ -109,13 +109,6 @@ You have successfully registered a remote MCP server in MCPJungle and called one
 You can now proceed to play around with the mcpjungle and explore the documentation & CLI for more details.
 
 # Installation
-
-> [!WARNING]
-> MCPJungle is **BETA** software.
->
-> We're actively working to make it production-ready.
-> You can provide your feedback by [starting a discussion](https://github.com/mcpjungle/MCPJungle/discussions) in this repository.
-
 MCPJungle is shipped as a stand-alone binary.
 
 You can either download it from the [Releases](https://github.com/mcpjungle/MCPJungle/releases) Page or use [Homebrew](https://brew.sh/) to install it:
@@ -158,12 +151,14 @@ docker compose up -d
 
 # docker-compose.prod.yaml is optimized for orgs deploying mcpjungle on a remote server for multiple users.
 # mcpjungle will run in `enterprise` mode by default, which enables enterprise features.
-# the "enterprise" mode used to be called "production" mode. The mode has now been renamed for better clarity. Everything else remains the same.
-
 curl -O https://raw.githubusercontent.com/mcpjungle/MCPJungle/refs/heads/main/docker-compose.prod.yaml
 
 docker compose -f docker-compose.prod.yaml up -d
 ```
+
+> [!NOTE]
+> The `enterprise` mode used to be called `production` mode.
+> The mode has now been renamed for clarity. Everything else remains the same.
 
 This will start the MCPJungle server along with a persistent Postgres database container.
 
@@ -567,7 +562,7 @@ mcpjungle start --enterprise
 export SERVER_MODE=enterprise
 mcpjungle start
 
-# Or use the production docker compose file as described above
+# Or use the enterprise-mode docker compose file as described above
 docker compose -f docker-compose.prod.yaml up -d
 ```
 
@@ -590,7 +585,7 @@ In `development` mode, all MCP clients have full access to all the MCP servers r
 
 `enterprise` mode lets you control which MCP clients can access which MCP servers.
 
-Suppose you have registered 2 MCP servers `calculator` and `github` in MCPJungle in production mode.
+Suppose you have registered 2 MCP servers `calculator` and `github` in MCPJungle in enterprise mode.
 
 By default, no MCP client can access these servers. **You must create an MCP Client in mcpjungle and explicitly allow it to access the MCP servers.**
 

@@ -70,9 +70,9 @@ func init() {
 		"prod",
 		false,
 		fmt.Sprintf(
-			"[DEPRECATED] Run the server in Prod mode (ideal for teams and enterprises)."+
-				" Use `--enterprise` or set the %s environment variable ('%s' | '%s' | '%s')",
-			ServerModeEnvVar, model.ModeDev, model.ModeEnterprise, model.ModeProd,
+			"[DEPRECATED] Run the server in Enterprise mode (ideal for teams and enterprises)."+
+				" Use `--enterprise` instead or set the %s environment variable ('%s' | '%s')",
+			ServerModeEnvVar, model.ModeDev, model.ModeEnterprise,
 		),
 	)
 
@@ -113,7 +113,7 @@ func getDesiredServerMode() (model.ServerMode, error) {
 
 // isTelemetryEnabled returns true if telemetry should be enabled.
 // If an env var is specified, it takes precedence over the defaults.
-// Otherwise, by default, telemetry is disabled in dev mode and enabled in prod mode.
+// Otherwise, by default, telemetry is disabled in dev mode and enabled in enterprise mode.
 func isTelemetryEnabled(desiredServerMode model.ServerMode) (bool, error) {
 	telemetryEnabled := desiredServerMode == model.ModeEnterprise
 
