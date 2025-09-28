@@ -267,11 +267,46 @@ func TestRequireServerMode(t *testing.T) {
 			expectedBody:   "",
 		},
 		{
-			name:           "non-matching mode - dev required, prod context",
+			name:           "non-matching mode - dev required, enterprise context",
 			contextMode:    model.ModeEnterprise,
 			requiredMode:   model.ModeDev,
 			expectedStatus: http.StatusForbidden,
 			expectedBody:   `{"error":"this request is only allowed in development mode"}`,
+		},
+		{
+			name:           "non-matching mode - dev required, prod context",
+			contextMode:    model.ModeProd,
+			requiredMode:   model.ModeDev,
+			expectedStatus: http.StatusForbidden,
+			expectedBody:   `{"error":"this request is only allowed in development mode"}`,
+		},
+		{
+			name:           "enterprise required, prod context (deprecated)",
+			contextMode:    model.ModeProd,
+			requiredMode:   model.ModeEnterprise,
+			expectedStatus: http.StatusOK,
+			expectedBody:   "",
+		},
+		{
+			name:           "prod required, enterprise context (deprecated)",
+			contextMode:    model.ModeEnterprise,
+			requiredMode:   model.ModeProd,
+			expectedStatus: http.StatusOK,
+			expectedBody:   "",
+		},
+		{
+			name:           "prod required, prod context (deprecated)",
+			contextMode:    model.ModeProd,
+			requiredMode:   model.ModeProd,
+			expectedStatus: http.StatusOK,
+			expectedBody:   "",
+		},
+		{
+			name:           "enterprise required, enterprise context",
+			contextMode:    model.ModeEnterprise,
+			requiredMode:   model.ModeEnterprise,
+			expectedStatus: http.StatusOK,
+			expectedBody:   "",
 		},
 	}
 
