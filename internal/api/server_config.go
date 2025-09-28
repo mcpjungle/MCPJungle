@@ -23,13 +23,13 @@ func (s *Server) registerInitServerHandler() gin.HandlerFunc {
 			c.JSON(400, gin.H{"status": "Server already initialized", "mode": req.Mode})
 			return
 		}
-		if req.Mode != model.ModeEnterprise && req.Mode != model.ModeProd {
+		if req.Mode == model.ModeDev {
 			// If the server was successfully initialized and the mode is dev,
 			// return a success message without creating an admin user
 			c.JSON(200, gin.H{"status": "Server initialized successfully in development mode"})
 			return
 		}
-		// If the server was successfully initialized and the mode is enterprise,
+		// The server was successfully initialized and the mode is enterprise (either ModeEnterprise or ModeProd),
 		// create an admin user and return its access token
 		admin, err := s.userService.CreateAdminUser()
 		if err != nil {

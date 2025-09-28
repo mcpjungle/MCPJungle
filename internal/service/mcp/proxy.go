@@ -25,7 +25,7 @@ func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request mcp.Ca
 	}
 
 	serverMode := ctx.Value("mode").(model.ServerMode)
-	if serverMode == model.ModeEnterprise {
+	if model.IsEnterpriseMode(serverMode) {
 		// In enterprise mode, we need to check whether the MCP client is authorized to access the MCP server.
 		// If not, return error Unauthorized.
 		c := ctx.Value("client").(*model.McpClient)

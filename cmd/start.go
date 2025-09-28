@@ -69,11 +69,7 @@ func init() {
 		&startServerCmdProdEnabled,
 		"prod",
 		false,
-		fmt.Sprintf(
-			"[DEPRECATED] Run the server in Enterprise mode (ideal for teams and enterprises)."+
-				" Use `--enterprise` instead or set the %s environment variable ('%s' | '%s')",
-			ServerModeEnvVar, model.ModeDev, model.ModeEnterprise,
-		),
+		"[DEPRECATED] Alias for --enterprise flag.",
 	)
 
 	rootCmd.AddCommand(startServerCmd)
@@ -89,6 +85,7 @@ func getDesiredServerMode() (model.ServerMode, error) {
 		// the value of the environment variable is allowed to be case-insensitive
 		envMode = strings.ToLower(envMode)
 
+		// If user is using the deprecated 'production' mode, replace it with 'enterprise'
 		if envMode == string(model.ModeProd) {
 			envMode = string(model.ModeEnterprise)
 		}
@@ -102,9 +99,9 @@ func getDesiredServerMode() (model.ServerMode, error) {
 
 		desiredServerMode = model.ServerMode(envMode)
 	}
-	startServerCmdEnterpriseEnabled = startServerCmdEnterpriseEnabled || startServerCmdProdEnabled
-	if startServerCmdEnterpriseEnabled {
-		// If the --enterprise flag is set, it gets precedence over the environment variable
+
+	// If the --enterprise or --prod flag is set, it gets precedence over the environment variable
+	if startServerCmdEnterpriseEnabled || startServerCmdProdEnabled {
 		desiredServerMode = model.ModeEnterprise
 	}
 

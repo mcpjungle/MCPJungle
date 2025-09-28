@@ -20,6 +20,14 @@ const (
 	ModeProd ServerMode = "production"
 )
 
+// IsEnterpriseMode returns true if the given server mode is an enterprise mode (ModeEnterprise or ModeProd),
+// false otherwise.
+// This function exists mainly for the sake of backward compatibility, since ModeProd is deprecated but still
+// accepted as enterprise mode.
+func IsEnterpriseMode(mode ServerMode) bool {
+	return mode == ModeEnterprise || mode == ModeProd
+}
+
 // ServerConfig represents the configuration for the MCPJungle server.
 type ServerConfig struct {
 	gorm.Model
@@ -33,7 +41,15 @@ type ServerConfig struct {
 
 func (c *ServerConfig) BeforeSave(tx *gorm.DB) (err error) {
 	// Make sure that the server mode is valid before saving
-	if c.Mode != ModeDev && c.Mode != ModeEnterprise {
+	switch c.Mode {
+	case ModeDev:
+		// valid
+	case ModeEnterprise:
+		// valid
+	case ModeProd:
+		// valid but deprecated
+		c.Mode = ModeEnterprise
+	default:
 		return fmt.Errorf("invalid server mode: %s", c.Mode)
 	}
 	return nil
