@@ -6,8 +6,12 @@ package types
 type ToolGroup struct {
 	// Name is the unique name of the tool group (mandatory).
 	Name string `json:"name"`
-	// IncludedTools is a list of tools included in this group (mandatory).
-	IncludedTools []string `json:"included_tools"`
+	// IncludedTools is a list of tools included in this group.
+	IncludedTools []string `json:"included_tools,omitempty"`
+	// IncludedServers is a list of MCP server names. All tools from these servers will be included.
+	IncludedServers []string `json:"included_servers,omitempty"`
+	// ExcludedTools is a list of tools to exclude from the group (useful with IncludedServers).
+	ExcludedTools []string `json:"excluded_tools,omitempty"`
 
 	Description string `json:"description"`
 }

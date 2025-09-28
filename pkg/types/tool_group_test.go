@@ -42,6 +42,43 @@ func TestToolGroupJSONMarshaling(t *testing.T) {
 	}
 }
 
+func TestToolGroupJSONMarshalingWithNewFields(t *testing.T) {
+	t.Parallel()
+
+	group := ToolGroup{
+		Name:            "advanced-group",
+		IncludedTools:   []string{"manual-tool1"},
+		IncludedServers: []string{"time", "deepwiki"},
+		ExcludedTools:   []string{"time__convert_time"},
+		Description:     "Group with server inclusion and exclusion",
+	}
+
+	data, err := json.Marshal(group)
+	if err != nil {
+		t.Fatalf("Failed to marshal ToolGroup: %v", err)
+	}
+
+	// Unmarshal to verify all fields are present
+	var unmarshaled ToolGroup
+	err = json.Unmarshal(data, &unmarshaled)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal ToolGroup: %v", err)
+	}
+
+	if unmarshaled.Name != group.Name {
+		t.Errorf("Expected Name %s, got %s", group.Name, unmarshaled.Name)
+	}
+	if len(unmarshaled.IncludedTools) != 1 || unmarshaled.IncludedTools[0] != "manual-tool1" {
+		t.Errorf("Expected IncludedTools [manual-tool1], got %v", unmarshaled.IncludedTools)
+	}
+	if len(unmarshaled.IncludedServers) != 2 {
+		t.Errorf("Expected 2 IncludedServers, got %v", unmarshaled.IncludedServers)
+	}
+	if len(unmarshaled.ExcludedTools) != 1 || unmarshaled.ExcludedTools[0] != "time__convert_time" {
+		t.Errorf("Expected ExcludedTools [time__convert_time], got %v", unmarshaled.ExcludedTools)
+	}
+}
+
 func TestCreateToolGroupResponse(t *testing.T) {
 	t.Parallel()
 

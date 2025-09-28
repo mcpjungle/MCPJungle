@@ -79,15 +79,41 @@ func (s *Server) getToolGroupHandler() gin.HandlerFunc {
 			ToolGroupEndpoints: getToolGroupEndpoints(c, group.Name),
 		}
 
+		// Get included tools
 		var tools []string
 		tools, err = group.GetTools()
 		if err != nil {
 			c.JSON(
 				http.StatusInternalServerError,
-				gin.H{"error": fmt.Sprintf("error getting tools of group: %s", err.Error())},
+				gin.H{"error": fmt.Sprintf("error getting included tools of group: %s", err.Error())},
 			)
+			return
 		}
 		resp.IncludedTools = tools
+
+		// Get included servers
+		var servers []string
+		servers, err = group.GetServers()
+		if err != nil {
+			c.JSON(
+				http.StatusInternalServerError,
+				gin.H{"error": fmt.Sprintf("error getting included servers of group: %s", err.Error())},
+			)
+			return
+		}
+		resp.IncludedServers = servers
+
+		// Get excluded tools
+		var excludedTools []string
+		excludedTools, err = group.GetExcludedTools()
+		if err != nil {
+			c.JSON(
+				http.StatusInternalServerError,
+				gin.H{"error": fmt.Sprintf("error getting excluded tools of group: %s", err.Error())},
+			)
+			return
+		}
+		resp.ExcludedTools = excludedTools
 
 		c.JSON(http.StatusOK, resp)
 	}
@@ -156,20 +182,66 @@ func (s *Server) updateToolGroupHandler() gin.HandlerFunc {
 		if err != nil {
 			c.JSON(
 				http.StatusInternalServerError,
-				gin.H{"error": fmt.Sprintf("error getting tools of the original group config: %s", err.Error())},
+				gin.H{"error": fmt.Sprintf("error getting included tools of the original group config: %s", err.Error())},
 			)
+			return
 		}
 		resp.Old.IncludedTools = origTools
+
+		var origServers []string
+		origServers, err = originalConf.GetServers()
+		if err != nil {
+			c.JSON(
+				http.StatusInternalServerError,
+				gin.H{"error": fmt.Sprintf("error getting included servers of the original group config: %s", err.Error())},
+			)
+			return
+		}
+		resp.Old.IncludedServers = origServers
+
+		var origExcluded []string
+		origExcluded, err = originalConf.GetExcludedTools()
+		if err != nil {
+			c.JSON(
+				http.StatusInternalServerError,
+				gin.H{"error": fmt.Sprintf("error getting excluded tools of the original group config: %s", err.Error())},
+			)
+			return
+		}
+		resp.Old.ExcludedTools = origExcluded
 
 		var newTools []string
 		newTools, err = input.GetTools()
 		if err != nil {
 			c.JSON(
 				http.StatusInternalServerError,
-				gin.H{"error": fmt.Sprintf("error getting tools of the new group config: %s", err.Error())},
+				gin.H{"error": fmt.Sprintf("error getting included tools of the new group config: %s", err.Error())},
 			)
+			return
 		}
 		resp.New.IncludedTools = newTools
+
+		var newServers []string
+		newServers, err = input.GetServers()
+		if err != nil {
+			c.JSON(
+				http.StatusInternalServerError,
+				gin.H{"error": fmt.Sprintf("error getting included servers of the new group config: %s", err.Error())},
+			)
+			return
+		}
+		resp.New.IncludedServers = newServers
+
+		var newExcluded []string
+		newExcluded, err = input.GetExcludedTools()
+		if err != nil {
+			c.JSON(
+				http.StatusInternalServerError,
+				gin.H{"error": fmt.Sprintf("error getting excluded tools of the new group config: %s", err.Error())},
+			)
+			return
+		}
+		resp.New.ExcludedTools = newExcluded
 
 		c.JSON(http.StatusOK, resp)
 	}

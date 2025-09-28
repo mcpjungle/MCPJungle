@@ -78,12 +78,13 @@ func (s *ToolGroupService) CreateToolGroup(group *model.ToolGroup) error {
 		)
 	}
 
-	toolNames, err := group.GetTools()
+	// resolve all effective tools for this group
+	toolNames, err := group.ResolveEffectiveTools(s.mcpService)
 	if err != nil {
-		return fmt.Errorf("failed to parse toolNames: %w", err)
+		return fmt.Errorf("failed to resolve effective tools: %w", err)
 	}
 	if len(toolNames) == 0 {
-		return errors.New("tool group must contain at least one tool")
+		return errors.New("tool group must contain at least one tool after resolving servers and exclusions")
 	}
 
 	// create the proxy MCP servers that expose only specified tools
@@ -137,13 +138,13 @@ func (s *ToolGroupService) UpdateToolGroup(name string, updatedGroup *model.Tool
 	}
 
 	// determine which tools were added or removed from the group
-	oldToolNames, err := oldGroup.GetTools()
+	oldToolNames, err := oldGroup.ResolveEffectiveTools(s.mcpService)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get tools of original group: %w", err)
+		return nil, fmt.Errorf("failed to resolve effective tools of original group: %w", err)
 	}
-	updatedToolNames, err := updatedGroup.GetTools()
+	updatedToolNames, err := updatedGroup.ResolveEffectiveTools(s.mcpService)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get tools of the updated group: %w", err)
+		return nil, fmt.Errorf("failed to resolve effective tools of the updated group: %w", err)
 	}
 
 	toolsAdded, toolsRemoved := util.DiffTools(oldToolNames, updatedToolNames)
