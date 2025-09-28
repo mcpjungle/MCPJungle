@@ -38,8 +38,8 @@ func TestInitServer(t *testing.T) {
 			if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
 				t.Fatalf("Failed to decode request body: %v", err)
 			}
-			if requestBody.Mode != "enterprise" {
-				t.Errorf("Expected mode 'enterprise', got %s", requestBody.Mode)
+			if requestBody.Mode != "production" {
+				t.Errorf("Expected mode 'production' (for backward compatibility), got %s", requestBody.Mode)
 			}
 
 			// Return success response
