@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 
@@ -42,8 +41,7 @@ func (c *Client) InitServer() (*InitServerResponse, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return nil, c.parseErrorResponse(resp)
 	}
 
 	var initResp InitServerResponse

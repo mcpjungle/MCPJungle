@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/mcpjungle/mcpjungle/pkg/types"
@@ -31,8 +30,7 @@ func (c *Client) RegisterServer(server *types.RegisterServerInput) (*types.McpSe
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return nil, c.parseErrorResponse(resp)
 	}
 
 	var registeredServer types.McpServer
@@ -57,8 +55,7 @@ func (c *Client) ListServers() ([]*types.McpServer, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return nil, c.parseErrorResponse(resp)
 	}
 
 	var servers []*types.McpServer
@@ -80,8 +77,7 @@ func (c *Client) DeregisterServer(name string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status from server: %s, body: %s", resp.Status, body)
+		return c.parseErrorResponse(resp)
 	}
 	return nil
 }

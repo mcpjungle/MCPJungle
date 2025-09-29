@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/mcpjungle/mcpjungle/pkg/types"
@@ -28,8 +27,7 @@ func (c *Client) ListTools(server string) ([]*types.Tool, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return nil, c.parseErrorResponse(resp)
 	}
 
 	var tools []*types.Tool
@@ -58,8 +56,7 @@ func (c *Client) EnableTools(name string) ([]string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return nil, c.parseErrorResponse(resp)
 	}
 
 	var tools []string
@@ -88,8 +85,7 @@ func (c *Client) DisableTools(name string) ([]string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return nil, c.parseErrorResponse(resp)
 	}
 
 	var tools []string
@@ -114,8 +110,7 @@ func (c *Client) GetTool(name string) (*types.Tool, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return nil, c.parseErrorResponse(resp)
 	}
 
 	var tool types.Tool
@@ -151,14 +146,12 @@ func (c *Client) InvokeTool(name string, input map[string]any) (*types.ToolInvok
 	}
 	defer resp.Body.Close()
 
-	respBody, _ := io.ReadAll(resp.Body)
-
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, string(respBody))
+		return nil, c.parseErrorResponse(resp)
 	}
 
 	var result *types.ToolInvokeResult
-	if err := json.Unmarshal(respBody, &result); err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
