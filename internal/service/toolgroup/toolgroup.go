@@ -125,7 +125,7 @@ func (s *ToolGroupService) CreateToolGroup(group *model.ToolGroup) error {
 	return nil
 }
 
-// UpdateToolGroup updates an existing tool group.
+// UpdateToolGroup updates an existing tool group without causing any downtime for its MCP proxy servers.
 // It returns the configuration of the original tool group before the update.
 // If the tool group does not exist, it returns ErrToolGroupNotFound.
 func (s *ToolGroupService) UpdateToolGroup(name string, updatedGroup *model.ToolGroup) (*model.ToolGroup, error) {

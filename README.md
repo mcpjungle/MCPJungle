@@ -522,6 +522,10 @@ The client will then ONLY see and be able to use these 3 tools and will not be a
 
 You can also watch a [Video on using Tool Groups](https://youtu.be/A21rfGgo38A).
 
+> [!NOTE]
+> The exclusion is always applied at the end.
+> So if you add a tool to `included_tools` and also list it in `excluded_tools`, it will be excluded from the final group.
+
 ### Managing tool groups
 You can currently perform operations like listing all groups, viewing details of a specific group and deleting a group.
 
