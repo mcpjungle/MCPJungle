@@ -24,8 +24,14 @@ var updateToolGroupCmd = &cobra.Command{
 		"The new configuration completely overrides the existing one.\n" +
 		"Note that you cannot update the name of a group once it is created.\n" +
 		"Updating a group does not cause any downtime for the MCP clients relying on its endpoint.\n\n" +
-		"CAUTION: If you remove any tools from the configuration, calling update will immediately remove them from " +
-		"the group. They will no longer be accessible by MCP clients using the group.",
+		"You can update any of the following fields:\n" +
+		"  - description: Group description\n" +
+		"  - included_tools: Specific tools to include\n" +
+		"  - included_servers: MCP servers to include all tools from\n" +
+		"  - excluded_tools: Tools to exclude\n\n" +
+		"CAUTION: If you remove any tools from the configuration (either directly or by removing servers), " +
+		"calling update will immediately remove them from the group. " +
+		"They will no longer be accessible by MCP clients using the group.",
 	RunE: runUpdateGroup,
 }
 
@@ -37,7 +43,11 @@ func init() {
 		"conf",
 		"c",
 		"",
-		"Path to new JSON configuration file for the Tool Group.\n",
+		"Path to new JSON configuration file for the Tool Group.\n"+
+			"The file can specify:\n"+
+			"  'included_tools': list of specific tool names\n"+
+			"  'included_servers': list of server names to include all tools from\n"+
+			"  'excluded_tools': list of tool names to exclude\n",
 	)
 	_ = updateToolGroupCmd.MarkFlagRequired("conf")
 
@@ -56,12 +66,16 @@ func runUpdateGroup(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to update tool group %s: %w", updatedConf.Name, err)
 	}
 
-	// if nothing was actually changed, inform the user and exit
-
+	// Check if anything was actually changed
 	toolsAdded, toolsRemoved := util.DiffTools(resp.Old.IncludedTools, resp.New.IncludedTools)
+	serversAdded, serversRemoved := util.DiffTools(resp.Old.IncludedServers, resp.New.IncludedServers)
+	excludedAdded, excludedRemoved := util.DiffTools(resp.Old.ExcludedTools, resp.New.ExcludedTools)
 
 	noChangeInTools := len(toolsAdded) == 0 && len(toolsRemoved) == 0
-	if resp.Old.Description == resp.New.Description && noChangeInTools {
+	noChangeInServers := len(serversAdded) == 0 && len(serversRemoved) == 0
+	noChangeInExcluded := len(excludedAdded) == 0 && len(excludedRemoved) == 0
+
+	if resp.Old.Description == resp.New.Description && noChangeInTools && noChangeInServers && noChangeInExcluded {
 		cmd.Printf("No changes detected for Tool Group %s. Nothing was updated.\n", resp.Name)
 		return nil
 	}
@@ -72,30 +86,58 @@ func runUpdateGroup(cmd *cobra.Command, args []string) error {
 		cmd.Printf("* Description updated from:\n    %s\nto:\n    %s\n\n", resp.Old.Description, resp.New.Description)
 	}
 
+	// Report changes in included_tools
 	if noChangeInTools {
-		cmd.Println("* No changes in Tool list")
-		return nil
+		cmd.Println("* No changes in included_tools")
+	} else {
+		if len(toolsRemoved) > 0 {
+			cmd.Println("* Tools removed from included_tools:")
+			for _, t := range toolsRemoved {
+				cmd.Printf("    - %s\n", t)
+			}
+		}
+		if len(toolsAdded) > 0 {
+			cmd.Println("* Tools added to included_tools:")
+			for _, t := range toolsAdded {
+				cmd.Printf("    - %s\n", t)
+			}
+		}
+		cmd.Println()
 	}
 
-	if len(toolsRemoved) > 0 {
-		cmd.Println("* Tools removed from the group:")
-		for _, t := range toolsRemoved {
-			cmd.Printf("    - %s\n", t)
+	// Report changes in included_servers
+	if !noChangeInServers {
+		if len(serversRemoved) > 0 {
+			cmd.Println("* Servers removed from included_servers:")
+			for _, s := range serversRemoved {
+				cmd.Printf("    - %s\n", s)
+			}
 		}
-	} else {
-		cmd.Println("* No tools were removed from the group")
+		if len(serversAdded) > 0 {
+			cmd.Println("* Servers added to included_servers:")
+			for _, s := range serversAdded {
+				cmd.Printf("    - %s\n", s)
+			}
+		}
+		cmd.Println()
 	}
-	cmd.Println()
 
-	if len(toolsAdded) > 0 {
-		cmd.Println("* Tools added to the group:")
-		for _, t := range toolsAdded {
-			cmd.Printf("    - %s\n", t)
+	// Report changes in excluded_tools
+	if !noChangeInExcluded {
+		if len(excludedRemoved) > 0 {
+			cmd.Println("* Tools removed from excluded_tools:")
+			for _, e := range excludedRemoved {
+				cmd.Printf("    - %s\n", e)
+			}
 		}
-	} else {
-		cmd.Println("* No tools were added to the group")
+		if len(excludedAdded) > 0 {
+			cmd.Println("* Tools added to excluded_tools:")
+			for _, e := range excludedAdded {
+				cmd.Printf("    - %s\n", e)
+			}
+		}
+		cmd.Println()
 	}
-	cmd.Println()
 
 	return nil
 }

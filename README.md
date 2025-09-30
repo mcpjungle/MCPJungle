@@ -454,8 +454,12 @@ You can then configure your MCP client to use this group-specific endpoint inste
 ### Creating a Tool Group
 You can create a new tool group by providing a JSON configuration file to the `create group` command.
 
-You must specify a unique `name` for the group and a list of `included_tools` that you want to expose via its MCP proxy.
+You must specify a unique `name` for the group and define which tools to include using one or more of the following fields:
+- **`included_tools`**: List specific tool names to include (e.g., `["filesystem__read_file", "time__get_current_time"]`)
+- **`included_servers`**: Include ALL tools from specific MCP servers (e.g., `["time", "deepwiki"]`)
+- **`excluded_tools`**: Exclude specific tools (useful when including entire servers)
 
+#### Example 1: Cherry-picking specific tools
 Here is an example of a tool group configuration file (`claude-tools-group.json`):
 ```json
 {
@@ -469,7 +473,34 @@ Here is an example of a tool group configuration file (`claude-tools-group.json`
 }
 ```
 
-Instead of exposing 20 tools across all MCP servers, this group only exposes 3 handpicked ones.
+This group exposes only 3 handpicked tools instead of all available tools.
+
+#### Example 2: Including entire servers with exclusions
+You can also include all tools from specific servers and optionally exclude some:
+```json
+{
+  "name": "claude-tools",
+  "description": "All tools from time and deepwiki servers except time__convert_time",
+  "included_servers": ["time", "deepwiki"],
+  "excluded_tools": ["time__convert_time"]
+}
+```
+
+This includes ALL tools from the `time` and `deepwiki` servers except `time__convert_time`.
+
+#### Example 3: Mixing approaches
+You can combine all three fields for maximum flexibility:
+```json
+{
+  "name": "comprehensive-tools",
+  "description": "Mix of manual tools, server inclusion, and exclusions",
+  "included_tools": ["filesystem__read_file"],
+  "included_servers": ["time"],
+  "excluded_tools": ["time__convert_time"]
+}
+```
+
+This includes `filesystem__read_file` plus all tools from the `time` server except `time__convert_time`.
 
 You can create this group in mcpjungle:
 ```bash
