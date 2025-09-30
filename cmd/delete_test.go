@@ -28,7 +28,7 @@ func TestDeleteCommandStructure(t *testing.T) {
 func TestDeleteMcpClientSubcommand(t *testing.T) {
 	// Test command properties
 	testhelpers.AssertEqual(t, "mcp-client [name]", deleteMcpClientCmd.Use)
-	testhelpers.AssertEqual(t, "Delete an MCP client (Production mode)", deleteMcpClientCmd.Short)
+	testhelpers.AssertEqual(t, "Delete an MCP client (Enterprise mode)", deleteMcpClientCmd.Short)
 	testhelpers.AssertNotNil(t, deleteMcpClientCmd.Long)
 	testhelpers.AssertTrue(t, len(deleteMcpClientCmd.Long) > 0, "Long description should not be empty")
 
@@ -41,7 +41,7 @@ func TestDeleteMcpClientSubcommand(t *testing.T) {
 	expectedPhrases := []string{
 		"Delete an MCP client from the registry",
 		"instantly revokes all access",
-		"Production mode",
+		"Enterprise mode",
 	}
 
 	for _, phrase := range expectedPhrases {
@@ -53,7 +53,7 @@ func TestDeleteMcpClientSubcommand(t *testing.T) {
 func TestDeleteUserSubcommand(t *testing.T) {
 	// Test command properties
 	testhelpers.AssertEqual(t, "user [username]", deleteUserCmd.Use)
-	testhelpers.AssertEqual(t, "Delete a user (Production mode)", deleteUserCmd.Short)
+	testhelpers.AssertEqual(t, "Delete a user (Enterprise mode)", deleteUserCmd.Short)
 	testhelpers.AssertNotNil(t, deleteUserCmd.Long)
 	testhelpers.AssertTrue(t, len(deleteUserCmd.Long) > 0, "Long description should not be empty")
 

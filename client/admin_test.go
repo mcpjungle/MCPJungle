@@ -39,7 +39,7 @@ func TestInitServer(t *testing.T) {
 				t.Fatalf("Failed to decode request body: %v", err)
 			}
 			if requestBody.Mode != "production" {
-				t.Errorf("Expected mode 'production', got %s", requestBody.Mode)
+				t.Errorf("Expected mode 'production' (for backward compatibility), got %s", requestBody.Mode)
 			}
 
 			// Return success response

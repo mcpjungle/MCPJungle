@@ -59,6 +59,11 @@ type RegisterServerInput struct {
 	Env map[string]string `json:"env"`
 }
 
+// ServerMetadata represents the server metadata response
+type ServerMetadata struct {
+	Version string `json:"version"`
+}
+
 // InstallOptions represents the options for installing an MCP server from the registry.
 type InstallOptions struct {
 	// ServerName is the name of the server to install from the registry

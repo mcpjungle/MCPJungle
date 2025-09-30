@@ -3,6 +3,7 @@ package api
 
 import (
 	"fmt"
+	"net/http"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -14,6 +15,8 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
+	"github.com/mcpjungle/mcpjungle/pkg/types"
+	"github.com/mcpjungle/mcpjungle/pkg/version"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
@@ -160,9 +163,19 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		},
 	)
 
+	r.GET(
+		"/metadata",
+		func(c *gin.Context) {
+			m := &types.ServerMetadata{
+				Version: version.GetVersion(),
+			}
+			c.JSON(http.StatusOK, m)
+		},
+	)
+
 	r.POST("/init", s.registerInitServerHandler())
 
-	requireProdMode := s.requireServerMode(model.ModeProd)
+	requireEnterpriseMode := s.requireServerMode(model.ModeEnterprise)
 
 	// Set up the MCP proxy server on /mcp
 	streamableHTTPServer := server.NewStreamableHTTPServer(s.mcpProxyServer)
@@ -215,7 +228,7 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		s.verifyUserAuthForAPIAccess(),
 	)
 
-	// endpoints accessible by a standard user in production mode or anyone in development mode
+	// endpoints accessible by a standard user in enterprise mode or anyone in development mode
 	userAPI := apiV0.Group("/")
 	{
 		userAPI.GET("/servers", s.listServersHandler())
@@ -224,10 +237,10 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		userAPI.POST("/tools/invoke", s.invokeToolHandler())
 		userAPI.GET("/tool", s.getToolHandler())
 
-		userAPI.GET("/users/whoami", requireProdMode, s.whoAmIHandler())
+		userAPI.GET("/users/whoami", requireEnterpriseMode, s.whoAmIHandler())
 	}
 
-	// endpoints only accessible by an admin user in production mode or anyone in development mode
+	// endpoints only accessible by an admin user in enterprise mode or anyone in development mode
 	adminAPI := apiV0.Group("/", s.requireAdminUser())
 	{
 		adminAPI.POST("/servers", s.registerServerHandler())
@@ -237,34 +250,34 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		adminAPI.POST("/tools/enable", s.enableToolsHandler())
 		adminAPI.POST("/tools/disable", s.disableToolsHandler())
 
-		// endpoints for managing MCP clients (production mode only)
+		// endpoints for managing MCP clients (enterprise mode only)
 		adminAPI.GET(
 			"/clients",
-			requireProdMode,
+			requireEnterpriseMode,
 			s.listMcpClientsHandler(),
 		)
 		adminAPI.POST(
 			"/clients",
-			requireProdMode,
+			requireEnterpriseMode,
 			s.createMcpClientHandler(),
 		)
 		adminAPI.DELETE(
 			"/clients/:name",
-			requireProdMode,
+			requireEnterpriseMode,
 			s.deleteMcpClientHandler(),
 		)
 
-		// endpoints for managing human users (production mode only)
+		// endpoints for managing human users (enterprise mode only)
 		adminAPI.POST("/users",
-			requireProdMode,
+			requireEnterpriseMode,
 			s.createUserHandler(),
 		)
 		adminAPI.GET("/users",
-			requireProdMode,
+			requireEnterpriseMode,
 			s.listUsersHandler(),
 		)
 		adminAPI.DELETE("/users/:username",
-			requireProdMode,
+			requireEnterpriseMode,
 			s.deleteUserHandler(),
 		)
 
@@ -273,6 +286,7 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		adminAPI.GET("/tool-groups/:name", s.getToolGroupHandler())
 		adminAPI.GET("/tool-groups", s.listToolGroupsHandler())
 		adminAPI.DELETE("/tool-groups/:name", s.deleteToolGroupHandler())
+		adminAPI.PUT("/tool-groups/:name", s.updateToolGroupHandler())
 	}
 
 	return r, nil

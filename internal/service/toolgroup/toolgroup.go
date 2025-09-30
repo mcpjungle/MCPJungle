@@ -7,10 +7,12 @@ import (
 	"regexp"
 	"sync"
 
+	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
+	"github.com/mcpjungle/mcpjungle/pkg/util"
 	"gorm.io/gorm"
 )
 
@@ -120,6 +122,104 @@ func (s *ToolGroupService) CreateToolGroup(group *model.ToolGroup) error {
 	s.addToolGroupSseMCPServer(group.Name, sseMcpServer)
 
 	return nil
+}
+
+// UpdateToolGroup updates an existing tool group.
+// It returns the configuration of the original tool group before the update.
+// If the tool group does not exist, it returns ErrToolGroupNotFound.
+func (s *ToolGroupService) UpdateToolGroup(name string, updatedGroup *model.ToolGroup) (*model.ToolGroup, error) {
+	oldGroup, err := s.GetToolGroup(name)
+	if err != nil {
+		if errors.Is(err, ErrToolGroupNotFound) {
+			return nil, err
+		}
+		return nil, fmt.Errorf("failed to retrieve the tool group: %w", err)
+	}
+
+	// determine which tools were added or removed from the group
+	oldToolNames, err := oldGroup.GetTools()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tools of original group: %w", err)
+	}
+	updatedToolNames, err := updatedGroup.GetTools()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tools of the updated group: %w", err)
+	}
+
+	toolsAdded, toolsRemoved := util.DiffTools(oldToolNames, updatedToolNames)
+
+	// if nothing was actually changed in the group, no need to proceed further
+	if updatedGroup.Description == oldGroup.Description && len(toolsAdded) == 0 && len(toolsRemoved) == 0 {
+		return oldGroup, nil
+	}
+
+	// determine the changes to make to the tool group's proxy MCP server instances (normal + SSE)
+	// all changes are ultimately made at the end of this method to avoid inconsistent state in case of errors.
+	mcpServer, exists := s.GetToolGroupMCPServer(name)
+	if !exists {
+		return nil, fmt.Errorf("MCP server for tool group %s does not exist", name)
+	}
+	sseMcpServer, exists := s.GetToolGroupSseMCPServer(name)
+	if !exists {
+		return nil, fmt.Errorf("SSE MCP server for tool group %s does not exist", name)
+	}
+
+	// tools added to the group must be added to its MCP server instances
+	var sseToolsToAdd, normalToolsToAdd []mcpgo.Tool
+	for _, toolName := range toolsAdded {
+		tool, exists := s.mcpService.GetToolInstance(toolName)
+		if !exists {
+			return nil, fmt.Errorf("tool %s does not exist or is disabled", toolName)
+		}
+
+		parentServer, err := s.mcpService.GetToolParentServer(toolName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get parent MCP server of the tool %s: %w", toolName, err)
+		}
+
+		if parentServer.Transport == types.TransportSSE {
+			sseToolsToAdd = append(sseToolsToAdd, tool)
+		} else {
+			normalToolsToAdd = append(normalToolsToAdd, tool)
+		}
+	}
+
+	// tools removed from the group must be removed from its MCP server instances
+	var sseToolsToRemove, normalToolsToRemove []string
+	for _, toolName := range toolsRemoved {
+		parentServer, err := s.mcpService.GetToolParentServer(toolName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get parent MCP server of the tool %s: %w", toolName, err)
+		}
+
+		if parentServer.Transport == types.TransportSSE {
+			sseToolsToRemove = append(sseToolsToRemove, toolName)
+		} else {
+			normalToolsToRemove = append(normalToolsToRemove, toolName)
+		}
+	}
+
+	// make all the changes together to avoid inconsistent state in case of errors
+	mcpServer.DeleteTools(normalToolsToRemove...)
+	sseMcpServer.DeleteTools(sseToolsToRemove...)
+
+	for _, tool := range normalToolsToAdd {
+		mcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+	}
+	for _, tool := range sseToolsToAdd {
+		sseMcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+	}
+
+	// as a final step, update the tool group record in the database
+	// we only persist this update after successfully updating the in-memory state
+
+	// ensure the group name remains unchanged in the db record
+	updatedGroup.Name = name
+	if err := s.db.Model(&model.ToolGroup{}).Where("name = ?", name).Updates(updatedGroup).Error; err != nil {
+		return nil, fmt.Errorf("failed to update tool group in DB: %w", err)
+	}
+
+	return oldGroup, nil
 }
 
 // GetToolGroup retrieves a tool group by name from the database.

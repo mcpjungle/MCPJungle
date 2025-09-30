@@ -42,15 +42,15 @@ var listServersCmd = &cobra.Command{
 
 var listMcpClientsCmd = &cobra.Command{
 	Use:   "mcp-clients",
-	Short: "List MCP clients (Production mode)",
+	Short: "List MCP clients (Enterprise mode)",
 	Long: "List MCP clients that are authorized to access the MCP Proxy server.\n" +
-		"This command is only available in Production mode.",
+		"This command is only available in Enterprise mode.",
 	RunE: runListMcpClients,
 }
 
 var listUsersCmd = &cobra.Command{
 	Use:   "users",
-	Short: "List users (Production mode)",
+	Short: "List users (Enterprise mode)",
 	Long:  "List users that are authorized to access MCPJungle.",
 	RunE:  runListUsers,
 }

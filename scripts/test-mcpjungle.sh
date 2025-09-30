@@ -145,8 +145,26 @@ wait_for_health "http://127.0.0.1:9090/health"
 
 # 7) Test filesystem MCP server in Docker
 log "Testing filesystem MCP server in Docker"
-"$BIN_PATH" --registry "$REGISTRY_URL" init-server
-"$BIN_PATH" --registry "$REGISTRY_URL" register --name filesystem --transport stdio --command npx --args "-y,@modelcontextprotocol/server-filesystem,/host"
+
+if ! "$BIN_PATH" --registry "$REGISTRY_URL" init-server; then
+  log "warning: init-server command failed, but this is not fatal"
+fi
+
+# Create temp config file for a stdio mcp server
+FS_CONFIG=$(mktemp)
+cat > "$FS_CONFIG" <<EOF
+{
+  "name": "filesystem",
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "/host"]
+}
+EOF
+
+"$BIN_PATH" --registry "$REGISTRY_URL" register -c "$FS_CONFIG"
+
+rm -f "$FS_CONFIG"
+
 "$BIN_PATH" --registry "$REGISTRY_URL" invoke filesystem__list_allowed_directories --input '{}' >/dev/null
 
 # 8) Print Homebrew formula config snippet

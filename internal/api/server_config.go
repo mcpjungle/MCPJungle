@@ -8,7 +8,7 @@ import (
 func (s *Server) registerInitServerHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req struct {
-			Mode model.ServerMode `json:"mode" binding:"required,oneof=development production"`
+			Mode model.ServerMode `json:"mode" binding:"required,oneof=development enterprise production"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(400, gin.H{"error": "Invalid request body: " + err.Error()})
@@ -23,13 +23,13 @@ func (s *Server) registerInitServerHandler() gin.HandlerFunc {
 			c.JSON(400, gin.H{"status": "Server already initialized", "mode": req.Mode})
 			return
 		}
-		if req.Mode != model.ModeProd {
+		if req.Mode == model.ModeDev {
 			// If the server was successfully initialized and the mode is dev,
 			// return a success message without creating an admin user
 			c.JSON(200, gin.H{"status": "Server initialized successfully in development mode"})
 			return
 		}
-		// If the server was successfully initialized and the mode is prod,
+		// The server was successfully initialized and the mode is enterprise (either ModeEnterprise or ModeProd),
 		// create an admin user and return its access token
 		admin, err := s.userService.CreateAdminUser()
 		if err != nil {

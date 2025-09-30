@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -79,15 +78,16 @@ func (s *Server) getToolGroupHandler() gin.HandlerFunc {
 			},
 			ToolGroupEndpoints: getToolGroupEndpoints(c, group.Name),
 		}
-		// Convert datatypes.JSON to []string
-		if group.IncludedTools != nil {
-			var tools []string
-			if err := json.Unmarshal(group.IncludedTools, &tools); err != nil {
-				// TODO: Log error or handle it appropriately
-				tools = []string{}
-			}
-			resp.IncludedTools = tools
+
+		var tools []string
+		tools, err = group.GetTools()
+		if err != nil {
+			c.JSON(
+				http.StatusInternalServerError,
+				gin.H{"error": fmt.Sprintf("error getting tools of group: %s", err.Error())},
+			)
 		}
+		resp.IncludedTools = tools
 
 		c.JSON(http.StatusOK, resp)
 	}
@@ -111,6 +111,67 @@ func (s *Server) deleteToolGroupHandler() gin.HandlerFunc {
 		//  The tool group service should return ErrToolGroupNotFound if the group does not exist.
 		//  The CLI should then handle this and output "group does not exist".
 		c.Status(http.StatusNoContent)
+	}
+}
+
+func (s *Server) updateToolGroupHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		name := c.Param("name")
+		if name == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "group name is required"})
+			return
+		}
+
+		var input model.ToolGroup
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		originalConf, err := s.toolGroupService.UpdateToolGroup(name, &input)
+		if err != nil {
+			if errors.Is(err, toolgroup.ErrToolGroupNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("tool group %s does not exist", name)})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		// create and send response object
+		resp := &types.UpdateToolGroupResponse{
+			Name: name,
+			Old: &types.ToolGroup{
+				Name:        originalConf.Name,
+				Description: originalConf.Description,
+			},
+			New: &types.ToolGroup{
+				Name:        input.Name,
+				Description: input.Description,
+			},
+		}
+
+		var origTools []string
+		origTools, err = originalConf.GetTools()
+		if err != nil {
+			c.JSON(
+				http.StatusInternalServerError,
+				gin.H{"error": fmt.Sprintf("error getting tools of the original group config: %s", err.Error())},
+			)
+		}
+		resp.Old.IncludedTools = origTools
+
+		var newTools []string
+		newTools, err = input.GetTools()
+		if err != nil {
+			c.JSON(
+				http.StatusInternalServerError,
+				gin.H{"error": fmt.Sprintf("error getting tools of the new group config: %s", err.Error())},
+			)
+		}
+		resp.New.IncludedTools = newTools
+
+		c.JSON(http.StatusOK, resp)
 	}
 }
 

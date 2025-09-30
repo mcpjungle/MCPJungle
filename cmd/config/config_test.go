@@ -8,15 +8,6 @@ import (
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 )
 
-func TestClientConfigFileName(t *testing.T) {
-	t.Run("ClientConfigFileName has expected value", func(t *testing.T) {
-		expected := ".mcpjungle.conf"
-		if ClientConfigFileName != expected {
-			t.Errorf("Expected ClientConfigFileName to be '%s', got '%s'", expected, ClientConfigFileName)
-		}
-	})
-}
-
 func TestClientConfig(t *testing.T) {
 	t.Run("ClientConfig struct has AccessToken field", func(t *testing.T) {
 		cfg := &ClientConfig{}

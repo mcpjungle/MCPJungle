@@ -25,7 +25,7 @@ func (s *Server) requireInitialized() gin.HandlerFunc {
 	}
 }
 
-// verifyUserAuthForAPIAccess is middleware that checks for a valid user token if the server is in production mode.
+// verifyUserAuthForAPIAccess is middleware that checks for a valid user token if the server is in enterprise mode.
 // this middleware doesn't care about the role of the user, it just verifies that they're authenticated.
 func (s *Server) verifyUserAuthForAPIAccess() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -65,7 +65,7 @@ func (s *Server) verifyUserAuthForAPIAccess() gin.HandlerFunc {
 	}
 }
 
-// requireAdminUser is middleware that ensures the authenticated user has an admin role when in production mode.
+// requireAdminUser is middleware that ensures the authenticated user has an admin role when in enterprise mode.
 // It assumes that verifyUserAuthForAPIAccess middleware has already run and set the user in context.
 func (s *Server) requireAdminUser() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -103,6 +103,8 @@ func (s *Server) requireAdminUser() gin.HandlerFunc {
 
 // requireServerMode is middleware that checks if the server is in a specific mode.
 // If not, the request is rejected with a 403 Forbidden status.
+// This is useful for routes that should only be accessible in certain modes (e.g., enterprise-only features).
+// NOTE: ModeProd is supported for backwards compatibility, it is equivalent to ModeEnterprise.
 func (s *Server) requireServerMode(m model.ServerMode) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		mode, exists := c.Get("mode")
@@ -115,19 +117,27 @@ func (s *Server) requireServerMode(m model.ServerMode) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "invalid server mode in context"})
 			return
 		}
-		if currentMode != m {
-			c.AbortWithStatusJSON(
-				http.StatusForbidden,
-				gin.H{"error": fmt.Sprintf("this request is only allowed in %s mode", m)},
-			)
+
+		if currentMode == m {
+			// current mode matches the required mode, allow access
+			c.Next()
 			return
 		}
-		c.Next()
+		if model.IsEnterpriseMode(currentMode) && model.IsEnterpriseMode(m) {
+			// both current and required modes are enterprise modes, allow access
+			c.Next()
+			return
+		}
+		// current mode does not match the required mode, reject the request
+		c.AbortWithStatusJSON(
+			http.StatusForbidden,
+			gin.H{"error": fmt.Sprintf("this request is only allowed in %s mode", m)},
+		)
 	}
 }
 
 // checkAuthForMcpProxyAccess is middleware for MCP proxy that checks for a valid MCP client token
-// if the server is in production mode.
+// if the server is in enterprise mode.
 // In development mode, mcp clients do not require auth to access the MCP proxy.
 func (s *Server) checkAuthForMcpProxyAccess() gin.HandlerFunc {
 	return func(c *gin.Context) {

@@ -111,3 +111,32 @@ func TestValidateTransport(t *testing.T) {
 		t.Errorf("Expected empty transport for invalid input, got %s", transport)
 	}
 }
+
+func TestServerMetadata(t *testing.T) {
+	t.Parallel()
+
+	// Test basic JSON marshaling/unmarshaling
+	metadata := ServerMetadata{Version: "v1.2.3"}
+
+	// Marshal to JSON
+	jsonData, err := json.Marshal(metadata)
+	if err != nil {
+		t.Fatalf("Failed to marshal: %v", err)
+	}
+
+	expected := `{"version":"v1.2.3"}`
+	if string(jsonData) != expected {
+		t.Errorf("Expected JSON %s, got %s", expected, string(jsonData))
+	}
+
+	// Unmarshal back
+	var result ServerMetadata
+	err = json.Unmarshal(jsonData, &result)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal: %v", err)
+	}
+
+	if result.Version != "v1.2.3" {
+		t.Errorf("Expected version v1.2.3, got %s", result.Version)
+	}
+}

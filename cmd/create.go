@@ -22,19 +22,19 @@ var createCmd = &cobra.Command{
 var createMcpClientCmd = &cobra.Command{
 	Use:   "mcp-client [name]",
 	Args:  cobra.ExactArgs(1),
-	Short: "Create an authenticated MCP client (Production mode)",
+	Short: "Create an authenticated MCP client (Enterprise mode)",
 	Long: "Create an MCP client that can make authenticated requests to the MCPJungle MCP Proxy.\n" +
 		"This returns an access token which should be sent by your client in the " +
 		"`Authorization: Bearer {token}` http header.\n" +
 		"This also lets you control which MCO servers the client can access.\n" +
-		"This command is only available in Production mode.",
+		"This command is only available in Enterprise mode.",
 	RunE: runCreateMcpClient,
 }
 
 var createUserCmd = &cobra.Command{
 	Use:   "user [username]",
 	Args:  cobra.ExactArgs(1),
-	Short: "Create a new user (Production mode)",
+	Short: "Create a new user (Enterprise mode)",
 	Long: "Create a new standard user in MCPJungle.\n" +
 		"A user can make authenticated requests to the MCPJungle API server and perform limited actions like:\n" +
 		"- List and view MCP servers & tools\n" +

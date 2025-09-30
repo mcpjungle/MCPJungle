@@ -1,6 +1,6 @@
 # MCPJungle Docker Compose configuration for teams & organizations.
 # Use this compose file if you want to host MCPJungle on a remote server for multiple users within your org.
-# The mcpjungle server runs in production mode with enterprise features enabled.
+# The mcpjungle server runs in "enterprise" mode with enterprise features enabled.
 services:
   db:
     image: postgres:latest
@@ -36,7 +36,7 @@ services:
     container_name: mcpjungle-server
     environment:
       DATABASE_URL: postgres://mcpjungle:mcpjungle@db:5432/mcpjungle
-      SERVER_MODE: ${SERVER_MODE:-production}
+      SERVER_MODE: ${SERVER_MODE:-enterprise}
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
     ports:
      - "${HOST_PORT:-8080}:8080"

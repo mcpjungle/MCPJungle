@@ -1,51 +1,34 @@
 package cmd
 
 import (
-	"fmt"
-	"runtime/debug"
+	"context"
+	"time"
 
+	"github.com/mcpjungle/mcpjungle/pkg/version"
 	"github.com/spf13/cobra"
 )
-
-const defaultVersion = "dev"
-
-// Version can be overridden at build time using:
-// go build -ldflags="-X 'github.com/mcpjungle/mcpjungle/cmd.Version=v1.2.3'"
-var Version = defaultVersion
-
-// getVersion returns the CLI version string.
-func getVersion() string {
-	if Version != "" && Version != defaultVersion {
-		return normalizeVersion(Version)
-	}
-
-	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
-		return normalizeVersion(info.Main.Version)
-	}
-
-	return defaultVersion
-}
-
-// normalizeVersion ensures a consistent version format:
-// - If version starts with a digit (e.g., "1.2.3"), prefix with 'v' → "v1.2.3"
-// - Leave values starting with 'v' or non-semver strings untouched
-func normalizeVersion(v string) string {
-	if v == "" {
-		return v
-	}
-	if v[0] >= '0' && v[0] <= '9' {
-		return "v" + v
-	}
-	return v
-}
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
+	Long:  `Print version information for the CLI and the connected mcpjungle server.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// We want the extra newline for proper formatting
-		fmt.Print(asciiArt) //nolint:staticcheck
-		fmt.Printf("MCPJungle %s\n", getVersion())
+		cmd.Print(asciiArt) //nolint:staticcheck
+
+		// Display CLI version
+		cliVersion := version.GetVersion()
+		cmd.Printf("CLI Version: %s\n", cliVersion)
+
+		// Try to fetch server version
+		serverVersion, ok := getServerVersion()
+		if ok {
+			cmd.Printf("Server Version: %s\n", serverVersion)
+		} else {
+			cmd.Printf("Couldn't retrieve Server version at this time\n")
+		}
+
+		cmd.Println("Server URL: ", apiClient.BaseURL())
 	},
 	Annotations: map[string]string{
 		"group": string(subCommandGroupBasic),
@@ -56,4 +39,19 @@ var versionCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.Flags().BoolP("version", "v", false, "Display version information")
+}
+
+// getServerVersion attempts to fetch the server version from the configured server.
+// Returns the version string and a boolean indicating success.
+func getServerVersion() (string, bool) {
+	// Try to get server metadata with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	metadata, err := apiClient.GetServerMetadata(ctx)
+	if err != nil {
+		return "", false
+	}
+
+	return metadata.Version, true
 }

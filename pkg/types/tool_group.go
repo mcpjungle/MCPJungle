@@ -27,3 +27,13 @@ type GetToolGroupResponse struct {
 	*ToolGroup
 	*ToolGroupEndpoints
 }
+
+// UpdateToolGroupResponse contains the old and new configuration of a tool group after a successful update.
+type UpdateToolGroupResponse struct {
+	Name string `json:"name"`
+
+	// Old contains the original configuration of the tool group.
+	Old *ToolGroup `json:"old"`
+	// New contains the now-live configuration of the tool group.
+	New *ToolGroup `json:"new"`
+}

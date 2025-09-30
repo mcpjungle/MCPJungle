@@ -12,12 +12,3 @@ func TestRootCommandStructure(t *testing.T) {
 		t.Errorf("Expected root command Short to be 'MCP Gateway for AI Agents', got %s", rootCmd.Short)
 	}
 }
-
-func TestSubCommandGroups(t *testing.T) {
-	if subCommandGroupBasic != "basic" {
-		t.Errorf("Expected subCommandGroupBasic to be 'basic', got %s", subCommandGroupBasic)
-	}
-	if subCommandGroupAdvanced != "advanced" {
-		t.Errorf("Expected subCommandGroupAdvanced to be 'advanced', got %s", subCommandGroupAdvanced)
-	}
-}
