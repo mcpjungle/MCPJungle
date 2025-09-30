@@ -24,14 +24,9 @@ var updateToolGroupCmd = &cobra.Command{
 		"The new configuration completely overrides the existing one.\n" +
 		"Note that you cannot update the name of a group once it is created.\n" +
 		"Updating a group does not cause any downtime for the MCP clients relying on its endpoint.\n\n" +
-		"You can update any of the following fields:\n" +
-		"  - description: Group description\n" +
-		"  - included_tools: Specific tools to include\n" +
-		"  - included_servers: MCP servers to include all tools from\n" +
-		"  - excluded_tools: Tools to exclude\n\n" +
-		"CAUTION: If you remove any tools from the configuration (either directly or by removing servers), " +
+		"CAUTION: If you remove any tools from the configuration (by removing them from include or adding them to exclude), " +
 		"calling update will immediately remove them from the group. " +
-		"They will no longer be accessible by MCP clients using the group.",
+		"They will no longer be accessible by MCP clients using the group's MCP server.",
 	RunE: runUpdateGroup,
 }
 
@@ -43,11 +38,7 @@ func init() {
 		"conf",
 		"c",
 		"",
-		"Path to new JSON configuration file for the Tool Group.\n"+
-			"The file can specify:\n"+
-			"  'included_tools': list of specific tool names\n"+
-			"  'included_servers': list of server names to include all tools from\n"+
-			"  'excluded_tools': list of tool names to exclude\n",
+		"Path to new JSON configuration file for the Tool Group",
 	)
 	_ = updateToolGroupCmd.MarkFlagRequired("conf")
 
@@ -102,8 +93,8 @@ func runUpdateGroup(cmd *cobra.Command, args []string) error {
 				cmd.Printf("    - %s\n", t)
 			}
 		}
-		cmd.Println()
 	}
+	cmd.Println()
 
 	// Report changes in included_servers
 	if !noChangeInServers {
