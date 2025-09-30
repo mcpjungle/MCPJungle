@@ -10,6 +10,7 @@ import (
 
 // ToolResolver defines the interface needed to resolve tools by server.
 type ToolResolver interface {
+	// ListToolsByServer returns a list of tools for the given MCP server name.
 	ListToolsByServer(serverName string) ([]Tool, error)
 }
 
@@ -24,10 +25,10 @@ type ToolGroup struct {
 	// IncludedTools contains a list of tool names that are included in this group.
 	// storing the list of tool names as a JSON array is a convenient way for now.
 	IncludedTools datatypes.JSON `json:"included_tools" gorm:"type:jsonb"`
-	
+
 	// IncludedServers contains a list of MCP server names. All tools from these servers will be included.
 	IncludedServers datatypes.JSON `json:"included_servers" gorm:"type:jsonb"`
-	
+
 	// ExcludedTools contains a list of tool names to exclude from the group.
 	ExcludedTools datatypes.JSON `json:"excluded_tools" gorm:"type:jsonb"`
 }
@@ -64,6 +65,8 @@ func (g *ToolGroup) GetExcludedTools() ([]string, error) {
 
 // ResolveEffectiveTools resolves all effective tools for this group by combining
 // included_tools, included_servers, and applying excluded_tools.
+// Note that tool exclusions are applied at last, so if a tool is both included and excluded,
+// it will be excluded.
 // It requires an MCP service to lookup tools by server.
 func (g *ToolGroup) ResolveEffectiveTools(mcpService ToolResolver) ([]string, error) {
 	effectiveTools := make(map[string]bool)

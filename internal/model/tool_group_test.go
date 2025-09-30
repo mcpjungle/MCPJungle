@@ -22,7 +22,7 @@ func (m *mockToolResolver) ListToolsByServer(serverName string) ([]Tool, error) 
 func TestToolGroup_GetTools(t *testing.T) {
 	tools := []string{"tool1", "tool2"}
 	toolsJSON, _ := json.Marshal(tools)
-	
+
 	group := &ToolGroup{
 		IncludedTools: datatypes.JSON(toolsJSON),
 	}
@@ -43,7 +43,7 @@ func TestToolGroup_GetTools(t *testing.T) {
 func TestToolGroup_GetServers(t *testing.T) {
 	servers := []string{"server1", "server2"}
 	serversJSON, _ := json.Marshal(servers)
-	
+
 	group := &ToolGroup{
 		IncludedServers: datatypes.JSON(serversJSON),
 	}
@@ -64,7 +64,7 @@ func TestToolGroup_GetServers(t *testing.T) {
 func TestToolGroup_GetExcludedTools(t *testing.T) {
 	tools := []string{"excluded1", "excluded2"}
 	toolsJSON, _ := json.Marshal(tools)
-	
+
 	group := &ToolGroup{
 		ExcludedTools: datatypes.JSON(toolsJSON),
 	}
@@ -101,7 +101,7 @@ func TestToolGroup_ResolveEffectiveTools(t *testing.T) {
 	t.Run("IncludedTools only", func(t *testing.T) {
 		tools := []string{"manual__tool1", "manual__tool2"}
 		toolsJSON, _ := json.Marshal(tools)
-		
+
 		group := &ToolGroup{
 			IncludedTools: datatypes.JSON(toolsJSON),
 		}
@@ -114,12 +114,12 @@ func TestToolGroup_ResolveEffectiveTools(t *testing.T) {
 		if len(result) != 2 {
 			t.Errorf("Expected 2 tools, got %d", len(result))
 		}
-		
+
 		toolMap := make(map[string]bool)
 		for _, tool := range result {
 			toolMap[tool] = true
 		}
-		
+
 		if !toolMap["manual__tool1"] || !toolMap["manual__tool2"] {
 			t.Errorf("Expected manual tools, got %v", result)
 		}
@@ -128,7 +128,7 @@ func TestToolGroup_ResolveEffectiveTools(t *testing.T) {
 	t.Run("IncludedServers only", func(t *testing.T) {
 		servers := []string{"time"}
 		serversJSON, _ := json.Marshal(servers)
-		
+
 		group := &ToolGroup{
 			IncludedServers: datatypes.JSON(serversJSON),
 		}
@@ -141,12 +141,12 @@ func TestToolGroup_ResolveEffectiveTools(t *testing.T) {
 		if len(result) != 3 {
 			t.Errorf("Expected 3 tools from time server, got %d", len(result))
 		}
-		
+
 		toolMap := make(map[string]bool)
 		for _, tool := range result {
 			toolMap[tool] = true
 		}
-		
+
 		expectedTools := []string{"time__get_current_time", "time__convert_time", "time__format_time"}
 		for _, expectedTool := range expectedTools {
 			if !toolMap[expectedTool] {
@@ -158,10 +158,10 @@ func TestToolGroup_ResolveEffectiveTools(t *testing.T) {
 	t.Run("IncludedServers with ExcludedTools", func(t *testing.T) {
 		servers := []string{"time", "deepwiki"}
 		serversJSON, _ := json.Marshal(servers)
-		
+
 		excluded := []string{"time__convert_time", "deepwiki__search_wiki"}
 		excludedJSON, _ := json.Marshal(excluded)
-		
+
 		group := &ToolGroup{
 			IncludedServers: datatypes.JSON(serversJSON),
 			ExcludedTools:   datatypes.JSON(excludedJSON),
@@ -175,12 +175,12 @@ func TestToolGroup_ResolveEffectiveTools(t *testing.T) {
 		if len(result) != 3 {
 			t.Errorf("Expected 3 tools (5 from servers - 2 excluded), got %d", len(result))
 		}
-		
+
 		toolMap := make(map[string]bool)
 		for _, tool := range result {
 			toolMap[tool] = true
 		}
-		
+
 		// Should have these tools
 		expectedTools := []string{"time__get_current_time", "time__format_time", "deepwiki__read_wiki_contents"}
 		for _, expectedTool := range expectedTools {
@@ -188,7 +188,7 @@ func TestToolGroup_ResolveEffectiveTools(t *testing.T) {
 				t.Errorf("Expected tool %s not found in result %v", expectedTool, result)
 			}
 		}
-		
+
 		// Should NOT have these tools
 		unexpectedTools := []string{"time__convert_time", "deepwiki__search_wiki"}
 		for _, unexpectedTool := range unexpectedTools {
@@ -201,13 +201,13 @@ func TestToolGroup_ResolveEffectiveTools(t *testing.T) {
 	t.Run("Mixed IncludedTools and IncludedServers with ExcludedTools", func(t *testing.T) {
 		tools := []string{"manual__tool1"}
 		toolsJSON, _ := json.Marshal(tools)
-		
+
 		servers := []string{"time"}
 		serversJSON, _ := json.Marshal(servers)
-		
+
 		excluded := []string{"time__convert_time"}
 		excludedJSON, _ := json.Marshal(excluded)
-		
+
 		group := &ToolGroup{
 			IncludedTools:   datatypes.JSON(toolsJSON),
 			IncludedServers: datatypes.JSON(serversJSON),
@@ -222,12 +222,12 @@ func TestToolGroup_ResolveEffectiveTools(t *testing.T) {
 		if len(result) != 3 {
 			t.Errorf("Expected 3 tools (1 manual + 3 from time - 1 excluded), got %d", len(result))
 		}
-		
+
 		toolMap := make(map[string]bool)
 		for _, tool := range result {
 			toolMap[tool] = true
 		}
-		
+
 		// Should have these tools
 		expectedTools := []string{"manual__tool1", "time__get_current_time", "time__format_time"}
 		for _, expectedTool := range expectedTools {
@@ -235,10 +235,36 @@ func TestToolGroup_ResolveEffectiveTools(t *testing.T) {
 				t.Errorf("Expected tool %s not found in result %v", expectedTool, result)
 			}
 		}
-		
+
 		// Should NOT have this tool
 		if toolMap["time__convert_time"] {
 			t.Errorf("Unexpected excluded tool time__convert_time found in result %v", result)
+		}
+	})
+
+	t.Run("Same tool in IncludedTools and ExcludedTools", func(t *testing.T) {
+		tools := []string{"manual__tool1", "time__get_current_time"}
+		toolsJSON, _ := json.Marshal(tools)
+
+		excluded := []string{"time__get_current_time"}
+		excludedJSON, _ := json.Marshal(excluded)
+
+		group := &ToolGroup{
+			IncludedTools: datatypes.JSON(toolsJSON),
+			ExcludedTools: datatypes.JSON(excludedJSON),
+		}
+
+		result, err := group.ResolveEffectiveTools(resolver)
+		if err != nil {
+			t.Fatalf("ResolveEffectiveTools() failed: %v", err)
+		}
+
+		if len(result) != 1 {
+			t.Errorf("Expected 1 tool (manual__tool1), got %d", len(result))
+		}
+
+		if result[0] != "manual__tool1" {
+			t.Errorf("Expected manual__tool1, got %v", result)
 		}
 	})
 }
