@@ -51,7 +51,6 @@ func ProductionConfig() *Config {
 	}
 }
 
-// Helper functions to create fields
 func String(key, value string) Field {
 	return Field{Key: key, Value: value}
 }
@@ -72,7 +71,7 @@ func Bool(key string, value bool) Field {
 	return Field{Key: key, Value: value}
 }
 
-func Any(key string, value interface{}) Field {
+func Any(key string, value any) Field {
 	return Field{Key: key, Value: value}
 }
 
@@ -192,7 +191,7 @@ func (l *zapLogger) WithFields(fields ...Field) Logger {
 	}
 
 	zapFields := fieldsToZap(fields)
-	newLogger := l.Logger.With(zapFields...)
+	newLogger := l.With(zapFields...)
 
 	return &zapLogger{Logger: newLogger}
 }
