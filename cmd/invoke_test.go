@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spf13/afero"
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
+	"github.com/spf13/afero"
 )
 
 func TestInvokeCommandStructure(t *testing.T) {
@@ -199,9 +199,9 @@ func TestHandleResourceContent(t *testing.T) {
 			// Create an in-memory filesystem for each test
 			fs := afero.NewMemMapFs()
 			tmpDir := "/tmp"
-			
+
 			// Create the tmp directory in the in-memory filesystem
-			err := fs.MkdirAll(tmpDir, 0755)
+			err := fs.MkdirAll(tmpDir, 0o755)
 			if err != nil {
 				t.Fatalf("Failed to create tmp dir in memory: %v", err)
 			}
@@ -261,4 +261,3 @@ func TestHandleResourceContent(t *testing.T) {
 		})
 	}
 }
-

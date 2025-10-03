@@ -104,7 +104,6 @@ func getAudioContent(c map[string]any) ([]byte, string, error) {
 	return audioData, ext, nil
 }
 
-
 // getFileExtensionFromMimeType returns the appropriate file extension for a given MIME type
 func getFileExtensionFromMimeType(mimeType string) string {
 	// Common MIME type to extension mapping
@@ -120,34 +119,34 @@ func getFileExtensionFromMimeType(mimeType string) string {
 		"text/xml":         ".xml",
 		"text/csv":         ".csv",
 		"text/markdown":    ".md",
-		
+
 		// Images
 		"image/png":  ".png",
 		"image/jpeg": ".jpg",
 		"image/gif":  ".gif",
 		"image/webp": ".webp",
-		
+
 		// Audio
 		"audio/mpeg": ".mp3",
 		"audio/wav":  ".wav",
 		"audio/ogg":  ".ogg",
-		
+
 		// Video
 		"video/mp4": ".mp4",
 		"video/avi": ".avi",
-		
+
 		// Archives
 		"application/zip":  ".zip",
 		"application/gzip": ".gz",
-		
+
 		// Other
 		"application/octet-stream": ".bin",
 	}
-	
+
 	if ext, exists := mimeToExt[mimeType]; exists {
 		return ext
 	}
-	
+
 	// Default to .bin for unknown MIME types
 	return ".bin"
 }
@@ -197,16 +196,16 @@ func handleBlobResource(blobData, mimeType string, output io.Writer, tmpDir stri
 
 	// Determine file extension from MIME type
 	ext := getFileExtensionFromMimeType(mimeType)
-	
+
 	// Generate unique filename
 	filename := fmt.Sprintf("resource_%d%s", time.Now().UnixNano(), ext)
 	fullPath := filepath.Join(tmpDir, filename)
-	
+
 	// Write file to disk
 	if err := afero.WriteFile(fs, fullPath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write resource to disk: %w", err)
 	}
-	
+
 	fmt.Fprintf(output, "[Resource saved as %s]\n", filename)
 	return nil
 }

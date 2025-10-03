@@ -25,7 +25,7 @@ func TestConvertMCPResponse(t *testing.T) {
 					},
 				},
 				IsError: false,
-				Result: mcp.Result{Meta: nil},
+				Result:  mcp.Result{Meta: nil},
 			},
 			expectedResult: &types.ToolInvokeResult{
 				Content: []map[string]any{
@@ -44,16 +44,16 @@ func TestConvertMCPResponse(t *testing.T) {
 			input: &mcp.CallToolResult{
 				Content: []mcp.Content{
 					mcp.TextContent{
-						Type: "text", 
+						Type: "text",
 						Text: "First item",
 					},
 					mcp.TextContent{
 						Type: "text",
-						Text: "Second item", 
+						Text: "Second item",
 					},
 				},
 				IsError: false,
-				Result: mcp.Result{Meta: nil},
+				Result:  mcp.Result{Meta: nil},
 			},
 			expectedResult: &types.ToolInvokeResult{
 				Content: []map[string]any{
@@ -62,7 +62,7 @@ func TestConvertMCPResponse(t *testing.T) {
 						"text": "First item",
 					},
 					{
-						"type": "text", 
+						"type": "text",
 						"text": "Second item",
 					},
 				},
@@ -81,7 +81,7 @@ func TestConvertMCPResponse(t *testing.T) {
 					},
 				},
 				IsError: true,
-				Result: mcp.Result{Meta: nil},
+				Result:  mcp.Result{Meta: nil},
 			},
 			expectedResult: &types.ToolInvokeResult{
 				Content: []map[string]any{
@@ -100,7 +100,7 @@ func TestConvertMCPResponse(t *testing.T) {
 			input: &mcp.CallToolResult{
 				Content: []mcp.Content{},
 				IsError: false,
-				Result: mcp.Result{Meta: nil},
+				Result:  mcp.Result{Meta: nil},
 			},
 			expectedResult: &types.ToolInvokeResult{
 				Content: []map[string]any{},
@@ -187,7 +187,7 @@ func TestConvertMCPResponse(t *testing.T) {
 					Meta: &mcp.Meta{
 						ProgressToken: "token456",
 						AdditionalFields: map[string]any{
-							"source": "test",
+							"source":   "test",
 							"priority": 1,
 						},
 					},
@@ -244,11 +244,11 @@ func TestConvertMCPResponse(t *testing.T) {
 			// Check content items
 			for i, expectedContent := range tt.expectedResult.Content {
 				actualContent := result.Content[i]
-				
+
 				// Compare as JSON to handle nested structures
 				expectedJSON, _ := json.Marshal(expectedContent)
 				actualJSON, _ := json.Marshal(actualContent)
-				
+
 				if string(expectedJSON) != string(actualJSON) {
 					t.Errorf("Content[%d] mismatch:\nExpected: %s\nActual: %s", i, expectedJSON, actualJSON)
 				}
@@ -262,7 +262,7 @@ func TestConvertMCPResponse(t *testing.T) {
 			} else if tt.expectedResult.Meta != nil && result.Meta != nil {
 				expectedMetaJSON, _ := json.Marshal(tt.expectedResult.Meta)
 				actualMetaJSON, _ := json.Marshal(result.Meta)
-				
+
 				if string(expectedMetaJSON) != string(actualMetaJSON) {
 					t.Errorf("Meta mismatch:\nExpected: %s\nActual: %s", expectedMetaJSON, actualMetaJSON)
 				}
@@ -354,10 +354,10 @@ func TestConvertMCPContent(t *testing.T) {
 			// Check each item
 			for i, expected := range tt.expectedResult {
 				actual := result[i]
-				
+
 				expectedJSON, _ := json.Marshal(expected)
 				actualJSON, _ := json.Marshal(actual)
-				
+
 				if string(expectedJSON) != string(actualJSON) {
 					t.Errorf("Item[%d] mismatch:\nExpected: %s\nActual: %s", i, expectedJSON, actualJSON)
 				}
@@ -442,7 +442,7 @@ func TestConvertMCPMeta(t *testing.T) {
 			} else if tt.expectedResult != nil && result != nil {
 				expectedJSON, _ := json.Marshal(tt.expectedResult)
 				actualJSON, _ := json.Marshal(result)
-				
+
 				if string(expectedJSON) != string(actualJSON) {
 					t.Errorf("Result mismatch:\nExpected: %s\nActual: %s", expectedJSON, actualJSON)
 				}

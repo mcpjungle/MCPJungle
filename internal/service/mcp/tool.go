@@ -457,7 +457,7 @@ func convertMCPContent(content []mcp.Content) ([]map[string]any, error) {
 	}
 
 	contentList := make([]map[string]any, 0, len(content))
-	
+
 	for i, item := range content {
 		// Use a single marshal/unmarshal with proper error handling
 		serialized, err := json.Marshal(item)
