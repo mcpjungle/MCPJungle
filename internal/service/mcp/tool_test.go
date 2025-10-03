@@ -213,7 +213,8 @@ func TestConvertMCPResponse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := convertMCPResponse(tt.input)
+			m := MCPService{}
+			result, err := m.convertToolCallResToAPIRes(tt.input)
 
 			// Check error expectations
 			if tt.expectedError != "" {
@@ -330,7 +331,8 @@ func TestConvertMCPContent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := convertMCPContent(tt.input)
+			m := MCPService{}
+			result, err := m.convertToolCallRespContent(tt.input)
 
 			// Check error expectations
 			if tt.expectedError != "" {
@@ -433,7 +435,8 @@ func TestConvertMCPMeta(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := convertMCPMeta(tt.input)
+			m := MCPService{}
+			result := m.convertMCPMetaToMap(tt.input)
 
 			if tt.expectedResult == nil && result != nil {
 				t.Errorf("Expected nil result, got %v", result)

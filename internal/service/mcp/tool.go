@@ -152,9 +152,9 @@ func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[strin
 	// completely available in Content[0].
 
 	// Convert MCP response to ToolInvokeResult
-	result, err := convertMCPResponse(callToolResp)
+	result, err := m.convertToolCallResToAPIRes(callToolResp)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert MCP response: %w", err)
+		return nil, fmt.Errorf("failed to convert MCP response to api response: %w", err)
 	}
 
 	outcome = telemetry.ToolCallOutcomeSuccess
@@ -430,18 +430,18 @@ func (m *MCPService) notifyToolAddition(toolName string) {
 	}
 }
 
-// convertMCPResponse converts an MCP CallToolResult to types.ToolInvokeResult.
-// This function handles the conversion from the new SDK types to the internal types
+// convertToolCallResToAPIRes converts an MCP CallToolResult to types.ToolInvokeResult.
+// This function handles the conversion from the SDK types to the internal types
 // used by MCPJungle, with proper error handling and validation.
-func convertMCPResponse(resp *mcp.CallToolResult) (*types.ToolInvokeResult, error) {
-	// Convert content with proper error handling
-	contentList, err := convertMCPContent(resp.Content)
+func (m *MCPService) convertToolCallResToAPIRes(resp *mcp.CallToolResult) (*types.ToolInvokeResult, error) {
+	// Convert content
+	contentList, err := m.convertToolCallRespContent(resp.Content)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert content: %w", err)
 	}
 
-	// Convert meta with proper handling
-	metaMap := convertMCPMeta(resp.Meta)
+	// Convert meta
+	metaMap := m.convertMCPMetaToMap(resp.Meta)
 
 	return &types.ToolInvokeResult{
 		Meta:    metaMap,
@@ -450,8 +450,8 @@ func convertMCPResponse(resp *mcp.CallToolResult) (*types.ToolInvokeResult, erro
 	}, nil
 }
 
-// convertMCPContent converts []mcp.Content to []map[string]any with proper error handling.
-func convertMCPContent(content []mcp.Content) ([]map[string]any, error) {
+// convertToolCallRespContent converts []mcp.Content to []map[string]any with proper error handling.
+func (m *MCPService) convertToolCallRespContent(content []mcp.Content) ([]map[string]any, error) {
 	if len(content) == 0 {
 		return []map[string]any{}, nil
 	}
@@ -476,8 +476,8 @@ func convertMCPContent(content []mcp.Content) ([]map[string]any, error) {
 	return contentList, nil
 }
 
-// convertMCPMeta converts *mcp.Meta to map[string]any with proper nil handling.
-func convertMCPMeta(meta *mcp.Meta) map[string]any {
+// convertMCPMetaToMap converts *mcp.Meta to map[string]any with proper nil handling.
+func (m *MCPService) convertMCPMetaToMap(meta *mcp.Meta) map[string]any {
 	if meta == nil {
 		return nil
 	}
