@@ -59,16 +59,16 @@ cleanup_binary_server() {
   fi
 }
 
-# Cleanup: bring down docker compose stack
+# Cleanup: bring down docker compose stack along with volumes
 cleanup_compose() {
   if [[ -f "$COMPOSE_FILE" ]]; then
     if [[ -n "${COMPOSE_CLI:-}" ]]; then
-      $COMPOSE_CLI -f "$COMPOSE_FILE" down || true
+      $COMPOSE_CLI -f "$COMPOSE_FILE" down -v || true
     else
       if docker compose version >/dev/null 2>&1; then
-        docker compose -f "$COMPOSE_FILE" down || true
+        docker compose -f "$COMPOSE_FILE" down -v || true
       elif command -v docker-compose >/dev/null 2>&1; then
-        docker-compose -f "$COMPOSE_FILE" down || true
+        docker-compose -f "$COMPOSE_FILE" down -v || true
       fi
     fi
   fi
@@ -165,3 +165,9 @@ sed -n '/^brews:/,/^dockers:/p' "$ROOT_DIR/.goreleaser.yaml" || true
 popd >/dev/null
 
 log "All tests passed 🎉"
+
+log "Cleaning up"
+
+rm -f ./mcpjungle.db ./mcp.db
+
+log "All done!"
