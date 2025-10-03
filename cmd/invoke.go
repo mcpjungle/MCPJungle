@@ -290,7 +290,8 @@ func runInvokeTool(cmd *cobra.Command, args []string) error {
 		if !ok {
 			return fmt.Errorf("content item does not have a 'type' field: %v", c)
 		}
-		cmd.Printf("[Content type: %s]\n", cType)
+
+		cmd.Printf("** Content [%s] **\n", cType)
 
 		switch cType {
 		case "text":
@@ -344,6 +345,19 @@ func runInvokeTool(cmd *cobra.Command, args []string) error {
 				cmd.Printf("Raw content:\n%s\n", string(contentJSON))
 			}
 		}
+
+		cmd.Println()
+	}
+
+	if result.StructuredContent != nil {
+		cmd.Println()
+		cmd.Println("** Structured Content **")
+		structuredJSON, err := json.MarshalIndent(result.StructuredContent, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal structured content: %w", err)
+		}
+		cmd.Println(string(structuredJSON))
+		cmd.Println()
 	}
 
 	return nil

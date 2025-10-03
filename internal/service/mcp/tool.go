@@ -444,9 +444,10 @@ func (m *MCPService) convertToolCallResToAPIRes(resp *mcp.CallToolResult) (*type
 	metaMap := m.convertMCPMetaToMap(resp.Meta)
 
 	return &types.ToolInvokeResult{
-		Meta:    metaMap,
-		IsError: resp.IsError,
-		Content: contentList,
+		Meta:              metaMap,
+		IsError:           resp.IsError,
+		Content:           contentList,
+		StructuredContent: resp.StructuredContent,
 	}, nil
 }
 

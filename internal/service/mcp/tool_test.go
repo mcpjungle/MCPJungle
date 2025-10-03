@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -24,8 +25,9 @@ func TestConvertMCPResponse(t *testing.T) {
 						Text: "Hello, World!",
 					},
 				},
-				IsError: false,
-				Result:  mcp.Result{Meta: nil},
+				IsError:           false,
+				Result:            mcp.Result{Meta: nil},
+				StructuredContent: map[string]string{"key": "value"},
 			},
 			expectedResult: &types.ToolInvokeResult{
 				Content: []map[string]any{
@@ -34,8 +36,9 @@ func TestConvertMCPResponse(t *testing.T) {
 						"text": "Hello, World!",
 					},
 				},
-				IsError: false,
-				Meta:    nil,
+				IsError:           false,
+				Meta:              nil,
+				StructuredContent: map[string]string{"key": "value"},
 			},
 			expectedError: "",
 		},
@@ -52,8 +55,9 @@ func TestConvertMCPResponse(t *testing.T) {
 						Text: "Second item",
 					},
 				},
-				IsError: false,
-				Result:  mcp.Result{Meta: nil},
+				IsError:           false,
+				Result:            mcp.Result{Meta: nil},
+				StructuredContent: []int{1, 2, 3},
 			},
 			expectedResult: &types.ToolInvokeResult{
 				Content: []map[string]any{
@@ -66,8 +70,9 @@ func TestConvertMCPResponse(t *testing.T) {
 						"text": "Second item",
 					},
 				},
-				IsError: false,
-				Meta:    nil,
+				IsError:           false,
+				Meta:              nil,
+				StructuredContent: []int{1, 2, 3},
 			},
 			expectedError: "",
 		},
@@ -80,8 +85,9 @@ func TestConvertMCPResponse(t *testing.T) {
 						Text: "Error occurred",
 					},
 				},
-				IsError: true,
-				Result:  mcp.Result{Meta: nil},
+				IsError:           true,
+				Result:            mcp.Result{Meta: nil},
+				StructuredContent: nil,
 			},
 			expectedResult: &types.ToolInvokeResult{
 				Content: []map[string]any{
@@ -90,22 +96,25 @@ func TestConvertMCPResponse(t *testing.T) {
 						"text": "Error occurred",
 					},
 				},
-				IsError: true,
-				Meta:    nil,
+				IsError:           true,
+				Meta:              nil,
+				StructuredContent: nil,
 			},
 			expectedError: "",
 		},
 		{
 			name: "empty content",
 			input: &mcp.CallToolResult{
-				Content: []mcp.Content{},
-				IsError: false,
-				Result:  mcp.Result{Meta: nil},
+				Content:           []mcp.Content{},
+				IsError:           false,
+				Result:            mcp.Result{Meta: nil},
+				StructuredContent: true,
 			},
 			expectedResult: &types.ToolInvokeResult{
-				Content: []map[string]any{},
-				IsError: false,
-				Meta:    nil,
+				Content:           []map[string]any{},
+				IsError:           false,
+				Meta:              nil,
+				StructuredContent: true,
 			},
 			expectedError: "",
 		},
@@ -124,6 +133,7 @@ func TestConvertMCPResponse(t *testing.T) {
 						ProgressToken: "token123",
 					},
 				},
+				StructuredContent: "Hello world",
 			},
 			expectedResult: &types.ToolInvokeResult{
 				Content: []map[string]any{
@@ -136,6 +146,7 @@ func TestConvertMCPResponse(t *testing.T) {
 				Meta: map[string]any{
 					"progressToken": "token123",
 				},
+				StructuredContent: "Hello world",
 			},
 			expectedError: "",
 		},
@@ -234,6 +245,12 @@ func TestConvertMCPResponse(t *testing.T) {
 			// Check result
 			if result.IsError != tt.expectedResult.IsError {
 				t.Errorf("Expected IsError %v, got %v", tt.expectedResult.IsError, result.IsError)
+			}
+
+			if !reflect.DeepEqual(result.StructuredContent, tt.expectedResult.StructuredContent) {
+				expectedJSON, _ := json.Marshal(tt.expectedResult.StructuredContent)
+				actualJSON, _ := json.Marshal(result.StructuredContent)
+				t.Errorf("Expected StructuredContent %s, got %s", expectedJSON, actualJSON)
 			}
 
 			// Check content length
