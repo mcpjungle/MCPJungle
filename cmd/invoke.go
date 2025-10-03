@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -151,13 +150,9 @@ func getFileExtensionFromMimeType(mimeType string) string {
 	return ".bin"
 }
 
-// getResourceContent handles embedded resource content from MCP tool responses
-func getResourceContent(c map[string]any) error {
-	return handleResourceContent(c, os.Stdout, ".", afero.NewOsFs())
-}
-
-// handleResourceContent is the core implementation for processing resource content
-func handleResourceContent(c map[string]any, output io.Writer, tmpDir string, fs afero.Fs) error {
+// unpackResourceContent is the core implementation for processing resource content
+// It handles embedded resource content from MCP tool responses.
+func unpackResourceContent(cmd *cobra.Command, c map[string]any, tmpDir string, fs afero.Fs) error {
 	resource, ok := c["resource"].(map[string]any)
 	if !ok {
 		return fmt.Errorf("resource content item does not have a valid 'resource' field: %v", c)
@@ -167,27 +162,27 @@ func handleResourceContent(c map[string]any, output io.Writer, tmpDir string, fs
 	mimeType, _ := resource["mimeType"].(string)
 
 	// Display resource metadata
-	fmt.Fprintf(output, "Resource URI: %s\n", uri)
+	cmd.Printf("Resource URI: %s\n", uri)
 	if mimeType != "" {
-		fmt.Fprintf(output, "MIME Type: %s\n", mimeType)
+		cmd.Printf("MIME Type: %s\n", mimeType)
 	}
 
 	// Handle text resource content
 	if text, ok := resource["text"].(string); ok {
-		fmt.Fprintf(output, "Text Content:\n%s\n", text)
+		cmd.Printf("Text Content:\n%s\n", text)
 		return nil
 	}
 
 	// Handle blob resource content
 	if blob, ok := resource["blob"].(string); ok {
-		return handleBlobResource(blob, mimeType, output, tmpDir, fs)
+		return handleBlobResource(cmd, blob, mimeType, tmpDir, fs)
 	}
 
 	return fmt.Errorf("resource content does not contain 'text' or 'blob' field: %v", resource)
 }
 
 // handleBlobResource processes blob resource content by decoding base64 data and saving to file
-func handleBlobResource(blobData, mimeType string, output io.Writer, tmpDir string, fs afero.Fs) error {
+func handleBlobResource(cmd *cobra.Command, blobData, mimeType, tmpDir string, fs afero.Fs) error {
 	// Decode base64 blob data
 	data, err := base64.StdEncoding.DecodeString(blobData)
 	if err != nil {
@@ -206,30 +201,30 @@ func handleBlobResource(blobData, mimeType string, output io.Writer, tmpDir stri
 		return fmt.Errorf("failed to write resource to disk: %w", err)
 	}
 
-	fmt.Fprintf(output, "[Resource saved as %s]\n", filename)
+	cmd.Printf("[Resource saved as %s]\n", filename)
 	return nil
 }
 
-// getResourceLinkContent handles resource link content from MCP tool responses
-func getResourceLinkContent(c map[string]any) error {
+// unpackResourceLinkContent handles resource link content from MCP tool responses
+func unpackResourceLinkContent(cmd *cobra.Command, c map[string]any) error {
 	// Extract the resource link content from the MCP tool response
 	uri, _ := c["uri"].(string)
 	name, _ := c["name"].(string)
 	description, _ := c["description"].(string)
 	mimeType, _ := c["mimeType"].(string)
 
-	fmt.Printf("Resource Link URI: %s\n", uri)
+	cmd.Printf("Resource Link URI: %s\n", uri)
 	if name != "" {
-		fmt.Printf("Name: %s\n", name)
+		cmd.Printf("Name: %s\n", name)
 	}
 	if description != "" {
-		fmt.Printf("Description: %s\n", description)
+		cmd.Printf("Description: %s\n", description)
 	}
 	if mimeType != "" {
-		fmt.Printf("MIME Type: %s\n", mimeType)
+		cmd.Printf("MIME Type: %s\n", mimeType)
 	}
 
-	fmt.Println("Resource link content handled correctly")
+	cmd.Println("Resource link content handled correctly")
 	return nil
 }
 
@@ -324,13 +319,13 @@ func runInvokeTool(cmd *cobra.Command, args []string) error {
 			cmd.Printf("[Audio saved as %s]\n", filename)
 
 		case "resource":
-			err := getResourceContent(c)
+			err := unpackResourceContent(cmd, c, ".", afero.NewOsFs())
 			if err != nil {
 				return err
 			}
 
 		case "resource_link":
-			err := getResourceLinkContent(c)
+			err := unpackResourceLinkContent(cmd, c)
 			if err != nil {
 				return err
 			}

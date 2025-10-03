@@ -8,6 +8,7 @@ import (
 
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 	"github.com/spf13/afero"
+	"github.com/spf13/cobra"
 )
 
 func TestInvokeCommandStructure(t *testing.T) {
@@ -196,6 +197,8 @@ func TestHandleResourceContent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			cmd := &cobra.Command{}
+
 			// Create an in-memory filesystem for each test
 			fs := afero.NewMemMapFs()
 			tmpDir := "/tmp"
@@ -206,10 +209,12 @@ func TestHandleResourceContent(t *testing.T) {
 				t.Fatalf("Failed to create tmp dir in memory: %v", err)
 			}
 
-			// Create a buffer to capture output
+			// Create a buffer to capture output, and set it to the command
 			var output bytes.Buffer
+			cmd.SetOut(&output)
+			cmd.SetErr(&output)
 
-			err = handleResourceContent(tt.input, &output, tmpDir, fs)
+			err = unpackResourceContent(cmd, tt.input, tmpDir, fs)
 
 			// Check error expectations
 			if tt.expectedError != "" {
