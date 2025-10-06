@@ -66,8 +66,9 @@ func (c *Client) parseErrorResponse(resp *http.Response) error {
 	// For 4xx and 5xx status codes, try to parse as JSON error response
 	if resp.StatusCode >= 400 && resp.StatusCode < 600 {
 		var errorResp ErrorResponse
-		if err := json.Unmarshal(body, &errorResp); err != nil {
-			// If parsing as JSON fails, return the raw response
+		err := json.Unmarshal(body, &errorResp)
+		if err != nil || errorResp.Error == "" {
+			// If parsing as JSON fails or the error message is empty, return the raw response
 			return fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, string(body))
 		}
 		// Return the parsed error message

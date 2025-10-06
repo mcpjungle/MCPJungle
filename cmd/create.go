@@ -113,7 +113,7 @@ func runCreateMcpClient(cmd *cobra.Command, args []string) error {
 
 	token, err := apiClient.CreateMcpClient(c)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create MCP client: %w", err)
 	}
 	if token == "" {
 		return fmt.Errorf("server returned an empty token, this was unexpected")
