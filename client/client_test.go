@@ -263,3 +263,94 @@ func TestConstructAPIEndpointWithComplexPaths(t *testing.T) {
 		})
 	}
 }
+
+// badReader simulates a Read error
+type badReader struct{}
+
+func (badReader) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
+func (badReader) Close() error             { return nil }
+
+func TestParseErrorResponse(t *testing.T) {
+	t.Parallel()
+
+	client := NewClient("https://api.example.com", "token", &http.Client{})
+
+	tests := []struct {
+		name           string
+		statusCode     int
+		body           string
+		expectContains string
+		expectErr      bool
+		readErr        bool
+	}{
+		{
+			name:           "valid JSON error",
+			statusCode:     400,
+			body:           `{"error":"something went wrong"}`,
+			expectContains: "something went wrong",
+			expectErr:      true,
+		},
+		{
+			name:           "valid JSON error but empty message",
+			statusCode:     404,
+			body:           `{"error":""}`,
+			expectContains: "request failed with status: 404",
+			expectErr:      true,
+		},
+		{
+			name:           "invalid JSON",
+			statusCode:     500,
+			body:           `not a json`,
+			expectContains: "request failed with status: 500, message: not a json",
+			expectErr:      true,
+		},
+		{
+			name:           "non-JSON, non-error status",
+			statusCode:     200,
+			body:           `all good`,
+			expectContains: "unexpected response with status: 200, body: all good",
+			expectErr:      true,
+		},
+		{
+			name:           "valid JSON, non-error status",
+			statusCode:     201,
+			body:           `{"error":"should not parse"}`,
+			expectContains: "unexpected response with status: 201, body: {\"error\":\"should not parse\"}",
+			expectErr:      true,
+		},
+		{
+			name:           "read error from body",
+			statusCode:     500,
+			body:           "",
+			expectContains: "request failed with status: 500 (unable to read error details)",
+			expectErr:      true,
+			readErr:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var body io.ReadCloser
+			if tt.readErr {
+				// Simulate read error
+				body = io.NopCloser(badReader{})
+			} else {
+				body = io.NopCloser(strings.NewReader(tt.body))
+			}
+			resp := &http.Response{
+				StatusCode: tt.statusCode,
+				Body:       body,
+			}
+			err := client.parseErrorResponse(resp)
+			if tt.expectErr && err == nil {
+				t.Fatalf("Expected error, got nil")
+			}
+			if !tt.expectErr && err != nil {
+				t.Fatalf("Did not expect error, got %v", err)
+			}
+			if err != nil && !strings.Contains(err.Error(), tt.expectContains) {
+				t.Errorf("Expected error to contain %q, got %q", tt.expectContains, err.Error())
+			}
+		})
+	}
+}
