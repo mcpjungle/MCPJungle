@@ -151,30 +151,10 @@ func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[strin
 	// But if the tool returns any other type of object (string, map, number, etc), then it is
 	// completely available in Content[0].
 
-	// Convert the Content field from []mcp.Content to []map[string]any to pass downstream.
-	// We don't attempt to cast the data into specific types because this method should simply
-	// forward the tool's response to the client.
-	// It is up to the client of this API to convert the data into specific types like
-	// Text, Image, etc.
-	contentList := make([]map[string]any, 0, len(callToolResp.Content))
-	for _, item := range callToolResp.Content {
-		var m map[string]any
-		serialized, err := json.Marshal(item)
-		if err != nil {
-			// TODO
-			continue
-		}
-		if err = json.Unmarshal(serialized, &m); err != nil {
-			// TODO
-			continue
-		}
-		contentList = append(contentList, m)
-	}
-
-	result := &types.ToolInvokeResult{
-		Meta:    callToolResp.Meta,
-		IsError: callToolResp.IsError,
-		Content: contentList,
+	// Convert MCP response to ToolInvokeResult
+	result, err := m.convertToolCallResToAPIRes(callToolResp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert MCP response to api response: %w", err)
 	}
 
 	outcome = telemetry.ToolCallOutcomeSuccess
@@ -448,4 +428,79 @@ func (m *MCPService) notifyToolAddition(toolName string) {
 		// as the tool has already been added successfully
 		log.Printf("[ERROR] tool addition callback failed for tool %s: %v", toolName, err)
 	}
+}
+
+// convertToolCallResToAPIRes converts an MCP CallToolResult to types.ToolInvokeResult.
+// This function handles the conversion from the SDK types to the internal types
+// used by MCPJungle, with proper error handling and validation.
+func (m *MCPService) convertToolCallResToAPIRes(resp *mcp.CallToolResult) (*types.ToolInvokeResult, error) {
+	// Convert content
+	contentList, err := m.convertToolCallRespContent(resp.Content)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert content: %w", err)
+	}
+
+	// Convert meta
+	metaMap := m.convertMCPMetaToMap(resp.Meta)
+
+	return &types.ToolInvokeResult{
+		Meta:              metaMap,
+		IsError:           resp.IsError,
+		Content:           contentList,
+		StructuredContent: resp.StructuredContent,
+	}, nil
+}
+
+// convertToolCallRespContent converts []mcp.Content to []map[string]any with proper error handling.
+func (m *MCPService) convertToolCallRespContent(content []mcp.Content) ([]map[string]any, error) {
+	if len(content) == 0 {
+		return []map[string]any{}, nil
+	}
+
+	contentList := make([]map[string]any, 0, len(content))
+
+	for i, item := range content {
+		// Use a single marshal/unmarshal with proper error handling
+		serialized, err := json.Marshal(item)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal content item %d: %w", i, err)
+		}
+
+		var contentMap map[string]any
+		if err := json.Unmarshal(serialized, &contentMap); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal content item %d: %w", i, err)
+		}
+
+		contentList = append(contentList, contentMap)
+	}
+
+	return contentList, nil
+}
+
+// convertMCPMetaToMap converts *mcp.Meta to map[string]any with proper nil handling.
+func (m *MCPService) convertMCPMetaToMap(meta *mcp.Meta) map[string]any {
+	if meta == nil {
+		return nil
+	}
+
+	// Start with additional fields if they exist
+	metaMap := make(map[string]any)
+	if meta.AdditionalFields != nil {
+		// Copy all additional fields
+		for k, v := range meta.AdditionalFields {
+			metaMap[k] = v
+		}
+	}
+
+	// Add progress token if present
+	if meta.ProgressToken != nil {
+		metaMap["progressToken"] = meta.ProgressToken
+	}
+
+	// Return nil if map is empty to maintain consistency
+	if len(metaMap) == 0 {
+		return nil
+	}
+
+	return metaMap
 }

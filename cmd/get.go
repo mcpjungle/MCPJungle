@@ -44,7 +44,8 @@ func runGetGroup(cmd *cobra.Command, args []string) error {
 	}
 
 	cmd.Println()
-	cmd.Println("MCP Server streamable http endpoint: ", group.StreamableHTTPEndpoint)
+	cmd.Println("MCP Server streamable http endpoint:")
+	cmd.Println(group.StreamableHTTPEndpoint)
 	cmd.Println()
 	cmd.Println("MCP server SSE endpoints:")
 	cmd.Println(group.SSEEndpoint)
@@ -52,13 +53,33 @@ func runGetGroup(cmd *cobra.Command, args []string) error {
 	cmd.Println()
 
 	if len(group.IncludedTools) == 0 {
-		cmd.Println("This group has no tools.")
+		cmd.Println("Included Tools: None")
 	} else {
 		cmd.Println("Included Tools:")
 		for i, t := range group.IncludedTools {
 			cmd.Printf("%d. %s\n", i+1, t)
 			// TODO: Also show whether the tool is still active, disabled, or deleted at the moment
 			// ie, is it practically available as part of this group?
+		}
+	}
+	cmd.Println()
+
+	if len(group.IncludedServers) == 0 {
+		cmd.Println("Included Servers: None")
+	} else {
+		cmd.Println("Included Servers:")
+		for i, s := range group.IncludedServers {
+			cmd.Printf("%d. %s\n", i+1, s)
+		}
+	}
+	cmd.Println()
+
+	if len(group.ExcludedTools) == 0 {
+		cmd.Println("Excluded Tools: None")
+	} else {
+		cmd.Println("Excluded Tools:")
+		for i, t := range group.ExcludedTools {
+			cmd.Printf("%d. %s\n", i+1, t)
 		}
 	}
 	cmd.Println()

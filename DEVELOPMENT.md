@@ -76,13 +76,15 @@ golangci-lint run --fix
 When running MCPJungle with SQLite, you can access the database using the `sqlite3` command line tool:
 
 ```bash
-sqlite3 mcp.db
+sqlite3 mcpjungle.db
 
 > .tables
 > SELECT * FROM mcp_servers;
 > SELECT * FROM tools;
 # and so on...
 ```
+
+**Note:** For backward compatibility, MCPJungle will still use existing `mcp.db` files if they exist, but will create new databases as `mcpjungle.db`.
 
 #### PostgreSQL Development
 When running MCPJungle with docker-compose, you can access the PostgreSQL database using the `pgadmin` utility:

@@ -47,7 +47,11 @@ var createToolGroupCmd = &cobra.Command{
 	Short: "Create a Group of MCP Tools",
 	Long: "Create a new Group of MCP Tools by supplying a configuration file.\n" +
 		"A group lets you expose only a handful of Tools that you choose.\n" +
-		"This limits the number of tools your MCP client sees, increasing calling accuracy of the LLM.\n" +
+		"This limits the number of tools your MCP client sees, increasing calling accuracy of the LLM.\n\n" +
+		"You can include tools by:\n" +
+		"  - Specifying individual tools with 'included_tools'\n" +
+		"  - Including all tools from servers with 'included_servers'\n" +
+		"  - Excluding specific tools with 'excluded_tools'\n\n" +
 		"Once you create a tool group, it is accessible as a streamable http MCP server at the following endpoint:\n" +
 		"    /v0/groups/{group_name}/mcp\n",
 	RunE: runCreateToolGroup,
@@ -80,7 +84,7 @@ func init() {
 		"conf",
 		"c",
 		"",
-		"Path to a JSON configuration file for the Group.\n",
+		"Path to a JSON configuration file for the Group",
 	)
 	_ = createToolGroupCmd.MarkFlagRequired("conf")
 

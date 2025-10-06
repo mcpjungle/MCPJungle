@@ -8,6 +8,36 @@ import (
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 )
 
+// cleanupDBFiles removes both old and new database files and their associated WAL and SHM files
+func cleanupDBFiles(t *testing.T) {
+	dbFiles := []string{"mcp.db", "mcpjungle.db"}
+	extensions := []string{"", "-wal", "-shm"}
+
+	for _, dbFile := range dbFiles {
+		for _, ext := range extensions {
+			file := dbFile + ext
+			if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
+				t.Logf("Failed to clean up %s: %v", file, err)
+			}
+		}
+	}
+}
+
+// cleanupDBFilesBenchmark is the same as cleanupDBFiles but for benchmark tests
+func cleanupDBFilesBenchmark(b *testing.B) {
+	dbFiles := []string{"mcp.db", "mcpjungle.db"}
+	extensions := []string{"", "-wal", "-shm"}
+
+	for _, dbFile := range dbFiles {
+		for _, ext := range extensions {
+			file := dbFile + ext
+			if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
+				b.Logf("Failed to clean up %s: %v", file, err)
+			}
+		}
+	}
+}
+
 func TestNewDBConnection(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -20,16 +50,7 @@ func TestNewDBConnection(t *testing.T) {
 			dsn:         "",
 			expectError: false,
 			cleanup: func() {
-				// Clean up SQLite database file
-				if err := os.Remove("mcp.db"); err != nil && !os.IsNotExist(err) {
-					t.Logf("Failed to clean up mcp.db: %v", err)
-				}
-				if err := os.Remove("mcp.db-wal"); err != nil && !os.IsNotExist(err) {
-					t.Logf("Failed to clean up mcp.db-wal: %v", err)
-				}
-				if err := os.Remove("mcp.db-shm"); err != nil && !os.IsNotExist(err) {
-					t.Logf("Failed to clean up mcp.db-shm: %v", err)
-				}
+				cleanupDBFiles(t)
 			},
 		},
 		{
@@ -83,17 +104,9 @@ func TestNewDBConnection(t *testing.T) {
 }
 
 func TestNewDBConnection_SQLiteFallback(t *testing.T) {
-	// Ensure no existing database file
+	// Ensure no existing database files
 	cleanup := func() {
-		if err := os.Remove("mcp.db"); err != nil && !os.IsNotExist(err) {
-			t.Logf("Failed to clean up mcp.db: %v", err)
-		}
-		if err := os.Remove("mcp.db-wal"); err != nil && !os.IsNotExist(err) {
-			t.Logf("Failed to clean up mcp.db-wal: %v", err)
-		}
-		if err := os.Remove("mcp.db-shm"); err != nil && !os.IsNotExist(err) {
-			t.Logf("Failed to clean up mcp.db-shm: %v", err)
-		}
+		cleanupDBFiles(t)
 	}
 
 	cleanup()
@@ -104,8 +117,8 @@ func TestNewDBConnection_SQLiteFallback(t *testing.T) {
 	testhelpers.AssertNoError(t, err)
 	testhelpers.AssertNotNil(t, db)
 
-	// Verify SQLite database file was created
-	_, err = os.Stat("mcp.db")
+	// Verify SQLite database file was created (should be the new name)
+	_, err = os.Stat("mcpjungle.db")
 	testhelpers.AssertNoError(t, err)
 
 	// Test database operations
@@ -129,15 +142,7 @@ func TestNewDBConnection_SQLiteFallback(t *testing.T) {
 
 func TestNewDBConnection_DatabaseConfiguration(t *testing.T) {
 	cleanup := func() {
-		if err := os.Remove("mcp.db"); err != nil && !os.IsNotExist(err) {
-			t.Logf("Failed to clean up mcp.db: %v", err)
-		}
-		if err := os.Remove("mcp.db-wal"); err != nil && !os.IsNotExist(err) {
-			t.Logf("Failed to clean up mcp.db-wal: %v", err)
-		}
-		if err := os.Remove("mcp.db-shm"); err != nil && !os.IsNotExist(err) {
-			t.Logf("Failed to clean up mcp.db-shm: %v", err)
-		}
+		cleanupDBFiles(t)
 	}
 
 	cleanup()
@@ -168,15 +173,7 @@ func TestNewDBConnection_DatabaseConfiguration(t *testing.T) {
 
 func TestNewDBConnection_ConcurrentAccess(t *testing.T) {
 	cleanup := func() {
-		if err := os.Remove("mcp.db"); err != nil && !os.IsNotExist(err) {
-			t.Logf("Failed to clean up mcp.db: %v", err)
-		}
-		if err := os.Remove("mcp.db-wal"); err != nil && !os.IsNotExist(err) {
-			t.Logf("Failed to clean up mcp.db-wal: %v", err)
-		}
-		if err := os.Remove("mcp.db-shm"); err != nil && !os.IsNotExist(err) {
-			t.Logf("Failed to clean up mcp.db-shm: %v", err)
-		}
+		cleanupDBFiles(t)
 	}
 
 	cleanup()
@@ -233,7 +230,7 @@ func TestNewDBConnection_WithCustomPath(t *testing.T) {
 	testhelpers.AssertNotNil(t, db)
 
 	// Verify database file was created in temp directory
-	dbPath := filepath.Join(tempDir, "mcp.db")
+	dbPath := filepath.Join(tempDir, "mcpjungle.db")
 	_, err = os.Stat(dbPath)
 	testhelpers.AssertNoError(t, err)
 
@@ -288,15 +285,7 @@ func TestNewDBConnection_ErrorHandling(t *testing.T) {
 // Benchmark tests
 func BenchmarkNewDBConnection_SQLite(b *testing.B) {
 	cleanup := func() {
-		if err := os.Remove("mcp.db"); err != nil && !os.IsNotExist(err) {
-			b.Logf("Failed to clean up mcp.db: %v", err)
-		}
-		if err := os.Remove("mcp.db-wal"); err != nil && !os.IsNotExist(err) {
-			b.Logf("Failed to clean up mcp.db-wal: %v", err)
-		}
-		if err := os.Remove("mcp.db-shm"); err != nil && !os.IsNotExist(err) {
-			b.Logf("Failed to clean up mcp.db-shm: %v", err)
-		}
+		cleanupDBFilesBenchmark(b)
 	}
 
 	cleanup()
@@ -315,5 +304,90 @@ func BenchmarkNewDBConnection_SQLite(b *testing.B) {
 		}
 
 		sqlDB.Close()
+	}
+}
+
+// Test backward compatibility and new database file functionality
+func TestSQLiteDBPath_BackwardCompatibility(t *testing.T) {
+	cleanup := func() {
+		cleanupDBFiles(t)
+	}
+
+	tests := []struct {
+		name           string
+		setup          func()
+		expectedDBFile string
+		expectWarning  bool
+	}{
+		{
+			name:           "no existing files - should create new file",
+			setup:          func() {},
+			expectedDBFile: "mcpjungle.db",
+			expectWarning:  false,
+		},
+		{
+			name: "old file exists - should use old file with warning",
+			setup: func() {
+				oldDB, err := os.Create("mcp.db")
+				testhelpers.AssertNoError(t, err)
+				oldDB.Close()
+			},
+			expectedDBFile: "mcp.db",
+			expectWarning:  true,
+		},
+		{
+			name: "new file exists - should use new file",
+			setup: func() {
+				newDB, err := os.Create("mcpjungle.db")
+				testhelpers.AssertNoError(t, err)
+				newDB.Close()
+			},
+			expectedDBFile: "mcpjungle.db",
+			expectWarning:  false,
+		},
+		{
+			name: "both files exist - should prefer new file",
+			setup: func() {
+				oldDB, err := os.Create("mcp.db")
+				testhelpers.AssertNoError(t, err)
+				oldDB.Close()
+
+				newDB, err := os.Create("mcpjungle.db")
+				testhelpers.AssertNoError(t, err)
+				newDB.Close()
+			},
+			expectedDBFile: "mcpjungle.db",
+			expectWarning:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cleanup() // Clean up before each test
+			tt.setup()
+
+			// Test the path selection logic
+			result := getSQLiteDBPath()
+			testhelpers.AssertEqual(t, tt.expectedDBFile, result)
+
+			// Test that the database connection actually works
+			db, err := NewDBConnection("")
+			testhelpers.AssertNoError(t, err)
+			testhelpers.AssertNotNil(t, db)
+
+			// Verify the expected database file exists
+			_, err = os.Stat(tt.expectedDBFile)
+			testhelpers.AssertNoError(t, err)
+
+			// Test basic functionality
+			sqlDB, err := db.DB()
+			testhelpers.AssertNoError(t, err)
+			err = sqlDB.Ping()
+			testhelpers.AssertNoError(t, err)
+			err = sqlDB.Close()
+			testhelpers.AssertNoError(t, err)
+
+			cleanup() // Clean up after each test
+		})
 	}
 }

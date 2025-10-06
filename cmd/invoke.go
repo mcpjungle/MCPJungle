@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
 
@@ -101,6 +103,131 @@ func getAudioContent(c map[string]any) ([]byte, string, error) {
 	return audioData, ext, nil
 }
 
+// getFileExtensionFromMimeType returns the appropriate file extension for a given MIME type
+func getFileExtensionFromMimeType(mimeType string) string {
+	// Common MIME type to extension mapping
+	mimeToExt := map[string]string{
+		// Documents
+		"application/pdf":  ".pdf",
+		"application/json": ".json",
+		"text/plain":       ".txt",
+		"text/html":        ".html",
+		"text/css":         ".css",
+		"text/javascript":  ".js",
+		"application/xml":  ".xml",
+		"text/xml":         ".xml",
+		"text/csv":         ".csv",
+		"text/markdown":    ".md",
+
+		// Images
+		"image/png":  ".png",
+		"image/jpeg": ".jpg",
+		"image/gif":  ".gif",
+		"image/webp": ".webp",
+
+		// Audio
+		"audio/mpeg": ".mp3",
+		"audio/wav":  ".wav",
+		"audio/ogg":  ".ogg",
+
+		// Video
+		"video/mp4": ".mp4",
+		"video/avi": ".avi",
+
+		// Archives
+		"application/zip":  ".zip",
+		"application/gzip": ".gz",
+
+		// Other
+		"application/octet-stream": ".bin",
+	}
+
+	if ext, exists := mimeToExt[mimeType]; exists {
+		return ext
+	}
+
+	// Default to .bin for unknown MIME types
+	return ".bin"
+}
+
+// unpackResourceContent is the core implementation for processing resource content
+// It handles embedded resource content from MCP tool responses.
+func unpackResourceContent(cmd *cobra.Command, c map[string]any, tmpDir string, fs afero.Fs) error {
+	resource, ok := c["resource"].(map[string]any)
+	if !ok {
+		return fmt.Errorf("resource content item does not have a valid 'resource' field: %v", c)
+	}
+
+	uri, _ := resource["uri"].(string)
+	mimeType, _ := resource["mimeType"].(string)
+
+	// Display resource metadata
+	cmd.Printf("Resource URI: %s\n", uri)
+	if mimeType != "" {
+		cmd.Printf("MIME Type: %s\n", mimeType)
+	}
+
+	// Handle text resource content
+	if text, ok := resource["text"].(string); ok {
+		cmd.Printf("Text Content:\n%s\n", text)
+		return nil
+	}
+
+	// Handle blob resource content
+	if blob, ok := resource["blob"].(string); ok {
+		return handleBlobResource(cmd, blob, mimeType, tmpDir, fs)
+	}
+
+	return fmt.Errorf("resource content does not contain 'text' or 'blob' field: %v", resource)
+}
+
+// handleBlobResource processes blob resource content by decoding base64 data and saving to file
+func handleBlobResource(cmd *cobra.Command, blobData, mimeType, tmpDir string, fs afero.Fs) error {
+	// Decode base64 blob data
+	data, err := base64.StdEncoding.DecodeString(blobData)
+	if err != nil {
+		return fmt.Errorf("failed to decode base64 blob data: %w", err)
+	}
+
+	// Determine file extension from MIME type
+	ext := getFileExtensionFromMimeType(mimeType)
+
+	// Generate unique filename
+	filename := fmt.Sprintf("resource_%d%s", time.Now().UnixNano(), ext)
+	fullPath := filepath.Join(tmpDir, filename)
+
+	// Write file to disk
+	if err := afero.WriteFile(fs, fullPath, data, 0o644); err != nil {
+		return fmt.Errorf("failed to write resource to disk: %w", err)
+	}
+
+	cmd.Printf("[Resource saved as %s]\n", filename)
+	return nil
+}
+
+// unpackResourceLinkContent handles resource link content from MCP tool responses
+func unpackResourceLinkContent(cmd *cobra.Command, c map[string]any) error {
+	// Extract the resource link content from the MCP tool response
+	uri, _ := c["uri"].(string)
+	name, _ := c["name"].(string)
+	description, _ := c["description"].(string)
+	mimeType, _ := c["mimeType"].(string)
+
+	cmd.Printf("Resource Link URI: %s\n", uri)
+	if name != "" {
+		cmd.Printf("Name: %s\n", name)
+	}
+	if description != "" {
+		cmd.Printf("Description: %s\n", description)
+	}
+	if mimeType != "" {
+		cmd.Printf("MIME Type: %s\n", mimeType)
+	}
+
+	cmd.Println("Resource link content handled correctly")
+	return nil
+}
+
 func runInvokeTool(cmd *cobra.Command, args []string) error {
 	var input map[string]any
 	if err := json.Unmarshal([]byte(invokeCmdInput), &input); err != nil {
@@ -158,7 +285,8 @@ func runInvokeTool(cmd *cobra.Command, args []string) error {
 		if !ok {
 			return fmt.Errorf("content item does not have a 'type' field: %v", c)
 		}
-		cmd.Printf("[Content type: %s]\n", cType)
+
+		cmd.Printf("** Content [%s] **\n", cType)
 
 		switch cType {
 		case "text":
@@ -189,7 +317,42 @@ func runInvokeTool(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("failed to write audio to disk: %w", err)
 			}
 			cmd.Printf("[Audio saved as %s]\n", filename)
+
+		case "resource":
+			err := unpackResourceContent(cmd, c, ".", afero.NewOsFs())
+			if err != nil {
+				return err
+			}
+
+		case "resource_link":
+			err := unpackResourceLinkContent(cmd, c)
+			if err != nil {
+				return err
+			}
+
+		default:
+			// Handle unknown content types by displaying the raw content
+			cmd.Printf("[Unknown content type: %s]\n", cType)
+			contentJSON, err := json.MarshalIndent(c, "", "  ")
+			if err != nil {
+				cmd.Printf("Raw content: %v\n", c)
+			} else {
+				cmd.Printf("Raw content:\n%s\n", string(contentJSON))
+			}
 		}
+
+		cmd.Println()
+	}
+
+	if result.StructuredContent != nil {
+		cmd.Println()
+		cmd.Println("** Structured Content **")
+		structuredJSON, err := json.MarshalIndent(result.StructuredContent, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal structured content: %w", err)
+		}
+		cmd.Println(string(structuredJSON))
+		cmd.Println()
 	}
 
 	return nil
