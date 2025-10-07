@@ -26,12 +26,16 @@ const (
 	BindPortDefault = "8080"
 
 	DBUrlEnvVar            = "DATABASE_URL"
+	ServerModeEnvVar       = "SERVER_MODE"
+	TelemetryEnabledEnvVar = "OTEL_ENABLED"
+)
+
+const (
+	PostgresHostEnvVar     = "POSTGRES_HOST"
+	PostgresPortEnvVar     = "POSTGRES_PORT"
 	PostgresUserEnvVar     = "POSTGRES_USER"
 	PostgresPasswordEnvVar = "POSTGRES_PASSWORD"
 	PostgresDBEnvVar       = "POSTGRES_DB"
-
-	ServerModeEnvVar       = "SERVER_MODE"
-	TelemetryEnabledEnvVar = "OTEL_ENABLED"
 )
 
 var (
@@ -44,8 +48,13 @@ var startServerCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start the MCPJungle server",
 	Long: "Starts the MCPJungle HTTP registry server and the MCP Proxy server.\n" +
-		"The server is started in development mode by default, which is ideal for individual users.\n" +
-		"Teams & Enterprises should run mcpjungle in enterprise mode.\n",
+		"The server is started in development mode by default, which is ideal for running mcpjungle locally.\n" +
+		"Teams & Enterprises should run mcpjungle in enterprise mode.\n\n" +
+		"By default, this command creates a SQLite database file in the current directory (if it doesn't already exist).\n" +
+		"You can also supply a custom DSN in the DATABASE_URL environment variable.\n" +
+		"eg: export DATABASE_URL='postgres://user:password@localhost:5432/mcpjungle'\n" +
+		"For Postgres, you can also set individual connection details using the following environment variables:\n" +
+		"POSTGRES_HOST, POSTGRES_PORT (default 5432), POSTGRES_USER (default postgres), POSTGRES_PASSWORD, POSTGRES_DB (default postgres)\n",
 	RunE: runStartServer,
 	Annotations: map[string]string{
 		"group": string(subCommandGroupBasic),
@@ -159,23 +168,75 @@ func getBindPort() string {
 	return port
 }
 
-func getEnvOrSecret(envVar string, secretPathEnvVar string) (string, error) {
+// getEnvOrFile returns the value of the given environment variable.
+// If the environment variable is not set, it checks for a corresponding
+// _FILE environment variable and reads the value from the file if it exists.
+// If neither is set, it returns an empty string.
+// If both are set, the value of the original environment variable takes precedence.
+func getEnvOrFile(envVar string) (string, error) {
 	val := os.Getenv(envVar)
 	if val != "" {
 		return val, nil
 	}
 
-	secretPath := os.Getenv(secretPathEnvVar)
-	if secretPath == "" {
-		return "", fmt.Errorf("%s not found", secretPathEnvVar)
+	fileEnvVar := envVar + "_FILE"
+	filePath := os.Getenv(fileEnvVar)
+	if filePath != "" {
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			return "", fmt.Errorf("failed to read %s: %w", fileEnvVar, err)
+		}
+		return strings.TrimSpace(string(data)), nil
 	}
 
-	data, err := os.ReadFile(secretPath)
+	return "", nil
+}
+
+// getPostgresDSN constructs a Postgres DSN from individual Postgres-specific environment variables & files.
+// It is used to provide an alternative way to specify Postgres connection details
+// in case the user doesn't want to use a full DATABASE_URL.
+// If POSTGRES_HOST is not set, this function assumes that Postgres-specific env vars are not being used
+// and returns ok=false.
+// Other Postgres env vars are optional and have sensible defaults.
+func getPostgresDSN() (string, bool, error) {
+	host := os.Getenv(PostgresHostEnvVar)
+	if host == "" {
+		return "", false, nil
+	}
+	port := os.Getenv(PostgresPortEnvVar)
+	if port == "" {
+		port = "5432"
+	}
+	dbName, err := getEnvOrFile(PostgresDBEnvVar)
 	if err != nil {
-		return "", err
+		return "", false, fmt.Errorf("failed to get postgres DB name: %w", err)
 	}
+	if dbName == "" {
+		dbName = "postgres"
+	}
+	pgUser, err := getEnvOrFile(PostgresUserEnvVar)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to get postgres user: %w", err)
+	}
+	if pgUser == "" {
+		pgUser = "postgres"
+	}
+	password, err := getEnvOrFile(PostgresPasswordEnvVar)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to get postgres password: %w", err)
+	}
+	// password can be empty, so no default value
 
-	return strings.TrimSpace(string(data)), nil
+	dsn := fmt.Sprintf(
+		"postgres://%s:%s@%s:%s/%s",
+		url.QueryEscape(pgUser),
+		url.QueryEscape(password),
+		host,
+		port,
+		url.QueryEscape(dbName),
+	)
+
+	return dsn, true, nil
 }
 
 func runStartServer(cmd *cobra.Command, args []string) error {
@@ -225,17 +286,14 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 	dsn := os.Getenv(DBUrlEnvVar)
 
 	if dsn == "" {
-		pgUser, _ := getEnvOrSecret(PostgresUserEnvVar, PostgresUserEnvVar+"_FILE")
-		pgPassword, _ := getEnvOrSecret(PostgresPasswordEnvVar, PostgresPasswordEnvVar+"_FILE")
-		pgDB, _ := getEnvOrSecret(PostgresDBEnvVar, PostgresDBEnvVar+"_FILE")
-
-		hasAll := pgUser != "" && pgPassword != "" && pgDB != ""
-		hasNone := pgUser == "" && pgPassword == "" && pgDB == ""
-		if !hasAll && !hasNone {
-			return fmt.Errorf("either all PostgreSQL environment variables must be provided or none of them")
+		// If DATABASE_URL isn't set, try to construct a Postgres DSN if postgres-specific env vars are set.
+		pgDSN, ok, err := getPostgresDSN()
+		if err != nil {
+			return fmt.Errorf("failed to get postgres DSN: %w", err)
 		}
-
-		dsn = fmt.Sprintf("postgres://%s:%s@db:5432/%s", url.QueryEscape(pgUser), url.QueryEscape(pgPassword), url.QueryEscape(pgDB))
+		if ok {
+			dsn = pgDSN
+		}
 	}
 
 	dbConn, err := db.NewDBConnection(dsn)
