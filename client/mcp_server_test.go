@@ -270,7 +270,7 @@ func TestDeregisterServer(t *testing.T) {
 			t.Error("Expected error, got nil")
 		}
 
-		expectedError := "unexpected status from server: 404 Not Found, body: Server not found"
+		expectedError := "Server not found"
 		if !strings.Contains(err.Error(), expectedError) {
 			t.Errorf("Expected error to contain %s, got %s", expectedError, err.Error())
 		}

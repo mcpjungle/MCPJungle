@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/mcpjungle/mcpjungle/pkg/types"
@@ -25,8 +24,7 @@ func (c *Client) ListMcpClients() ([]types.McpClient, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return nil, c.parseErrorResponse(resp)
 	}
 
 	var clients []types.McpClient
@@ -52,8 +50,7 @@ func (c *Client) DeleteMcpClient(name string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return c.parseErrorResponse(resp)
 	}
 
 	return nil
@@ -80,8 +77,7 @@ func (c *Client) CreateMcpClient(mcpClient *types.McpClient) (string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return "", c.parseErrorResponse(resp)
 	}
 
 	var response struct {

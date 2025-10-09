@@ -51,6 +51,34 @@ func (c *Client) newRequest(method, url string, body io.Reader) (*http.Request, 
 	return req, nil
 }
 
+// ErrorResponse represents the JSON structure of error responses from the server
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
+// parseErrorResponse parses HTTP error responses (4xx and 5xx) and returns a user-friendly error message
+func (c *Client) parseErrorResponse(resp *http.Response) error {
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("request failed with status: %d (unable to read error details)", resp.StatusCode)
+	}
+
+	// For 4xx and 5xx status codes, try to parse as JSON error response
+	if resp.StatusCode >= 400 && resp.StatusCode < 600 {
+		var errorResp ErrorResponse
+		err := json.Unmarshal(body, &errorResp)
+		if err != nil || errorResp.Error == "" {
+			// If parsing as JSON fails or the error message is empty, return the raw response
+			return fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, string(body))
+		}
+		// Return the parsed error message
+		return fmt.Errorf("%s", errorResp.Error)
+	}
+
+	// For any other status code, return the full response
+	return fmt.Errorf("unexpected response with status: %d, body: %s", resp.StatusCode, string(body))
+}
+
 // GetServerMetadata fetches metadata about the MCPJungle server.
 func (c *Client) GetServerMetadata(ctx context.Context) (*types.ServerMetadata, error) {
 	req, err := c.newRequest(http.MethodGet, c.baseURL+"/metadata", nil)
@@ -66,7 +94,7 @@ func (c *Client) GetServerMetadata(ctx context.Context) (*types.ServerMetadata, 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("server returned status %d", resp.StatusCode)
+		return nil, c.parseErrorResponse(resp)
 	}
 
 	var metadata types.ServerMetadata

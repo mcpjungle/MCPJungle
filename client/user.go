@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/mcpjungle/mcpjungle/pkg/types"
@@ -32,8 +31,7 @@ func (c *Client) CreateUser(user *types.CreateUserRequest) (*types.CreateUserRes
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return nil, c.parseErrorResponse(resp)
 	}
 
 	var createResp types.CreateUserResponse
@@ -59,8 +57,7 @@ func (c *Client) DeleteUser(username string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return c.parseErrorResponse(resp)
 	}
 
 	return nil
@@ -82,8 +79,7 @@ func (c *Client) ListUsers() ([]*types.User, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return nil, c.parseErrorResponse(resp)
 	}
 
 	var users []*types.User
@@ -110,8 +106,7 @@ func (c *Client) Whoami(accessToken string) (*types.User, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return nil, c.parseErrorResponse(resp)
 	}
 
 	var user types.User

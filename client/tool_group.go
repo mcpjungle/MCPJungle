@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/mcpjungle/mcpjungle/pkg/types"
@@ -32,8 +31,7 @@ func (c *Client) CreateToolGroup(group *types.ToolGroup) (*types.CreateToolGroup
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return nil, c.parseErrorResponse(resp)
 	}
 
 	var createResp types.CreateToolGroupResponse
@@ -59,8 +57,7 @@ func (c *Client) DeleteToolGroup(name string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return c.parseErrorResponse(resp)
 	}
 
 	return nil
@@ -82,8 +79,7 @@ func (c *Client) ListToolGroups() ([]types.ToolGroup, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return nil, c.parseErrorResponse(resp)
 	}
 
 	var groups []types.ToolGroup
@@ -109,8 +105,7 @@ func (c *Client) GetToolGroup(name string) (*types.GetToolGroupResponse, error) 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return nil, c.parseErrorResponse(resp)
 	}
 
 	var group types.GetToolGroupResponse
@@ -141,8 +136,7 @@ func (c *Client) UpdateToolGroup(group *types.ToolGroup) (*types.UpdateToolGroup
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return nil, c.parseErrorResponse(resp)
 	}
 
 	var updateResp types.UpdateToolGroupResponse

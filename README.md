@@ -208,19 +208,38 @@ This starts the main registry server and MCP gateway, accessible on port `8080` 
 
 
 ### Database
-The mcpjungle server relies on a database and by default, creates a SQLite DB in the current working directory.
+The mcpjungle server relies on a database and by default, creates a SQLite DB file `mcpjungle.db` in the current working directory.
 
 This is okay when you're just testing things out locally.
 
-Alternatively, you can supply a DSN for a Postgresql database to the server:
+For more serious deployments, mcpjungle also supports Postgresql. You can supply the DSN to connect to it:
 
 ```bash
+# You can supply the database DSN as an env var
 export DATABASE_URL=postgres://admin:root@localhost:5432/mcpjungle_db
 
 #run as container
 docker run mcpjungle/mcpjungle:latest
 
 # or run directly
+mcpjungle start
+```
+
+You can also supply postgres-specific env vars or files if you don't prefer using the DSN:
+```bash
+# host is mandatory if you're using postgres-specific env vars
+export POSTGRES_HOST=localhost
+export POSTGRES_PORT=5432
+
+export POSTGRES_USER=admin
+export POSTGRES_USER_FILE=/path/to/user-file
+
+export POSTGRES_PASSWORD=secret
+export POSTGRES_PASSWORD_FILE=/path/to/password-file
+
+export POSTGRES_DB=mcpjungle_db
+export POSTGRES_DB_FILE=/path/to/db-file
+
 mcpjungle start
 ```
 
