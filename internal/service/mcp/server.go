@@ -87,3 +87,39 @@ func (m *MCPService) GetMcpServer(name string) (*model.McpServer, error) {
 	}
 	return &serverModel, nil
 }
+
+// EnableMcpServer enables all tools and prompts registered by the given MCP server.
+// It returns the names of the enabled tools and prompts.
+// If even a single tool or prompt fails to enable, the operation fails.
+func (m *MCPService) EnableMcpServer(name string) ([]string, []string, error) {
+	if err := validateServerName(name); err != nil {
+		return nil, nil, err
+	}
+	toolsEnabled, err := m.EnableTools(name)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to enable tools for server %s: %w", name, err)
+	}
+	promptsEnabled, err := m.EnablePrompts(name)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to enable prompts for server %s: %w", name, err)
+	}
+	return toolsEnabled, promptsEnabled, nil
+}
+
+// DisableMcpServer disables all tools and prompts registered by the given MCP server.
+// It returns the names of the disabled tools and prompts.
+// If even a single tool or prompt fails to disable, the operation fails.
+func (m *MCPService) DisableMcpServer(name string) ([]string, []string, error) {
+	if err := validateServerName(name); err != nil {
+		return nil, nil, err
+	}
+	toolsDisabled, err := m.DisableTools(name)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to disable tools for server %s: %w", name, err)
+	}
+	promptsDisabled, err := m.DisablePrompts(name)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to disable prompts for server %s: %w", name, err)
+	}
+	return toolsDisabled, promptsDisabled, nil
+}

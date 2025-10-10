@@ -64,6 +64,16 @@ type ServerMetadata struct {
 	Version string `json:"version"`
 }
 
+// EnableDisableServerResult represents the result of enabling or disabling an MCP server
+type EnableDisableServerResult struct {
+	// Name is the name of the server that was enabled/disabled
+	Name string `json:"name"`
+	// ToolsAffected is the number of tools that were enabled/disabled as a result of this operation
+	ToolsAffected []string `json:"tools_affected"`
+	// PromptsAffected is the number of prompts that were enabled/disabled as a result of this operation
+	PromptsAffected []string `json:"prompts_affected"`
+}
+
 // ValidateTransport validates the input string and returns the corresponding model.McpServerTransport.
 // It returns an error if the input is invalid or empty.
 func ValidateTransport(input string) (McpServerTransport, error) {

@@ -40,8 +40,7 @@ func (c *Client) ListPrompts(serverName string) ([]model.Prompt, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return nil, c.parseErrorResponse(resp)
 	}
 
 	var prompts []model.Prompt
@@ -78,8 +77,7 @@ func (c *Client) GetPrompt(name string) (*model.Prompt, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return nil, c.parseErrorResponse(resp)
 	}
 
 	var prompt model.Prompt
@@ -120,8 +118,7 @@ func (c *Client) GetPromptWithArgs(name string, arguments map[string]string) (*t
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, body)
+		return nil, c.parseErrorResponse(resp)
 	}
 
 	var result types.PromptResult

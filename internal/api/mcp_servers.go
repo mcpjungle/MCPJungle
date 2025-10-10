@@ -157,3 +157,41 @@ func (s *Server) listServersHandler() gin.HandlerFunc {
 		c.JSON(http.StatusOK, servers)
 	}
 }
+
+func (s *Server) enableServerHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		name := c.Param("name")
+
+		tools, prompts, err := s.mcpService.EnableMcpServer(name)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		result := types.EnableDisableServerResult{
+			Name:            name,
+			ToolsAffected:   tools,
+			PromptsAffected: prompts,
+		}
+		c.JSON(http.StatusOK, result)
+	}
+}
+
+func (s *Server) disableServerHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		name := c.Param("name")
+
+		tools, prompts, err := s.mcpService.DisableMcpServer(name)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		result := types.EnableDisableServerResult{
+			Name:            name,
+			ToolsAffected:   tools,
+			PromptsAffected: prompts,
+		}
+		c.JSON(http.StatusOK, result)
+	}
+}

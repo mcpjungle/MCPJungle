@@ -81,3 +81,46 @@ func (c *Client) DeregisterServer(name string) error {
 	}
 	return nil
 }
+
+func (c *Client) EnableServer(name string) (*types.EnableDisableServerResult, error) {
+	return c.setServerEnabled(name, true)
+}
+
+func (c *Client) DisableServer(name string) (*types.EnableDisableServerResult, error) {
+	return c.setServerEnabled(name, false)
+}
+
+func (c *Client) setServerEnabled(name string, enabled bool) (*types.EnableDisableServerResult, error) {
+	api := "enable"
+	if !enabled {
+		api = "disable"
+	}
+	endpoint := fmt.Sprintf("/servers/%s/%s", name, api)
+
+	u, err := c.constructAPIEndpoint(endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct API endpoint: %w", err)
+	}
+
+	req, err := c.newRequest(http.MethodPost, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, c.parseErrorResponse(resp)
+	}
+
+	var result types.EnableDisableServerResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &result, nil
+}

@@ -250,6 +250,8 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 	{
 		adminAPI.POST("/servers", s.registerServerHandler())
 		adminAPI.DELETE("/servers/:name", s.deregisterServerHandler())
+		adminAPI.POST("/servers/:name/enable", s.enableServerHandler())
+		adminAPI.POST("/servers/:name/disable", s.disableServerHandler())
 
 		adminAPI.POST("/tools/enable", s.enableToolsHandler())
 		adminAPI.POST("/tools/disable", s.disableToolsHandler())
