@@ -18,7 +18,7 @@ func TestInitServer(t *testing.T) {
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Verify request method and path
-			if r.Method != "POST" {
+			if r.Method != http.MethodPost {
 				t.Errorf("Expected POST method, got %s", r.Method)
 			}
 			if r.URL.Path != "/init" {

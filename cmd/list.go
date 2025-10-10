@@ -39,7 +39,7 @@ var listToolsCmd = &cobra.Command{
 var listPromptsCmd = &cobra.Command{
 	Use:   "prompts",
 	Short: "List available prompts",
-	Long:  "List prompt templates available either from a specific MCP server or across all MCP servers registered in the registry.",
+	Long:  "List prompt templates available either from a specific MCP server or across all MCP servers in mcpjungle.",
 	RunE:  runListPrompts,
 }
 
@@ -316,7 +316,7 @@ func runListPrompts(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(prompts) == 0 {
-		fmt.Println("There are no prompts in the registry")
+		cmd.Println("No prompts found")
 		return nil
 	}
 	for i, p := range prompts {
@@ -324,12 +324,12 @@ func runListPrompts(cmd *cobra.Command, args []string) error {
 		if !p.Enabled {
 			ed = "DISABLED"
 		}
-		fmt.Printf("%d. %s  [%s]\n", i+1, p.Name, ed)
-		fmt.Println(p.Description)
-		fmt.Println()
+		cmd.Printf("%d. %s  [%s]\n", i+1, p.Name, ed)
+		cmd.Println(p.Description)
+		cmd.Println()
 	}
 
-	fmt.Println("Run 'get prompt <prompt name>' to retrieve a prompt template")
+	cmd.Println("Run 'get prompt <prompt name>' to retrieve a prompt template")
 
 	return nil
 }

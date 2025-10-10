@@ -25,13 +25,15 @@ import (
 // serverInitRequestTimeout is the timeout (in seconds) for the initialization request to the MCP server
 const serverInitRequestTimeout = 10
 
-// serverToolNameSep is the separator used to combine server name and tool name.
-// This combination produces the canonical name that uniquely identifies a tool across MCPJungle.
-const serverToolNameSep = "__"
+const (
+	// serverToolNameSep is the separator used to combine server name and tool name.
+	// This combination produces the canonical name that uniquely identifies a tool across MCPJungle.
+	serverToolNameSep = "__"
 
-// serverPromptNameSep is the separator used to combine server name and prompt name.
-// This combination produces the canonical name that uniquely identifies a prompt across MCPJungle.
-const serverPromptNameSep = "__"
+	// serverPromptNameSep is the separator used to combine server name and prompt name.
+	// This combination produces the canonical name that uniquely identifies a prompt across MCPJungle.
+	serverPromptNameSep = "__"
+)
 
 // Only allow letters, numbers, hyphens, and underscores
 var validServerName = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)

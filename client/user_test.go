@@ -20,7 +20,7 @@ func TestCreateUser(t *testing.T) {
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Verify request method and path
-			if r.Method != "POST" {
+			if r.Method != http.MethodPost {
 				t.Errorf("Expected POST method, got %s", r.Method)
 			}
 			if !strings.HasSuffix(r.URL.Path, "/users") {
@@ -130,7 +130,7 @@ func TestListUsers(t *testing.T) {
 
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Verify request method and path
-			if r.Method != "GET" {
+			if r.Method != http.MethodGet {
 				t.Errorf("Expected GET method, got %s", r.Method)
 			}
 			if !strings.HasSuffix(r.URL.Path, "/users") {

@@ -14,7 +14,7 @@ var deregisterMCPServerCmd = &cobra.Command{
 	RunE:  runDeregisterMCPServer,
 	Annotations: map[string]string{
 		"group": string(subCommandGroupBasic),
-		"order": "6",
+		"order": "7",
 	},
 }
 

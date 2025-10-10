@@ -240,7 +240,7 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		// Prompt endpoints
 		userAPI.GET("/prompts", s.listPromptsHandler())
 		userAPI.GET("/prompt", s.getPromptHandler())
-		userAPI.POST("/prompts/get", s.getPromptWithArgsHandler())
+		userAPI.POST("/prompts/render", s.getPromptWithArgsHandler())
 
 		userAPI.GET("/users/whoami", requireEnterpriseMode, s.whoAmIHandler())
 	}

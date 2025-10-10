@@ -126,6 +126,7 @@ func TestEnableDisablePrompts(t *testing.T) {
 		"Test Proxy",
 		"0.1.0",
 		server.WithPromptCapabilities(true),
+		server.WithPromptCapabilities(true),
 	)
 
 	service := &MCPService{
@@ -167,6 +168,7 @@ func TestEnableDisableServerPrompts(t *testing.T) {
 	mcpProxyServer := server.NewMCPServer(
 		"Test Proxy",
 		"0.1.0",
+		server.WithPromptCapabilities(true),
 		server.WithPromptCapabilities(true),
 	)
 

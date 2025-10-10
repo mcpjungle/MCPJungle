@@ -28,7 +28,7 @@ func (c *Client) ListPrompts(serverName string) ([]model.Prompt, error) {
 		u = parsed.String()
 	}
 
-	req, err := c.newRequest("GET", u, nil)
+	req, err := c.newRequest(http.MethodGet, u, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -66,7 +66,7 @@ func (c *Client) GetPrompt(name string) (*model.Prompt, error) {
 	parsed.RawQuery = q.Encode()
 	u = parsed.String()
 
-	req, err := c.newRequest("GET", u, nil)
+	req, err := c.newRequest(http.MethodGet, u, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -92,7 +92,7 @@ func (c *Client) GetPrompt(name string) (*model.Prompt, error) {
 
 // GetPromptWithArgs retrieves a prompt with arguments and returns the rendered template
 func (c *Client) GetPromptWithArgs(name string, arguments map[string]string) (*types.PromptResult, error) {
-	u, err := c.constructAPIEndpoint("/prompts/get")
+	u, err := c.constructAPIEndpoint("/prompts/render")
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct API endpoint: %w", err)
 	}
@@ -107,7 +107,7 @@ func (c *Client) GetPromptWithArgs(name string, arguments map[string]string) (*t
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	req, err := c.newRequest("POST", u, bytes.NewBuffer(body))
+	req, err := c.newRequest(http.MethodPost, u, bytes.NewBuffer(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -163,7 +163,7 @@ func (c *Client) setPromptsEnabled(entity string, enabled bool) ([]string, error
 	parsed.RawQuery = q.Encode()
 	u = parsed.String()
 
-	req, err := c.newRequest("POST", u, nil)
+	req, err := c.newRequest(http.MethodPost, u, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

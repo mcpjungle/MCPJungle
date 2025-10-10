@@ -79,7 +79,7 @@ func TestRouterSetup(t *testing.T) {
 
 	// Test that health endpoint is registered
 	w := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/health", nil)
+	req, _ := http.NewRequest(http.MethodGet, "/health", nil)
 	router.ServeHTTP(w, req)
 	testhelpers.AssertEqual(t, http.StatusOK, w.Code)
 }

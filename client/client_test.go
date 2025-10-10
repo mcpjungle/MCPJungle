@@ -85,12 +85,12 @@ func TestNewRequest(t *testing.T) {
 
 	t.Run("request with access token", func(t *testing.T) {
 		body := strings.NewReader("test body")
-		req, err := client.newRequest("POST", "https://api.example.com/test", body)
+		req, err := client.newRequest(http.MethodPost, "https://api.example.com/test", body)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
 
-		if req.Method != "POST" {
+		if req.Method != http.MethodPost {
 			t.Errorf("Expected method POST, got %s", req.Method)
 		}
 
@@ -106,7 +106,7 @@ func TestNewRequest(t *testing.T) {
 
 	t.Run("request without access token", func(t *testing.T) {
 		clientNoToken := NewClient("https://api.example.com", "", &http.Client{})
-		req, err := clientNoToken.newRequest("GET", "https://api.example.com/test", nil)
+		req, err := clientNoToken.newRequest(http.MethodGet, "https://api.example.com/test", nil)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -118,7 +118,7 @@ func TestNewRequest(t *testing.T) {
 	})
 
 	t.Run("request with nil body", func(t *testing.T) {
-		req, err := client.newRequest("GET", "https://api.example.com/test", nil)
+		req, err := client.newRequest(http.MethodGet, "https://api.example.com/test", nil)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -135,7 +135,7 @@ func TestNewRequestWithInvalidURL(t *testing.T) {
 	client := NewClient("https://api.example.com", "token", &http.Client{})
 
 	// Test with invalid URL
-	req, err := client.newRequest("GET", "://invalid-url", nil)
+	req, err := client.newRequest(http.MethodGet, "://invalid-url", nil)
 	if err == nil {
 		t.Error("Expected error for invalid URL, got nil")
 	}
@@ -150,7 +150,7 @@ func TestClientIntegration(t *testing.T) {
 	// Test that client can make actual HTTP requests
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify request method and headers
-		if r.Method != "GET" {
+		if r.Method != http.MethodGet {
 			t.Errorf("Expected GET method, got %s", r.Method)
 		}
 
@@ -174,7 +174,7 @@ func TestClientIntegration(t *testing.T) {
 		t.Fatalf("Failed to construct endpoint: %v", err)
 	}
 
-	req, err := client.newRequest("GET", endpoint, nil)
+	req, err := client.newRequest(http.MethodGet, endpoint, nil)
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}

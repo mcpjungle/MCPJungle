@@ -10,10 +10,10 @@ import (
 
 var getCmd = &cobra.Command{
 	Use:   "get",
-	Short: "Get resources",
+	Short: "Get entities like Prompts and Tool Groups",
 	Annotations: map[string]string{
 		"group": string(subCommandGroupBasic),
-		"order": "4",
+		"order": "6",
 	},
 }
 
@@ -31,7 +31,7 @@ var getGroupCmd = &cobra.Command{
 var getPromptCmd = &cobra.Command{
 	Use:   "prompt [name]",
 	Args:  cobra.ExactArgs(1),
-	Short: "Get a prompt template with arguments",
+	Short: "Get a prompt template",
 	Long: "Retrieve a prompt template from an MCP server with optional arguments.\n" +
 		"The prompt will be rendered with the provided arguments and returned as structured messages.",
 	Example: `  # Get a basic prompt
@@ -47,7 +47,7 @@ func init() {
 		&getPromptArgs,
 		"arg",
 		nil,
-		"Arguments to pass to the prompt (can be specified multiple times)",
+		"Arguments to pass to the prompt (this flag can be specified multiple times)",
 	)
 
 	getCmd.AddCommand(getGroupCmd)
@@ -132,23 +132,23 @@ func runGetPrompt(cmd *cobra.Command, args []string) error {
 	}
 
 	// Pretty print the result
-	fmt.Printf("Prompt: %s\n", name)
+	cmd.Printf("Prompt: %s\n", name)
 	if result.Description != "" {
-		fmt.Printf("Description: %s\n", result.Description)
+		cmd.Printf("Description: %s\n", result.Description)
 	}
-	fmt.Println("\nGenerated Messages:")
-	fmt.Println("=" + strings.Repeat("=", 50))
+	cmd.Println("\nGenerated Messages:")
+	cmd.Println("=" + strings.Repeat("=", 50))
 
 	for i, message := range result.Messages {
-		fmt.Printf("\nMessage %d (%s):\n", i+1, message.Role)
-		fmt.Println("-" + strings.Repeat("-", 30))
+		cmd.Printf("\nMessage %d (%s):\n", i+1, message.Role)
+		cmd.Println("-" + strings.Repeat("-", 30))
 
 		// Format the content nicely
 		contentBytes, err := json.MarshalIndent(message.Content, "", "  ")
 		if err != nil {
-			fmt.Printf("Content: %+v\n", message.Content)
+			cmd.Printf("Content: %+v\n", message.Content)
 		} else {
-			fmt.Printf("Content: %s\n", string(contentBytes))
+			cmd.Printf("Content: %s\n", string(contentBytes))
 		}
 	}
 

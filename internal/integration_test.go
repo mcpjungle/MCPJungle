@@ -35,6 +35,7 @@ func TestPromptsIntegration(t *testing.T) {
 		"MCPJungle Proxy MCP Server for SSE transport",
 		"0.0.1",
 		server.WithToolCapabilities(true),
+		server.WithPromptCapabilities(true),
 	)
 	mcpMetrics := telemetry.NewNoopCustomMetrics()
 

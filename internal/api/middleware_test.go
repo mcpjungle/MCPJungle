@@ -67,7 +67,7 @@ func TestRequireInitialized(t *testing.T) {
 				c.JSON(http.StatusOK, gin.H{"status": "success"})
 			})
 
-			req := httptest.NewRequest("GET", "/test", nil)
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
@@ -155,7 +155,7 @@ func TestVerifyUserAuthForAPIAccess(t *testing.T) {
 				c.JSON(http.StatusOK, gin.H{"status": "success"})
 			})
 
-			req := httptest.NewRequest("GET", "/test", nil)
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
 			if tt.authHeader != "" {
 				req.Header.Set("Authorization", tt.authHeader)
 			}
@@ -234,7 +234,7 @@ func TestRequireAdminUser(t *testing.T) {
 				c.JSON(http.StatusOK, gin.H{"status": "success"})
 			})
 
-			req := httptest.NewRequest("GET", "/test", nil)
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
@@ -324,7 +324,7 @@ func TestRequireServerMode(t *testing.T) {
 				c.JSON(http.StatusOK, gin.H{"status": "success"})
 			})
 
-			req := httptest.NewRequest("GET", "/test", nil)
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
@@ -417,7 +417,7 @@ func TestCheckAuthForMcpProxyAccess(t *testing.T) {
 				c.JSON(http.StatusOK, gin.H{"status": "success"})
 			})
 
-			req := httptest.NewRequest("GET", "/test", nil)
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
 			if tt.authHeader != "" {
 				req.Header.Set("Authorization", tt.authHeader)
 			}
@@ -481,7 +481,7 @@ func TestMiddlewareIntegration(t *testing.T) {
 		c.JSON(http.StatusOK, gin.H{"status": "admin access granted"})
 	})
 
-	req := httptest.NewRequest("GET", "/admin", nil)
+	req := httptest.NewRequest(http.MethodGet, "/admin", nil)
 	req.Header.Set("Authorization", "Bearer valid-token")
 	w := httptest.NewRecorder()
 
