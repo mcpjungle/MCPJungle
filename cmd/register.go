@@ -140,10 +140,31 @@ func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
 		// if we fail to fetch tool list, fail silently because this is not a must-have output
 		return nil
 	}
-	fmt.Println()
-	fmt.Println("The following tools are now available from this server:")
+
+	cmd.Println()
+	if len(tools) == 0 {
+		cmd.Println("This server does not provide any tools.")
+		return nil
+	}
+	cmd.Println("The following tools are now available from this server:")
 	for i, tool := range tools {
-		fmt.Printf("%d. %s: %s\n\n", i+1, tool.Name, tool.Description)
+		cmd.Printf("%d. %s: %s\n\n", i+1, tool.Name, tool.Description)
+	}
+
+	prompts, err := apiClient.ListPrompts(s.Name)
+	if err != nil {
+		return nil
+	}
+	if len(prompts) > 0 {
+		cmd.Println()
+		cmd.Println("The following prompts are now available from this server:")
+		for i, prompt := range prompts {
+			cmd.Printf("%d. %s\n", i+1, prompt.Name)
+			if prompt.Description != "" {
+				cmd.Printf("   %s\n", prompt.Description)
+			}
+			cmd.Println()
+		}
 	}
 
 	return nil

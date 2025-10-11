@@ -325,7 +325,9 @@ func runListPrompts(cmd *cobra.Command, args []string) error {
 			ed = "DISABLED"
 		}
 		cmd.Printf("%d. %s  [%s]\n", i+1, p.Name, ed)
-		cmd.Println(p.Description)
+		if p.Description != "" {
+			cmd.Println(p.Description)
+		}
 		cmd.Println()
 	}
 
