@@ -195,10 +195,19 @@ func (m *MCPService) setPromptsEnabled(entity string, enabled bool) ([]string, e
 			}
 			// set the prompt name to its canonical form in the proxy
 			mcpPrompt.Name = entity
-			m.mcpProxyServer.AddPrompt(mcpPrompt, m.mcpProxyPromptHandler)
+
+			if s.Transport == types.TransportSSE {
+				m.sseMcpProxyServer.AddPrompt(mcpPrompt, m.mcpProxyPromptHandler)
+			} else {
+				m.mcpProxyServer.AddPrompt(mcpPrompt, m.mcpProxyPromptHandler)
+			}
 		} else {
 			// if the prompt was disabled, remove it from the MCP proxy server
-			m.mcpProxyServer.DeletePrompts(entity)
+			if s.Transport == types.TransportSSE {
+				m.sseMcpProxyServer.DeletePrompts(entity)
+			} else {
+				m.mcpProxyServer.DeletePrompts(entity)
+			}
 		}
 
 		return []string{entity}, nil
@@ -234,9 +243,18 @@ func (m *MCPService) setPromptsEnabled(entity string, enabled bool) ([]string, e
 			}
 			// set the prompt name to its canonical form in the proxy
 			mcpPrompt.Name = canonicalPromptName
-			m.mcpProxyServer.AddPrompt(mcpPrompt, m.mcpProxyPromptHandler)
+
+			if s.Transport == types.TransportSSE {
+				m.sseMcpProxyServer.AddPrompt(mcpPrompt, m.mcpProxyPromptHandler)
+			} else {
+				m.mcpProxyServer.AddPrompt(mcpPrompt, m.mcpProxyPromptHandler)
+			}
 		} else {
-			m.mcpProxyServer.DeletePrompts(canonicalPromptName)
+			if s.Transport == types.TransportSSE {
+				m.sseMcpProxyServer.DeletePrompts(canonicalPromptName)
+			} else {
+				m.mcpProxyServer.DeletePrompts(canonicalPromptName)
+			}
 		}
 
 		changedPromptNames = append(changedPromptNames, canonicalPromptName)
@@ -273,7 +291,12 @@ func (m *MCPService) registerServerPrompts(ctx context.Context, s *model.McpServ
 			// Set prompt name to include the server name prefix to make it recognizable by MCPJungle
 			// then add the prompt to the MCP proxy server
 			prompt.Name = canonicalPromptName
-			m.mcpProxyServer.AddPrompt(prompt, m.mcpProxyPromptHandler)
+
+			if s.Transport == types.TransportSSE {
+				m.sseMcpProxyServer.AddPrompt(prompt, m.mcpProxyPromptHandler)
+			} else {
+				m.mcpProxyServer.AddPrompt(prompt, m.mcpProxyPromptHandler)
+			}
 		}
 	}
 	return nil
@@ -299,7 +322,12 @@ func (m *MCPService) deregisterServerPrompts(s *model.McpServer) error {
 	for i, prompt := range prompts {
 		promptNames[i] = prompt.Name
 	}
-	m.mcpProxyServer.DeletePrompts(promptNames...)
+
+	if s.Transport == types.TransportSSE {
+		m.sseMcpProxyServer.DeletePrompts(promptNames...)
+	} else {
+		m.mcpProxyServer.DeletePrompts(promptNames...)
+	}
 
 	return nil
 }

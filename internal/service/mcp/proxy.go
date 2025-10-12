@@ -120,6 +120,7 @@ func (m *MCPService) mcpProxyPromptHandler(ctx context.Context, request mcp.GetP
 func (m *MCPService) initMCPProxyServer() error {
 	mcpServerModelsCache := make(map[string]*model.McpServer)
 
+	// Load Tools
 	tools, err := m.ListTools()
 	if err != nil {
 		return fmt.Errorf("failed to list tools from DB: %w", err)
@@ -169,6 +170,7 @@ func (m *MCPService) initMCPProxyServer() error {
 	if err != nil {
 		return fmt.Errorf("failed to list prompts from DB: %w", err)
 	}
+
 	for _, pm := range prompts {
 		if !pm.Enabled {
 			// do not add disabled prompts to the proxy
@@ -181,7 +183,26 @@ func (m *MCPService) initMCPProxyServer() error {
 			return fmt.Errorf("failed to convert prompt model to MCP object for prompt %s: %w", pm.Name, err)
 		}
 
-		m.mcpProxyServer.AddPrompt(prompt, m.mcpProxyPromptHandler)
+		// get the prompt's MCP server from cache so we can determine the transport type
+		var server *model.McpServer
+		serverName, _, _ := splitServerPromptName(prompt.Name)
+
+		server, exists := mcpServerModelsCache[serverName]
+		if !exists {
+			server, err = m.GetMcpServer(serverName)
+			if err != nil {
+				return fmt.Errorf(
+					"init mcp proxy server: failed to get MCP server %s for tool %s from DB: %w", serverName, prompt.Name, err,
+				)
+			}
+			mcpServerModelsCache[serverName] = server
+		}
+
+		if server.Transport == types.TransportSSE {
+			m.sseMcpProxyServer.AddPrompt(prompt, m.mcpProxyPromptHandler)
+		} else {
+			m.mcpProxyServer.AddPrompt(prompt, m.mcpProxyPromptHandler)
+		}
 	}
 
 	return nil
