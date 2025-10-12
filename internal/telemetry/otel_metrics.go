@@ -73,6 +73,18 @@ func (m *OtelCustomMetrics) RecordToolCall(
 	m.toolCallLatency.Record(ctx, elapsedTime.Seconds(), metric.WithAttributes(attrs...))
 }
 
+func (m *OtelCustomMetrics) RecordPromptCall(
+	ctx context.Context, mcpServerName, promptName string, outcome PromptCallOutcome, elapsedTime time.Duration,
+) {
+	attrs := []attribute.KeyValue{
+		attribute.String(labelMCPServerName, boundString(mcpServerName)),
+		attribute.String(labelToolName, boundString(promptName)),
+		attribute.String(labelToolCallOutcome, string(outcome)),
+	}
+	m.toolCalls.Add(ctx, 1, metric.WithAttributes(attrs...))
+	m.toolCallLatency.Record(ctx, elapsedTime.Seconds(), metric.WithAttributes(attrs...))
+}
+
 // boundString ensures strings are capped at maxLen and not empty.
 func boundString(s string) string {
 	if s == "" {

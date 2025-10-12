@@ -19,3 +19,9 @@ func (m *NoopCustomMetrics) RecordToolCall(
 ) {
 	// No-op
 }
+
+func (m *NoopCustomMetrics) RecordPromptCall(
+	ctx context.Context, serverName, promptName string, outcome PromptCallOutcome, elapsedTime time.Duration,
+) {
+	// No-op
+}

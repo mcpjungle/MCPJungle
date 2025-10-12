@@ -76,6 +76,9 @@ func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request mcp.Ca
 // by forwarding the request to the appropriate upstream MCP server and
 // relaying the response back.
 func (m *MCPService) mcpProxyPromptHandler(ctx context.Context, request mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	started := time.Now()
+	outcome := telemetry.PromptCallOutcomeSuccess
+
 	name := request.Params.Name
 	serverName, promptName, ok := splitServerPromptName(name)
 	if !ok {
@@ -94,9 +97,18 @@ func (m *MCPService) mcpProxyPromptHandler(ctx context.Context, request mcp.GetP
 		}
 	}
 
+	// Record the prompt call metrics at the end of the function
+	defer func() {
+		m.metrics.RecordPromptCall(ctx, serverName, promptName, outcome, time.Since(started))
+	}()
+
 	// get the MCP server details from the database
 	server, err := m.GetMcpServer(serverName)
 	if err != nil {
+		// TODO: differentiate between "server not found" and other errors.
+		// server not found is not an internal error, so outcome should be success.
+		outcome = telemetry.PromptCallOutcomeError
+
 		return nil, fmt.Errorf(
 			"failed to get details about MCP server %s from DB: %w", serverName, err,
 		)
@@ -104,6 +116,7 @@ func (m *MCPService) mcpProxyPromptHandler(ctx context.Context, request mcp.GetP
 
 	mcpClient, err := newMcpServerSession(ctx, server)
 	if err != nil {
+		outcome = telemetry.PromptCallOutcomeError
 		return nil, err
 	}
 	defer mcpClient.Close()
@@ -112,7 +125,12 @@ func (m *MCPService) mcpProxyPromptHandler(ctx context.Context, request mcp.GetP
 	request.Params.Name = promptName
 
 	// forward the request to the upstream MCP server and relay the response back
-	return mcpClient.GetPrompt(ctx, request)
+	res, err := mcpClient.GetPrompt(ctx, request)
+	if err != nil {
+		outcome = telemetry.PromptCallOutcomeError
+	}
+
+	return res, err
 }
 
 // initMCPProxyServer initializes the MCP proxy server.
