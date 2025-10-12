@@ -33,7 +33,7 @@ var enableCmd = &cobra.Command{
 		"But the recommended way to achieve this now is 'enable tool [name]'.",
 	Annotations: map[string]string{
 		"group": string(subCommandGroupAdvanced),
-		"order": "2",
+		"order": "3",
 	},
 	RunE: runEnable,
 }

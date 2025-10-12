@@ -16,7 +16,7 @@ var initServerCmd = &cobra.Command{
 	RunE: runInitServer,
 	Annotations: map[string]string{
 		"group": string(subCommandGroupAdvanced),
-		"order": "5",
+		"order": "6",
 	},
 }
 

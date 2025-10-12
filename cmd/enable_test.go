@@ -8,8 +8,8 @@ import (
 
 func TestEnableCommandStructure(t *testing.T) {
 	t.Run("command_properties", func(t *testing.T) {
-		testhelpers.AssertEqual(t, "enable [name]", enableCmd.Use)
-		testhelpers.AssertEqual(t, "Enable one or more MCP tools globally", enableCmd.Short)
+		testhelpers.AssertEqual(t, "enable", enableCmd.Use)
+		testhelpers.AssertEqual(t, "Enable MCP entities like tools & prompts globally", enableCmd.Short)
 		testhelpers.AssertNotNil(t, enableCmd.Long)
 		testhelpers.AssertTrue(t, len(enableCmd.Long) > 0, "Long description should not be empty")
 	})
@@ -17,7 +17,7 @@ func TestEnableCommandStructure(t *testing.T) {
 	t.Run("command_annotations", func(t *testing.T) {
 		annotationTests := []testhelpers.CommandAnnotationTest{
 			{Key: "group", Expected: string(subCommandGroupAdvanced)},
-			{Key: "order", Expected: "2"},
+			{Key: "order", Expected: "3"},
 		}
 		testhelpers.TestCommandAnnotations(t, enableCmd.Annotations, annotationTests)
 	})
@@ -30,10 +30,8 @@ func TestEnableCommandStructure(t *testing.T) {
 	t.Run("long_description_content", func(t *testing.T) {
 		longDesc := enableCmd.Long
 		expectedPhrases := []string{
-			"Specify the name of a tool or MCP server",
-			"enable it in the mcp proxy",
-			"all tools provided by that server will be enabled",
-			"can be viewed and called by mcp clients",
+			"Enable one or more tools or prompts globally",
+			"For backward-compatibility, you can still run 'enable [name]'",
 		}
 
 		for _, phrase := range expectedPhrases {

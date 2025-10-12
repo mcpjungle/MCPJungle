@@ -19,10 +19,6 @@ func TestListCommandStructure(t *testing.T) {
 		{Key: "order", Expected: "3"},
 	}
 	testhelpers.TestCommandAnnotations(t, listCmd.Annotations, annotationTests)
-
-	// Test subcommands count
-	subcommands := listCmd.Commands()
-	testhelpers.AssertEqual(t, 5, len(subcommands))
 }
 
 func TestListToolsSubcommand(t *testing.T) {
@@ -81,6 +77,22 @@ func TestListGroupsSubcommand(t *testing.T) {
 	testhelpers.AssertNotNil(t, listGroupsCmd.RunE)
 }
 
+func TestListPromptsSubcommand(t *testing.T) {
+	// Test command properties
+	testhelpers.AssertEqual(t, "prompts", listPromptsCmd.Use)
+	testhelpers.AssertEqual(t, "List available prompts", listPromptsCmd.Short)
+	testhelpers.AssertNotNil(t, listPromptsCmd.Long)
+	testhelpers.AssertTrue(t, len(listPromptsCmd.Long) > 0, "Long description should not be empty")
+
+	// Test command functions
+	testhelpers.AssertNotNil(t, listPromptsCmd.RunE)
+
+	// Test command flags
+	serverFlag := listPromptsCmd.Flags().Lookup("server")
+	testhelpers.AssertNotNil(t, serverFlag)
+	testhelpers.AssertTrue(t, len(serverFlag.Usage) > 0, "Server flag should have usage description")
+}
+
 // Integration tests for list commands
 func TestListCommandIntegration(t *testing.T) {
 	// Verify that listCmd is properly initialized
@@ -88,7 +100,7 @@ func TestListCommandIntegration(t *testing.T) {
 
 	// Test all list subcommands are properly configured
 	subcommands := listCmd.Commands()
-	expectedSubcommands := []string{"tools", "servers", "mcp-clients", "users", "groups"}
+	expectedSubcommands := []string{"tools", "prompts", "servers", "mcp-clients", "users", "groups"}
 
 	testhelpers.AssertEqual(t, len(expectedSubcommands), len(subcommands))
 

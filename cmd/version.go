@@ -32,7 +32,7 @@ var versionCmd = &cobra.Command{
 	},
 	Annotations: map[string]string{
 		"group": string(subCommandGroupBasic),
-		"order": "8",
+		"order": "7",
 	},
 }
 

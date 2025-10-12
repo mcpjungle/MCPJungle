@@ -17,7 +17,7 @@ func TestCreateCommandStructure(t *testing.T) {
 	// Test command annotations
 	annotationTests := []testhelpers.CommandAnnotationTest{
 		{Key: "group", Expected: string(subCommandGroupAdvanced)},
-		{Key: "order", Expected: "3"},
+		{Key: "order", Expected: "4"},
 	}
 	testhelpers.TestCommandAnnotations(t, createCmd.Annotations, annotationTests)
 

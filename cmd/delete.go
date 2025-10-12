@@ -11,7 +11,7 @@ var deleteCmd = &cobra.Command{
 	Short: "Delete resources",
 	Annotations: map[string]string{
 		"group": string(subCommandGroupAdvanced),
-		"order": "4",
+		"order": "5",
 	},
 }
 

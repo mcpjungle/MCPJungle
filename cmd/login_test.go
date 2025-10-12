@@ -15,7 +15,7 @@ func TestLoginCommandStructure(t *testing.T) {
 	t.Run("command_annotations", func(t *testing.T) {
 		annotationTests := []testhelpers.CommandAnnotationTest{
 			{Key: "group", Expected: string(subCommandGroupAdvanced)},
-			{Key: "order", Expected: "6"},
+			{Key: "order", Expected: "7"},
 		}
 		testhelpers.TestCommandAnnotations(t, loginCmd.Annotations, annotationTests)
 	})

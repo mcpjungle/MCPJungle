@@ -22,7 +22,7 @@ func TestInitServerCommandStructure(t *testing.T) {
 			expected string
 		}{
 			{"group", string(subCommandGroupAdvanced)},
-			{"order", "5"},
+			{"order", "6"},
 		}
 
 		for _, tt := range annotationTests {

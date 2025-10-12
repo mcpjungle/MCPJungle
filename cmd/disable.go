@@ -33,7 +33,7 @@ var disableCmd = &cobra.Command{
 		"But the recommended way to achieve this now is 'disable tool [name]'.",
 	Annotations: map[string]string{
 		"group": string(subCommandGroupAdvanced),
-		"order": "3",
+		"order": "2",
 	},
 	RunE: runDisable,
 }

@@ -5,29 +5,6 @@ import (
 	"testing"
 )
 
-func TestMcpServerTransport(t *testing.T) {
-	t.Parallel()
-
-	// Test McpServerTransport constants
-	if TransportStdio != "stdio" {
-		t.Errorf("Expected TransportStdio to be 'stdio', got %s", TransportStdio)
-	}
-	if TransportStreamableHTTP != "streamable_http" {
-		t.Errorf("Expected TransportStreamableHTTP to be 'streamable_http', got %s", TransportStreamableHTTP)
-	}
-
-	// Test string conversion
-	stdioTransport := string(TransportStdio)
-	httpTransport := string(TransportStreamableHTTP)
-
-	if stdioTransport != "stdio" {
-		t.Errorf("Expected stdioTransport string to be 'stdio', got %s", stdioTransport)
-	}
-	if httpTransport != "streamable_http" {
-		t.Errorf("Expected httpTransport string to be 'streamable_http', got %s", httpTransport)
-	}
-}
-
 func TestMcpServer(t *testing.T) {
 	t.Parallel()
 

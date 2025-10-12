@@ -24,7 +24,7 @@ func setupTestDBWithPrompts(t *testing.T) *gorm.DB {
 }
 
 func createTestServer(t *testing.T, db *gorm.DB) *model.McpServer {
-	server, err := model.NewStdioServer(
+	srv, err := model.NewStdioServer(
 		"test-server",
 		"Test MCP server",
 		"echo",
@@ -33,9 +33,9 @@ func createTestServer(t *testing.T, db *gorm.DB) *model.McpServer {
 	)
 	require.NoError(t, err)
 
-	err = db.Create(server).Error
+	err = db.Create(srv).Error
 	require.NoError(t, err)
-	return server
+	return srv
 }
 
 func createTestPrompt(t *testing.T, db *gorm.DB, server *model.McpServer, name string) *model.Prompt {
@@ -64,9 +64,9 @@ func TestListPrompts(t *testing.T) {
 	db := setupTestDBWithPrompts(t)
 	service := &MCPService{db: db}
 
-	server := createTestServer(t, db)
-	createTestPrompt(t, db, server, "code-review")
-	createTestPrompt(t, db, server, "security-audit")
+	srv := createTestServer(t, db)
+	createTestPrompt(t, db, srv, "code-review")
+	createTestPrompt(t, db, srv, "security-audit")
 
 	prompts, err := service.ListPrompts()
 	require.NoError(t, err)
@@ -86,8 +86,8 @@ func TestListPromptsByServer(t *testing.T) {
 	db := setupTestDBWithPrompts(t)
 	service := &MCPService{db: db}
 
-	server := createTestServer(t, db)
-	createTestPrompt(t, db, server, "code-review")
+	srv := createTestServer(t, db)
+	createTestPrompt(t, db, srv, "code-review")
 
 	prompts, err := service.ListPromptsByServer("test-server")
 	require.NoError(t, err)
@@ -99,8 +99,8 @@ func TestGetPrompt(t *testing.T) {
 	db := setupTestDBWithPrompts(t)
 	service := &MCPService{db: db}
 
-	server := createTestServer(t, db)
-	originalPrompt := createTestPrompt(t, db, server, "code-review")
+	srv := createTestServer(t, db)
+	originalPrompt := createTestPrompt(t, db, srv, "code-review")
 
 	prompt, err := service.GetPrompt("test-server__code-review")
 	require.NoError(t, err)
@@ -134,8 +134,8 @@ func TestEnableDisablePrompts(t *testing.T) {
 		mcpProxyServer: mcpProxyServer,
 	}
 
-	server := createTestServer(t, db)
-	prompt := createTestPrompt(t, db, server, "code-review")
+	srv := createTestServer(t, db)
+	prompt := createTestPrompt(t, db, srv, "code-review")
 
 	// Test disable
 	disabledPrompts, err := service.DisablePrompts("test-server__code-review")
@@ -177,9 +177,9 @@ func TestEnableDisableServerPrompts(t *testing.T) {
 		mcpProxyServer: mcpProxyServer,
 	}
 
-	server := createTestServer(t, db)
-	createTestPrompt(t, db, server, "code-review")
-	createTestPrompt(t, db, server, "security-audit")
+	srv := createTestServer(t, db)
+	createTestPrompt(t, db, srv, "code-review")
+	createTestPrompt(t, db, srv, "security-audit")
 
 	// Test disable all prompts for server
 	disabledPrompts, err := service.DisablePrompts("test-server")
@@ -188,7 +188,7 @@ func TestEnableDisableServerPrompts(t *testing.T) {
 
 	// Verify all prompts are disabled
 	var prompts []model.Prompt
-	err = db.Where("server_id = ?", server.ID).Find(&prompts).Error
+	err = db.Where("server_id = ?", srv.ID).Find(&prompts).Error
 	require.NoError(t, err)
 	for _, prompt := range prompts {
 		assert.False(t, prompt.Enabled)
@@ -200,7 +200,7 @@ func TestEnableDisableServerPrompts(t *testing.T) {
 	assert.Len(t, enabledPrompts, 2)
 
 	// Verify all prompts are enabled
-	err = db.Where("server_id = ?", server.ID).Find(&prompts).Error
+	err = db.Where("server_id = ?", srv.ID).Find(&prompts).Error
 	require.NoError(t, err)
 	for _, prompt := range prompts {
 		assert.True(t, prompt.Enabled)
