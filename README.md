@@ -34,6 +34,7 @@ MCPJungle is a single source-of-truth registry for all [Model Context Protocol](
     - [Running mcpjungle server inside Docker](#running-inside-docker)
     - [Running mcpjungle server directly on the host machine](#running-directly-on-host)
   - [Client](#client)
+    - [Installing MCP servers from registry](#installing-mcp-servers-from-registry)
     - [Adding Streamable HTTP-based MCP servers](#registering-streamable-http-based-servers)
     - [Adding STDIO-based MCP servers](#registering-stdio-based-servers)
     - [Removing MCP servers](#deregistering-mcp-servers)
@@ -393,6 +394,50 @@ Then, the mcp has access to `/host`, ie, the current working directory on your h
 
 See [DEVELOPMENT.md](./DEVELOPMENT.md#docker-filesystem-access) for more details.
 
+
+### Installing MCP servers from registry
+MCPJungle provides a convenient `install` command that allows you to install pre-configured MCP servers from a curated registry. This eliminates the need to manually configure server details.
+
+```bash
+# Install a server that requires no environment variables
+mcpjungle install time
+mcpjungle install memory
+mcpjungle install filesystem
+
+# Install a server that requires environment variables
+mcpjungle install github --env GITHUB_TOKEN=your_token_here
+mcpjungle install web-search --env TAVILY_API_KEY=your_api_key
+```
+
+**Available servers for installation:**
+- `memory` - Persistent memory for conversations using knowledge graphs
+- `filesystem` - Read and write files on the local filesystem  
+- `time` - Time awareness with timezone support and date operations
+- `github` - GitHub integration for repositories, issues, and pull requests (requires `GITHUB_TOKEN`)
+- `web-search` - Advanced web search using Tavily API (requires `TAVILY_API_KEY`)
+- `notion` - Notion workspace integration (requires `NOTION_API_KEY`)
+- `puppeteer` - Web automation and screenshot capabilities
+- And more...
+
+**Examples:**
+```bash
+# Install time server (no environment variables needed)
+mcpjungle install time
+
+# Install GitHub server with authentication
+mcpjungle install github --env GITHUB_TOKEN=ghp_your_token_here
+
+# Install multiple environment variables
+mcpjungle install server-name --env VAR1=value1 --env VAR2=value2
+```
+
+The `install` command automatically:
+- Downloads and configures the MCP server from the registry
+- Validates required environment variables
+- Registers the server with MCPJungle
+- Makes all server tools immediately available
+
+**Note:** The install command uses a pre-configured registry of tested MCP servers located in `mcp-config/servers.json`. This ensures compatibility and reduces configuration errors compared to manual registration.
 
 ### Deregistering MCP servers
 You can remove a MCP server from mcpjungle.

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/internal/service/install"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
@@ -155,5 +156,61 @@ func (s *Server) listServersHandler() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, servers)
+	}
+}
+
+func (s *Server) installServerHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var options types.InstallOptions
+		if err := c.ShouldBindJSON(&options); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Create install service
+		installService := install.NewInstallService(s.mcpService, nil)
+
+		// Install the server
+		server, err := installService.InstallFromRegistry(c, &options)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		// Convert to response format
+		response := &types.McpServer{
+			Name:        server.Name,
+			Transport:   string(server.Transport),
+			Description: server.Description,
+		}
+
+		// Add transport-specific fields
+		switch server.Transport {
+		case types.TransportStdio:
+			conf, err := server.GetStdioConfig()
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			response.Command = conf.Command
+			response.Args = conf.Args
+			response.Env = conf.Env
+		case types.TransportStreamableHTTP:
+			conf, err := server.GetStreamableHTTPConfig()
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			response.URL = conf.URL
+		case types.TransportSSE:
+			conf, err := server.GetSSEConfig()
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			response.URL = conf.URL
+		}
+
+		c.JSON(http.StatusCreated, response)
 	}
 }

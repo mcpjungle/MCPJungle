@@ -1,0 +1,175 @@
+{
+  "servers": {
+    "memory": {
+      "name": "memory",
+      "package": "@modelcontextprotocol/server-memory",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "description": "Persistent memory for conversations",
+      "category": "utility",
+      "package_manager": "npm",
+      "required_env_vars": [],
+      "optional_env_vars": {}
+    },
+    "filesystem": {
+      "name": "filesystem",
+      "package": "@modelcontextprotocol/server-filesystem",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+      "description": "Read and write files on the local filesystem",
+      "category": "filesystem",
+      "package_manager": "npm",
+      "required_env_vars": [],
+      "optional_env_vars": {}
+    },
+    "sequentialthinking": {
+      "name": "sequentialthinking",
+      "package": "@modelcontextprotocol/server-sequential-thinking",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "description": "MCP server for sequential thinking and problem solving",
+      "category": "utility",
+      "package_manager": "npm",
+      "required_env_vars": [],
+      "optional_env_vars": {}
+    },
+    "everything": {
+      "name": "everything",
+      "package": "@modelcontextprotocol/server-everything",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-everything"],
+      "description": "MCP server that provides access to everything",
+      "category": "utility",
+      "package_manager": "npm",
+      "required_env_vars": [],
+      "optional_env_vars": {}
+    },
+    "github": {
+      "name": "github",
+      "package": "@missionsquad/mcp-github",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@missionsquad/mcp-github"],
+      "description": "GitHub integration for repositories, issues, and pull requests",
+      "category": "development",
+      "package_manager": "npm",
+      "required_env_vars": ["GITHUB_TOKEN"],
+      "optional_env_vars": {}
+    },
+    "github-issues": {
+      "name": "github-issues",
+      "package": "mcp-github-issue",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-github-issue"],
+      "description": "GitHub issues management as tasks",
+      "category": "development",
+      "package_manager": "npm",
+      "required_env_vars": ["GITHUB_TOKEN"],
+      "optional_env_vars": {}
+    },
+    "puppeteer": {
+      "name": "puppeteer",
+      "package": "puppeteer-mcp-server",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "puppeteer-mcp-server"],
+      "description": "Web automation and screenshot capabilities",
+      "category": "automation",
+      "package_manager": "npm",
+      "required_env_vars": [],
+      "optional_env_vars": {}
+    },
+    "gdrive": {
+      "name": "gdrive",
+      "package": "@isaacphi/mcp-gdrive",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@isaacphi/mcp-gdrive"],
+      "description": "Google Drive integration",
+      "category": "storage",
+      "package_manager": "npm",
+      "required_env_vars": ["GOOGLE_APPLICATION_CREDENTIALS"],
+      "optional_env_vars": {}
+    },
+    "web-search": {
+      "name": "web-search",
+      "package": "tavily-mcp",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "tavily-mcp"],
+      "description": "Advanced web search using Tavily API",
+      "category": "search",
+      "package_manager": "npm",
+      "required_env_vars": ["TAVILY_API_KEY"],
+      "optional_env_vars": {}
+    },
+    "postgres": {
+      "name": "postgres",
+      "package": "enhanced-postgres-mcp-server",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "enhanced-postgres-mcp-server"],
+      "description": "Enhanced PostgreSQL database operations with read and write capabilities",
+      "category": "database",
+      "package_manager": "npm",
+      "required_env_vars": ["DATABASE_URL"],
+      "optional_env_vars": {}
+    },
+    "notion": {
+      "name": "notion",
+      "package": "@notionhq/notion-mcp-server",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@notionhq/notion-mcp-server"],
+      "description": "Notion workspace integration",
+      "category": "productivity",
+      "package_manager": "npm",
+      "required_env_vars": ["NOTION_API_KEY"],
+      "optional_env_vars": {}
+    },
+    "fastmcp": {
+      "name": "fastmcp",
+      "package": "fastmcp",
+      "transport": "stdio",
+      "command": "uvx",
+      "args": ["fastmcp", "run", "server.py"],
+      "description": "FastMCP server for rapid MCP development",
+      "category": "development",
+      "package_manager": "uvx",
+      "required_env_vars": [],
+      "optional_env_vars": {}
+    },
+    "azure": {
+      "name": "azure",
+      "package": "@azure/mcp",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@azure/mcp"],
+      "description": "Azure cloud services integration",
+      "category": "cloud",
+      "package_manager": "npm",
+      "required_env_vars": ["AZURE_SUBSCRIPTION_ID", "AZURE_TENANT_ID"],
+      "optional_env_vars": {
+        "AZURE_CLIENT_ID": "Azure client ID for authentication",
+        "AZURE_CLIENT_SECRET": "Azure client secret for authentication"
+      }
+    },
+    "time": {
+      "name": "time",
+      "package": "time-mcp",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "time-mcp"],
+      "description": "Time awareness capabilities with timezone support and date operations",
+      "category": "utility",
+      "package_manager": "npm",
+      "required_env_vars": [],
+      "optional_env_vars": {}
+    }
+  }
+}

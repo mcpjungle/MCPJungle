@@ -14,6 +14,9 @@ RUN apt-get update \
 # Copy the binary built by goreleaser
 COPY mcpjungle /mcpjungle
 
+# Copy the server configuration
+COPY mcp-config /app/mcp-config
+
 EXPOSE 8080
 ENTRYPOINT ["/mcpjungle"]
 
