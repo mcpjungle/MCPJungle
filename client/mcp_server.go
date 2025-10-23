@@ -82,10 +82,12 @@ func (c *Client) DeregisterServer(name string) error {
 	return nil
 }
 
+// EnableServer sends API request to enable a server by name.
 func (c *Client) EnableServer(name string) (*types.EnableDisableServerResult, error) {
 	return c.setServerEnabled(name, true)
 }
 
+// DisableServer sends API request to disable a server by name.
 func (c *Client) DisableServer(name string) (*types.EnableDisableServerResult, error) {
 	return c.setServerEnabled(name, false)
 }

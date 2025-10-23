@@ -12,7 +12,7 @@ func TestCreateCommandStructure(t *testing.T) {
 
 	// Test command properties
 	testhelpers.AssertEqual(t, "create", createCmd.Use)
-	testhelpers.AssertEqual(t, "Create resources", createCmd.Short)
+	testhelpers.AssertEqual(t, "Create entities in mcpjungle", createCmd.Short)
 
 	// Test command annotations
 	annotationTests := []testhelpers.CommandAnnotationTest{

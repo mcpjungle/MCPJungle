@@ -83,6 +83,9 @@ func runDisable(cmd *cobra.Command, args []string) error {
 			"Warning: 'disable [name]' is deprecated. Please use 'disable tool [name]' or 'disable server [name]' instead.",
 		)
 		cmd.Println()
+
+		// only disable tools, because this was the behaviour before prompts were introduced
+		// to disable everything, users should now use `disable server [name]`
 		return runDisableTools(cmd, args)
 	}
 	// Otherwise, just show help message
