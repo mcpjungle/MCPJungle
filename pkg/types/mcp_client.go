@@ -9,3 +9,7 @@ type McpClient struct {
 	// AllowList is a list of MCP Servers that this client is allowed to access from MCPJungle.
 	AllowList []string `json:"allow_list"`
 }
+
+// AllowAllMcpServers is a wildcard operator used to indicate that a mcp client has access to all mcp servers
+// in mcpjungle.
+const AllowAllMcpServers = "*"

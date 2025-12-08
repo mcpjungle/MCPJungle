@@ -26,7 +26,8 @@ var createMcpClientCmd = &cobra.Command{
 	Long: "Create an MCP client that can make authenticated requests to the MCPJungle MCP Proxy.\n" +
 		"This returns an access token which should be sent by your client in the " +
 		"`Authorization: Bearer {token}` http header.\n" +
-		"This also lets you control which MCO servers the client can access.\n" +
+		"Use the --allow option to control which MCP servers the client can access:\n" +
+		"    --allow \"server1, server2, server3\" | --allow \"*\"\n" +
 		"This command is only available in Enterprise mode.",
 	RunE: runCreateMcpClient,
 }
@@ -103,6 +104,11 @@ func runCreateMcpClient(cmd *cobra.Command, args []string) error {
 		if trimmed != "" {
 			allowList = append(allowList, trimmed)
 		}
+		if trimmed == types.AllowAllMcpServers {
+			cmd.Println("NOTE: This client will have access to all MCP Servers because a wildcard is used.")
+			cmd.Println("This practice is highly discouraged!")
+			cmd.Println()
+		}
 	}
 
 	c := &types.McpClient{
@@ -119,16 +125,16 @@ func runCreateMcpClient(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("server returned an empty token, this was unexpected")
 	}
 
-	fmt.Printf("MCP client '%s' created successfully!\n", c.Name)
+	cmd.Printf("MCP client '%s' created successfully!\n", c.Name)
 
 	if len(c.AllowList) > 0 {
-		fmt.Println("Servers accessible: " + strings.Join(c.AllowList, ","))
+		cmd.Println("Servers accessible: " + strings.Join(c.AllowList, ","))
 	} else {
-		fmt.Println("This client does not have access to any MCP servers.")
+		cmd.Println("This client does not have access to any MCP servers.")
 	}
 
-	fmt.Printf("\nAccess token: %s\n", token)
-	fmt.Println("Your client should send this token in the `Authorization: Bearer {token}` HTTP header.")
+	cmd.Printf("\nAccess token: %s\n", token)
+	cmd.Println("Your client should send this token in the `Authorization: Bearer {token}` HTTP header.")
 
 	return nil
 }

@@ -3,6 +3,7 @@ package model
 import (
 	"encoding/json"
 
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -33,7 +34,8 @@ func (c *McpClient) CheckHasServerAccess(serverName string) bool {
 		return false
 	}
 	for _, allowed := range allowedServers {
-		if allowed == serverName {
+		// If the client's allow list contains wildcard, then it is allowed to access all mcp servers
+		if allowed == types.AllowAllMcpServers || allowed == serverName {
 			return true
 		}
 	}
