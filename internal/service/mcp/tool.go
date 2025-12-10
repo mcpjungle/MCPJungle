@@ -131,7 +131,7 @@ func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[strin
 		)
 	}
 
-	mcpClient, err := newMcpServerSession(ctx, serverModel)
+	mcpClient, err := newMcpServerSession(ctx, serverModel, m.mcpServerInitReqTimeoutSec)
 	if err != nil {
 		return nil, err
 	}

@@ -40,7 +40,14 @@ func TestPromptsIntegration(t *testing.T) {
 	mcpMetrics := telemetry.NewNoopCustomMetrics()
 
 	// Create MCP service
-	service, err := mcpService.NewMCPService(db, mcpProxyServer, sseMcpProxyServer, mcpMetrics)
+	conf := &mcpService.ServiceConfig{
+		Db:                      db,
+		McpProxyServer:          mcpProxyServer,
+		SseMcpProxyServer:       sseMcpProxyServer,
+		Metrics:                 mcpMetrics,
+		McpServerInitReqTimeout: 10,
+	}
+	service, err := mcpService.NewMCPService(conf)
 	require.NoError(t, err)
 
 	// Create test server in database

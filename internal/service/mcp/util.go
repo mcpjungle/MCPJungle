@@ -22,9 +22,6 @@ import (
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
-// serverInitRequestTimeout is the timeout (in seconds) for the initialization request to the MCP server
-const serverInitRequestTimeout = 10
-
 const (
 	// serverToolNameSep is the separator used to combine server name and tool name.
 	// This combination produces the canonical name that uniquely identifies a tool across MCPJungle.
@@ -145,7 +142,7 @@ func convertPromptModelToMcpObject(p *model.Prompt) (mcp.Prompt, error) {
 }
 
 // createHTTPMcpServerConn creates a new connection with a streamable http MCP server and returns the client.
-func createHTTPMcpServerConn(ctx context.Context, s *model.McpServer) (*client.Client, error) {
+func createHTTPMcpServerConn(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*client.Client, error) {
 	conf, err := s.GetStreamableHTTPConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get streamable HTTP config for MCP server %s: %w", s.Name, err)
@@ -173,13 +170,13 @@ func createHTTPMcpServerConn(ctx context.Context, s *model.McpServer) (*client.C
 	}
 	initRequest.Params.Capabilities = mcp.ClientCapabilities{}
 
-	initCtx, cancel := context.WithTimeout(ctx, serverInitRequestTimeout*time.Second)
+	initCtx, cancel := context.WithTimeout(ctx, time.Duration(initReqTimeoutSec)*time.Second)
 	defer cancel()
 
 	_, err = c.Initialize(initCtx, initRequest)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, fmt.Errorf("initialization request to MCP server timed out after %d seconds", serverInitRequestTimeout)
+			return nil, fmt.Errorf("initialization request to MCP server timed out after %d seconds", initReqTimeoutSec)
 		}
 		if errors.Is(err, syscall.ECONNREFUSED) && isLoopbackURL(conf.URL) {
 			return nil, fmt.Errorf(
@@ -221,7 +218,7 @@ func captureStdioServerStderr(name string, c *client.Client) {
 }
 
 // runStdioServer runs a stdio MCP server and returns the client.
-func runStdioServer(ctx context.Context, s *model.McpServer) (*client.Client, error) {
+func runStdioServer(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*client.Client, error) {
 	conf, err := s.GetStdioConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stdio config for MCP server %s: %w", s.Name, err)
@@ -252,7 +249,7 @@ func runStdioServer(ctx context.Context, s *model.McpServer) (*client.Client, er
 	}
 	initRequest.Params.Capabilities = mcp.ClientCapabilities{}
 
-	initCtx, cancel := context.WithTimeout(ctx, serverInitRequestTimeout*time.Second)
+	initCtx, cancel := context.WithTimeout(ctx, time.Duration(initReqTimeoutSec)*time.Second)
 	defer cancel()
 
 	_, err = c.Initialize(initCtx, initRequest)
@@ -261,7 +258,7 @@ func runStdioServer(ctx context.Context, s *model.McpServer) (*client.Client, er
 			return nil, fmt.Errorf(
 				"initialization request to MCP server timed out after %d seconds,"+
 					" check mcpungle server logs for any errors from this MCP server",
-				serverInitRequestTimeout,
+				initReqTimeoutSec,
 			)
 		}
 		return nil, fmt.Errorf("failed to initialize connection with MCP server: %w", err)
@@ -310,9 +307,9 @@ func createSSEMcpServerConn(ctx context.Context, s *model.McpServer) (*client.Cl
 	return c, nil
 }
 
-func newMcpServerSession(ctx context.Context, s *model.McpServer) (*client.Client, error) {
+func newMcpServerSession(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*client.Client, error) {
 	if s.Transport == types.TransportStreamableHTTP {
-		mcpClient, err := createHTTPMcpServerConn(ctx, s)
+		mcpClient, err := createHTTPMcpServerConn(ctx, s, initReqTimeoutSec)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"failed to create connection to streamable http MCP server %s: %w", s.Name, err,
@@ -335,7 +332,7 @@ func newMcpServerSession(ctx context.Context, s *model.McpServer) (*client.Clien
 	// This is especially a problem for the MCP proxy server, which is expected to call tools frequently.
 	// This causes a serious performance hit, but is easy to implement so it is used for now.
 	// TODO: Think of a better solution, ie, re-use connections to stdio MCP servers.
-	mcpClient, err := runStdioServer(ctx, s)
+	mcpClient, err := runStdioServer(ctx, s, initReqTimeoutSec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to run stdio MCP server %s: %w", s.Name, err)
 	}

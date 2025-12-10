@@ -17,7 +17,7 @@ func (m *MCPService) RegisterMcpServer(ctx context.Context, s *model.McpServer) 
 		return err
 	}
 
-	mcpClient, err := newMcpServerSession(ctx, s)
+	mcpClient, err := newMcpServerSession(ctx, s, m.mcpServerInitReqTimeoutSec)
 	if err != nil {
 		return err
 	}

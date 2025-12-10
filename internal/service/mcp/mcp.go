@@ -11,6 +11,18 @@ import (
 	"gorm.io/gorm"
 )
 
+// ServiceConfig holds the configuration parameters for initializing the MCPService.
+type ServiceConfig struct {
+	Db *gorm.DB
+
+	McpProxyServer    *server.MCPServer
+	SseMcpProxyServer *server.MCPServer
+
+	Metrics telemetry.CustomMetrics
+
+	McpServerInitReqTimeout int
+}
+
 // MCPService coordinates operations amongst the registry database, mcp proxy server and upstream MCP servers.
 // It is responsible for maintaining data consistency and providing a unified interface for MCP operations.
 type MCPService struct {
@@ -31,21 +43,18 @@ type MCPService struct {
 	toolAdditionCallback ToolAdditionCallback
 
 	metrics telemetry.CustomMetrics
+
+	mcpServerInitReqTimeoutSec int
 }
 
 // NewMCPService creates a new instance of MCPService.
 // It initializes the MCP proxy server by loading all registered tools from the database.
-func NewMCPService(
-	db *gorm.DB,
-	mcpProxyServer *server.MCPServer,
-	sseMcpProxyServer *server.MCPServer,
-	metrics telemetry.CustomMetrics,
-) (*MCPService, error) {
+func NewMCPService(c *ServiceConfig) (*MCPService, error) {
 	s := &MCPService{
-		db: db,
+		db: c.Db,
 
-		mcpProxyServer:    mcpProxyServer,
-		sseMcpProxyServer: sseMcpProxyServer,
+		mcpProxyServer:    c.McpProxyServer,
+		sseMcpProxyServer: c.SseMcpProxyServer,
 
 		toolInstances: make(map[string]mcp.Tool),
 		mu:            sync.RWMutex{},
@@ -54,7 +63,9 @@ func NewMCPService(
 		toolDeletionCallback: func(toolNames ...string) {},
 		toolAdditionCallback: func(toolName string) error { return nil },
 
-		metrics: metrics,
+		metrics: c.Metrics,
+
+		mcpServerInitReqTimeoutSec: c.McpServerInitReqTimeout,
 	}
 	if err := s.initMCPProxyServer(); err != nil {
 		return nil, fmt.Errorf("failed to initialize MCP proxy server: %w", err)

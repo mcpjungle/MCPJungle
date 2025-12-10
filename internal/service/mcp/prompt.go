@@ -90,7 +90,7 @@ func (m *MCPService) GetPromptWithArgs(ctx context.Context, name string, args ma
 		)
 	}
 
-	mcpClient, err := newMcpServerSession(ctx, serverModel)
+	mcpClient, err := newMcpServerSession(ctx, serverModel, m.mcpServerInitReqTimeoutSec)
 	if err != nil {
 		return nil, err
 	}

@@ -53,7 +53,7 @@ func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request mcp.Ca
 		)
 	}
 
-	mcpClient, err := newMcpServerSession(ctx, server)
+	mcpClient, err := newMcpServerSession(ctx, server, m.mcpServerInitReqTimeoutSec)
 	if err != nil {
 		outcome = telemetry.ToolCallOutcomeError
 		return nil, err
@@ -114,7 +114,7 @@ func (m *MCPService) mcpProxyPromptHandler(ctx context.Context, request mcp.GetP
 		)
 	}
 
-	mcpClient, err := newMcpServerSession(ctx, server)
+	mcpClient, err := newMcpServerSession(ctx, server, m.mcpServerInitReqTimeoutSec)
 	if err != nil {
 		outcome = telemetry.PromptCallOutcomeError
 		return nil, err

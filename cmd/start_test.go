@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
 func TestStartCommandStructure(t *testing.T) {
@@ -243,5 +245,74 @@ func TestGetPostgresDSN(t *testing.T) {
 				t.Errorf("expected dsn %q, got %q", want, dsn)
 			}
 		})
+	})
+}
+
+func TestGetMcpServerInitReqTimeout(t *testing.T) {
+	t.Run("returns default when unset or empty", func(t *testing.T) {
+		withEnv(map[string]string{
+			McpServerInitReqTimeoutSecEnvVar: "",
+		}, func() {
+			v, err := getMcpServerInitReqTimeout()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if v != types.McpServerInitRequestTimeoutSecondsDefault {
+				t.Fatalf("expected default %d, got %d", types.McpServerInitRequestTimeoutSecondsDefault, v)
+			}
+		})
+	})
+
+	t.Run("parses valid integer value", func(t *testing.T) {
+		withEnv(map[string]string{
+			McpServerInitReqTimeoutSecEnvVar: "5",
+		}, func() {
+			v, err := getMcpServerInitReqTimeout()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if v != 5 {
+				t.Fatalf("expected 5, got %d", v)
+			}
+		})
+	})
+
+	t.Run("trims whitespace before parsing", func(t *testing.T) {
+		withEnv(map[string]string{
+			McpServerInitReqTimeoutSecEnvVar: "  10 \n",
+		}, func() {
+			v, err := getMcpServerInitReqTimeout()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if v != 10 {
+				t.Fatalf("expected 10, got %d", v)
+			}
+		})
+	})
+
+	t.Run("returns error for non-integer", func(t *testing.T) {
+		withEnv(map[string]string{
+			McpServerInitReqTimeoutSecEnvVar: "abc",
+		}, func() {
+			_, err := getMcpServerInitReqTimeout()
+			if err == nil {
+				t.Fatal("expected error for non-integer value, got nil")
+			}
+		})
+	})
+
+	t.Run("returns error for values less than 1", func(t *testing.T) {
+		cases := []string{"0", "-1"}
+		for _, c := range cases {
+			withEnv(map[string]string{
+				McpServerInitReqTimeoutSecEnvVar: c,
+			}, func() {
+				_, err := getMcpServerInitReqTimeout()
+				if err == nil {
+					t.Fatalf("expected error for value %q, got nil", c)
+				}
+			})
+		}
 	})
 }
