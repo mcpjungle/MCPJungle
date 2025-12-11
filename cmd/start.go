@@ -20,7 +20,6 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
-	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/spf13/cobra"
 )
 
@@ -41,7 +40,15 @@ const (
 	PostgresDBEnvVar       = "POSTGRES_DB"
 )
 
-const McpServerInitReqTimeoutSecEnvVar = "MCP_SERVER_INIT_REQ_TIMEOUT_SEC"
+const (
+	// McpServerInitReqTimeoutSecEnvVar is the environment variable for configuring
+	// the MCP server initialization request timeout.
+	McpServerInitReqTimeoutSecEnvVar = "MCP_SERVER_INIT_REQ_TIMEOUT_SEC"
+
+	// McpServerInitRequestTimeoutSecondsDefault is the default timeout in seconds for MCP server
+	// initialization requests.
+	McpServerInitRequestTimeoutSecondsDefault = 10
+)
 
 var (
 	startServerCmdBindPort          string
@@ -251,7 +258,7 @@ func getPostgresDSN() (string, bool, error) {
 func getMcpServerInitReqTimeout() (int, error) {
 	timeoutStr := strings.TrimSpace(os.Getenv(McpServerInitReqTimeoutSecEnvVar))
 	if timeoutStr == "" {
-		return types.McpServerInitRequestTimeoutSecondsDefault, nil
+		return McpServerInitRequestTimeoutSecondsDefault, nil
 	}
 	timeout, err := strconv.Atoi(timeoutStr)
 	if err != nil || timeout < 1 {

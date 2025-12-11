@@ -12,9 +12,6 @@ const (
 	TransportSSE            McpServerTransport = "sse"
 )
 
-// McpServerInitRequestTimeoutSecondsDefault is the default timeout in seconds for MCP server initialization requests.
-const McpServerInitRequestTimeoutSecondsDefault = 10
-
 // McpServer represents an MCP server registered in the MCPJungle registry.
 type McpServer struct {
 	Name        string `json:"name"`

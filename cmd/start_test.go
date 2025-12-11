@@ -4,8 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
 func TestStartCommandStructure(t *testing.T) {
@@ -257,8 +255,8 @@ func TestGetMcpServerInitReqTimeout(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if v != types.McpServerInitRequestTimeoutSecondsDefault {
-				t.Fatalf("expected default %d, got %d", types.McpServerInitRequestTimeoutSecondsDefault, v)
+			if v != McpServerInitRequestTimeoutSecondsDefault {
+				t.Fatalf("expected default %d, got %d", McpServerInitRequestTimeoutSecondsDefault, v)
 			}
 		})
 	})
