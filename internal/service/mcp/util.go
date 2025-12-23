@@ -117,7 +117,17 @@ func convertToolModelToMcpObject(t *model.Tool) (mcp.Tool, error) {
 	}
 	mcpTool.InputSchema = inputSchema
 
-	// TODO: Add other attributes to the tool, such as annotations
+	// Restore annotations if present
+	if len(t.Annotations) > 0 {
+		var annotations mcp.ToolAnnotation
+		if err := json.Unmarshal(t.Annotations, &annotations); err != nil {
+			// Log the error but don't fail - annotations are optional
+			log.Printf("[WARN] failed to unmarshal annotations for tool %s: %v", t.Name, err)
+		} else {
+			mcpTool.Annotations = annotations
+		}
+	}
+
 	// NOTE: if more fields are added to the tool in DB, they should be set here as well
 
 	return mcpTool, nil
