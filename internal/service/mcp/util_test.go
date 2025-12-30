@@ -164,7 +164,7 @@ func TestConvertToolModelToMcpObject_AnnotationsSuccess(t *testing.T) {
 	in := &model.Tool{
 		Name:        "annToolOk",
 		Description: "tool with annotations",
-		InputSchema: []byte("{}"),            // valid schema
+		InputSchema: []byte("{}"),                 // valid schema
 		Annotations: []byte(`{"title":"foobar"}`), // valid annotations JSON
 	}
 
