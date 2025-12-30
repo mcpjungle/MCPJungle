@@ -1,8 +1,14 @@
 package mcp
 
 import (
+	"encoding/json"
 	"fmt"
+	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mcpjungle/mcpjungle/internal/model"
 )
 
 func TestValidateServerName(t *testing.T) {
@@ -128,4 +134,89 @@ func TestIsLoopbackURL(t *testing.T) {
 	}
 }
 
-// todo: add tests for convertToolModelToMcpObject()
+func TestConvertToolModelToMcpObject_Success(t *testing.T) {
+	in := &model.Tool{
+		Name:        "mytool",
+		Description: "a tool",
+		InputSchema: []byte("{}"), // valid empty JSON object
+		Annotations: nil,
+	}
+
+	got, err := convertToolModelToMcpObject(in)
+	if err != nil {
+		t.Fatalf("convertToolModelToMcpObject() error = %v, want nil", err)
+	}
+
+	if got.Name != in.Name {
+		t.Errorf("Name = %q, want %q", got.Name, in.Name)
+	}
+	if got.Description != in.Description {
+		t.Errorf("Description = %q, want %q", got.Description, in.Description)
+	}
+
+	// Expect an unmarshalled (zero) ToolInputSchema when provided "{}"
+	if !reflect.DeepEqual(got.InputSchema, mcp.ToolInputSchema{}) {
+		t.Errorf("InputSchema = %+v, want zero value %+v", got.InputSchema, mcp.ToolInputSchema{})
+	}
+}
+
+func TestConvertToolModelToMcpObject_AnnotationsSuccess(t *testing.T) {
+	in := &model.Tool{
+		Name:        "annToolOk",
+		Description: "tool with annotations",
+		InputSchema: []byte("{}"),            // valid schema
+		Annotations: []byte(`{"title":"foobar"}`), // valid annotations JSON
+	}
+
+	got, err := convertToolModelToMcpObject(in)
+	if err != nil {
+		t.Fatalf("convertToolModelToMcpObject() error = %v, want nil", err)
+	}
+
+	// Expect annotations to be set (not the zero value)
+	if reflect.DeepEqual(got.Annotations, mcp.ToolAnnotation{}) {
+		t.Fatalf("Annotations = %+v, want non-zero value when annotations are valid", got.Annotations)
+	}
+
+	// Ensure the annotations contain the expected key/value when marshalled back to JSON
+	b, err := json.Marshal(got.Annotations)
+	if err != nil {
+		t.Fatalf("failed to marshal got.Annotations: %v", err)
+	}
+	s := string(b)
+	if !strings.Contains(s, `"title"`) || !strings.Contains(s, `"foobar"`) {
+		t.Errorf("Annotations JSON = %s, want it to contain %q:%q", s, "title", "foobar")
+	}
+}
+
+func TestConvertToolModelToMcpObject_InvalidInputSchema(t *testing.T) {
+	in := &model.Tool{
+		Name:        "badtool",
+		Description: "bad schema",
+		InputSchema: []byte("not valid json"),
+	}
+
+	_, err := convertToolModelToMcpObject(in)
+	if err == nil {
+		t.Fatalf("convertToolModelToMcpObject() error = nil, want non-nil for invalid input schema")
+	}
+}
+
+func TestConvertToolModelToMcpObject_InvalidAnnotationsLoggedButNoError(t *testing.T) {
+	in := &model.Tool{
+		Name:        "annTool",
+		Description: "tool with bad annotations",
+		InputSchema: []byte("{}"),            // valid schema
+		Annotations: []byte("{ not: json }"), // invalid annotations JSON
+	}
+
+	got, err := convertToolModelToMcpObject(in)
+	if err != nil {
+		t.Fatalf("convertToolModelToMcpObject() error = %v, want nil (annotation errors are logged)", err)
+	}
+
+	// When annotations fail to unmarshal, function should not set them and should not error.
+	if !reflect.DeepEqual(got.Annotations, mcp.ToolAnnotation{}) {
+		t.Errorf("Annotations = %+v, want zero value %+v when annotations are invalid", got.Annotations, mcp.ToolAnnotation{})
+	}
+}
