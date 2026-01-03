@@ -253,6 +253,10 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		adminAPI.POST("/servers/:name/enable", s.enableServerHandler())
 		adminAPI.POST("/servers/:name/disable", s.disableServerHandler())
 
+		// this endpoint is restricted to admins only because it can potentially expose sensitive information
+		// like bearer tokens.
+		adminAPI.GET("/server_configs", s.getServerConfigsHandler())
+
 		adminAPI.POST("/tools/enable", s.enableToolsHandler())
 		adminAPI.POST("/tools/disable", s.disableToolsHandler())
 

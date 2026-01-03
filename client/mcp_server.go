@@ -65,6 +65,33 @@ func (c *Client) ListServers() ([]*types.McpServer, error) {
 	return servers, nil
 }
 
+// GetServerConfigs returns the configurations of all registered MCP servers.
+// This is different from ListServers() because it returns the complete configuration used to register the servers.
+// This config can be used to register the servers again elsewhere.
+func (c *Client) GetServerConfigs() ([]*types.RegisterServerInput, error) {
+	u, _ := c.constructAPIEndpoint("/server_configs")
+	req, err := c.newRequest(http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request to %s: %w", u, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, c.parseErrorResponse(resp)
+	}
+
+	var serverConfigs []*types.RegisterServerInput
+	if err := json.NewDecoder(resp.Body).Decode(&serverConfigs); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return serverConfigs, nil
+}
+
 // DeregisterServer deletes a server by name.
 func (c *Client) DeregisterServer(name string) error {
 	u, _ := c.constructAPIEndpoint("/servers/" + name)

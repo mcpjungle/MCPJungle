@@ -47,6 +47,36 @@ func (s *Server) listToolGroupsHandler() gin.HandlerFunc {
 				Name:        g.Name,
 				Description: g.Description,
 			}
+
+			gTools, err := g.GetTools()
+			if err != nil {
+				c.JSON(
+					http.StatusInternalServerError,
+					gin.H{"error": fmt.Sprintf("error getting included tools of group %s: %s", g.Name, err.Error())},
+				)
+				return
+			}
+			resp[i].IncludedTools = gTools
+
+			gServers, err := g.GetServers()
+			if err != nil {
+				c.JSON(
+					http.StatusInternalServerError,
+					gin.H{"error": fmt.Sprintf("error getting included servers of group %s: %s", g.Name, err.Error())},
+				)
+				return
+			}
+			resp[i].IncludedServers = gServers
+
+			gExcluded, err := g.GetExcludedTools()
+			if err != nil {
+				c.JSON(
+					http.StatusInternalServerError,
+					gin.H{"error": fmt.Sprintf("error getting excluded tools of group %s: %s", g.Name, err.Error())},
+				)
+				return
+			}
+			resp[i].ExcludedTools = gExcluded
 		}
 
 		c.JSON(http.StatusOK, resp)

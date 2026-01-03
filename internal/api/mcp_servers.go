@@ -195,3 +195,73 @@ func (s *Server) disableServerHandler() gin.HandlerFunc {
 		c.JSON(http.StatusOK, result)
 	}
 }
+
+// getServerConfigsHandler returns the configurations of all registered MCP servers.
+// This is different from listServersHandler because it returns the complete configuration of each server
+// used to register them, including potentially sensitive information.
+// The configs can be used to register the servers again elsewhere.
+func (s *Server) getServerConfigsHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		records, err := s.mcpService.ListMcpServers()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		servers := make([]*types.RegisterServerInput, len(records))
+
+		for i, record := range records {
+			servers[i] = &types.RegisterServerInput{
+				Name:        record.Name,
+				Transport:   string(record.Transport),
+				Description: record.Description,
+			}
+
+			switch record.Transport {
+			case types.TransportStreamableHTTP:
+				conf, err := record.GetStreamableHTTPConfig()
+				if err != nil {
+					c.JSON(
+						http.StatusInternalServerError,
+						gin.H{
+							"error": fmt.Sprintf("Error getting streamable HTTP config for server %s: %v", record.Name, err),
+						},
+					)
+					return
+				}
+				servers[i].URL = conf.URL
+				servers[i].BearerToken = conf.BearerToken
+			case types.TransportStdio:
+				conf, err := record.GetStdioConfig()
+				if err != nil {
+					c.JSON(
+						http.StatusInternalServerError,
+						gin.H{
+							"error": fmt.Sprintf("Error getting stdio config for server %s: %v", record.Name, err),
+						},
+					)
+					return
+				}
+				servers[i].Command = conf.Command
+				servers[i].Args = conf.Args
+				servers[i].Env = conf.Env
+			default:
+				// transport is SSE
+				conf, err := record.GetSSEConfig()
+				if err != nil {
+					c.JSON(
+						http.StatusInternalServerError,
+						gin.H{
+							"error": fmt.Sprintf("Error getting SSE config for server %s: %v", record.Name, err),
+						},
+					)
+					return
+				}
+				servers[i].URL = conf.URL
+				servers[i].BearerToken = conf.BearerToken
+			}
+		}
+
+		c.JSON(http.StatusOK, servers)
+	}
+}

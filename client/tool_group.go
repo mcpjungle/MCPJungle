@@ -145,3 +145,9 @@ func (c *Client) UpdateToolGroup(group *types.ToolGroup) (*types.UpdateToolGroup
 	}
 	return &updateResp, nil
 }
+
+// GetToolGroupConfigs returns all Tool Group configurations.
+// It is just a user-friendly wrapper around ListToolGroups().
+func (c *Client) GetToolGroupConfigs() ([]types.ToolGroup, error) {
+	return c.ListToolGroups()
+}

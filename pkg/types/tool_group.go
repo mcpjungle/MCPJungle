@@ -3,6 +3,7 @@ package types
 // ToolGroup represents a group (collection) of MCP Tools.
 // A group can contain a subset of all available tools in the MCPJungle system.
 // This allows you to expose a limited set of tools to certain mcp clients.
+// This struct is also the basis for the JSON configuration file used to register a new tool group.
 type ToolGroup struct {
 	// Name is the unique name of the tool group (mandatory).
 	Name string `json:"name"`
