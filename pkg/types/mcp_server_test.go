@@ -70,6 +70,14 @@ func TestValidateTransport(t *testing.T) {
 		t.Errorf("Expected transport to be TransportStreamableHTTP, got %s", transport)
 	}
 
+	transport, err = ValidateTransport("sse")
+	if err != nil {
+		t.Errorf("Expected no error for 'sse', got %v", err)
+	}
+	if transport != TransportSSE {
+		t.Errorf("Expected transport to be TransportSSE, got %s", transport)
+	}
+
 	// Test empty string
 	transport, err = ValidateTransport("")
 	if err == nil {

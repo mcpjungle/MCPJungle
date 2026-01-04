@@ -289,3 +289,121 @@ func TestDeregisterServer(t *testing.T) {
 		}
 	})
 }
+
+func TestGetServerConfigs(t *testing.T) {
+	t.Parallel()
+
+	t.Run("successful retrieval", func(t *testing.T) {
+		expectedConfigs := []*types.RegisterServerInput{
+			{
+				Name:      "server1",
+				Transport: "stdio",
+				Command:   "/usr/bin/server1",
+			},
+			{
+				Name:      "server2",
+				Transport: "streamable_http",
+				URL:       "http://localhost:8080",
+			},
+		}
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Verify request method and path
+			if r.Method != http.MethodGet {
+				t.Errorf("Expected GET method, got %s", r.Method)
+			}
+			if !strings.HasSuffix(r.URL.Path, "/server_configs") {
+				t.Errorf("Expected path to end with /server_configs, got %s", r.URL.Path)
+			}
+
+			// Verify authorization header
+			authHeader := r.Header.Get("Authorization")
+			if authHeader != "Bearer test-token" {
+				t.Errorf("Expected Authorization header 'Bearer test-token', got %s", authHeader)
+			}
+
+			// Return success response
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(expectedConfigs)
+		}))
+		defer server.Close()
+
+		client := NewClient(server.URL, "test-token", &http.Client{})
+		configs, err := client.GetServerConfigs()
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+
+		if len(configs) != len(expectedConfigs) {
+			t.Errorf("Expected %d configs, got %d", len(expectedConfigs), len(configs))
+		}
+
+		for i, config := range configs {
+			if config.Name != expectedConfigs[i].Name {
+				t.Errorf("Expected config[%d].Name %s, got %s", i, expectedConfigs[i].Name, config.Name)
+			}
+			if config.Transport != expectedConfigs[i].Transport {
+				t.Errorf("Expected config[%d].Transport %s, got %s", i, expectedConfigs[i].Transport, config.Transport)
+			}
+		}
+	})
+
+	t.Run("empty list", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("[]"))
+		}))
+		defer server.Close()
+
+		client := NewClient(server.URL, "test-token", &http.Client{})
+		configs, err := client.GetServerConfigs()
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+
+		if len(configs) != 0 {
+			t.Errorf("Expected empty list, got %d configs", len(configs))
+		}
+	})
+
+	t.Run("server error response", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte("Internal server error"))
+		}))
+		defer server.Close()
+
+		client := NewClient(server.URL, "test-token", &http.Client{})
+		configs, err := client.GetServerConfigs()
+
+		if err == nil {
+			t.Error("Expected error, got nil")
+		}
+		if configs != nil {
+			t.Error("Expected nil configs on error")
+		}
+
+		expectedError := "request failed with status: 500, message: Internal server error"
+		if !strings.Contains(err.Error(), expectedError) {
+			t.Errorf("Expected error to contain %s, got %s", expectedError, err.Error())
+		}
+	})
+
+	t.Run("network error", func(t *testing.T) {
+		client := NewClient("http://invalid-url", "test-token", &http.Client{})
+		configs, err := client.GetServerConfigs()
+
+		if err == nil {
+			t.Error("Expected error, got nil")
+		}
+		if configs != nil {
+			t.Error("Expected nil configs on error")
+		}
+
+		if !strings.Contains(err.Error(), "failed to send request") {
+			t.Errorf("Expected error to contain 'failed to send request', got %s", err.Error())
+		}
+	})
+}

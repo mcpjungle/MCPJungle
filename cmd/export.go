@@ -20,8 +20,8 @@ const (
 var exportCmd = &cobra.Command{
 	Use:   "export",
 	Short: "Export configuration files of all entities",
-	Long: "This command creates configuration files for all entities registered in mcpjungle.\n" +
-		"This is useful when you want to track all the entities such as mcp servers and groups registered in mcpjungle as code.\n" +
+	Long: "This command creates configuration files for all entities (mcp servers, groups) that exist in mcpjungle.\n" +
+		"This is useful when you want to track all the entities registered in mcpjungle as code.\n" +
 		fmt.Sprintf("By default, the configurations are exported to a directory named %s in the current working directory.\n\n", defaultExportTargetDir) +
 		"NOTE: In enterprise mode, you must be an admin to export all configurations successfully.",
 	Annotations: map[string]string{
