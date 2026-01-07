@@ -90,11 +90,11 @@ func (m *MCPService) GetPromptWithArgs(ctx context.Context, name string, args ma
 		)
 	}
 
-	mcpClient, err := newMcpServerSession(ctx, serverModel, m.mcpServerInitReqTimeoutSec)
+	session, err := m.GetSession(ctx, serverModel)
 	if err != nil {
 		return nil, err
 	}
-	defer mcpClient.Close()
+	defer session.CloseIfNeeded()
 
 	getPromptReq := mcp.GetPromptRequest{}
 	getPromptReq.Params.Name = promptName
@@ -113,8 +113,9 @@ func (m *MCPService) GetPromptWithArgs(ctx context.Context, name string, args ma
 	}
 	getPromptReq.Params.Arguments = stringArgs
 
-	getPromptResp, err := mcpClient.GetPrompt(ctx, getPromptReq)
+	getPromptResp, err := session.Client.GetPrompt(ctx, getPromptReq)
 	if err != nil {
+		session.InvalidateOnError(err) // Invalidate unhealthy stateful sessions
 		return nil, fmt.Errorf("failed to get prompt %s from MCP server %s: %w", promptName, serverName, err)
 	}
 

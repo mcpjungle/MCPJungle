@@ -131,18 +131,19 @@ func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[strin
 		)
 	}
 
-	mcpClient, err := newMcpServerSession(ctx, serverModel, m.mcpServerInitReqTimeoutSec)
+	session, err := m.GetSession(ctx, serverModel)
 	if err != nil {
 		return nil, err
 	}
-	defer mcpClient.Close()
+	defer session.CloseIfNeeded()
 
 	callToolReq := mcp.CallToolRequest{}
 	callToolReq.Params.Name = toolName
 	callToolReq.Params.Arguments = args
 
-	callToolResp, err := mcpClient.CallTool(ctx, callToolReq)
+	callToolResp, err := session.Client.CallTool(ctx, callToolReq)
 	if err != nil {
+		session.InvalidateOnError(err) // Invalidate unhealthy stateful sessions
 		return nil, fmt.Errorf("failed to call tool %s on MCP server %s: %w", toolName, serverName, err)
 	}
 
