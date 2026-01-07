@@ -12,6 +12,22 @@ const (
 	TransportSSE            McpServerTransport = "sse"
 )
 
+// SessionMode represents the session management mode for an MCP server.
+// Stateless mode creates a new connection for each tool call (default).
+// Stateful mode maintains a persistent connection across tool calls.
+type SessionMode string
+
+const (
+	// SessionModeStateless creates a new connection for each tool call.
+	// This is the default and safest mode.
+	SessionModeStateless SessionMode = "stateless"
+
+	// SessionModeStateful maintains a persistent connection across tool calls.
+	// Useful for MCP servers that require session persistence (e.g., after login)
+	// or for servers with slow cold start times.
+	SessionModeStateful SessionMode = "stateful"
+)
+
 // McpServer represents an MCP server registered in the MCPJungle registry.
 type McpServer struct {
 	Name        string `json:"name"`
@@ -23,6 +39,8 @@ type McpServer struct {
 	Command string            `json:"command"`
 	Args    []string          `json:"args"`
 	Env     map[string]string `json:"env"`
+
+	SessionMode string `json:"session_mode"`
 }
 
 // RegisterServerInput is the input structure for registering a new MCP server with mcpjungle.
@@ -57,6 +75,9 @@ type RegisterServerInput struct {
 	// Env is the set of environment variables to pass to the mcp server when the transport is "stdio".
 	// Both the key and value must be of type string.
 	Env map[string]string `json:"env,omitempty"`
+
+	// SessionMode controls how mcpjungle manages connections to this MCP server.
+	SessionMode string `json:"session_mode,omitempty"`
 }
 
 // ServerMetadata represents the server metadata response
@@ -92,5 +113,21 @@ func ValidateTransport(input string) (McpServerTransport, error) {
 		return "", fmt.Errorf("transport is required %s", errMsgExt)
 	default:
 		return "", fmt.Errorf("unsupported transport type: %s %s", input, errMsgExt)
+	}
+}
+
+// ValidateSessionMode validates the input string and returns the corresponding SessionMode.
+// If the input is empty, it returns the default SessionModeStateless.
+func ValidateSessionMode(input string) (SessionMode, error) {
+	switch input {
+	case string(SessionModeStateful):
+		return SessionModeStateful, nil
+	case string(SessionModeStateless), "":
+		return SessionModeStateless, nil
+	default:
+		return "", fmt.Errorf(
+			"unsupported session mode: %s (acceptable values: '%s', '%s')",
+			input, SessionModeStateless, SessionModeStateful,
+		)
 	}
 }
