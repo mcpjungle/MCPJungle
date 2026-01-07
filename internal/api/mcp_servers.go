@@ -23,6 +23,12 @@ func (s *Server) registerServerHandler() gin.HandlerFunc {
 			return
 		}
 
+		sessionMode, err := types.ValidateSessionMode(input.SessionMode)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
 		var server *model.McpServer
 
 		switch transport {
@@ -32,6 +38,7 @@ func (s *Server) registerServerHandler() gin.HandlerFunc {
 				input.Description,
 				input.URL,
 				input.BearerToken,
+				sessionMode,
 			)
 			if err != nil {
 				c.JSON(
@@ -47,6 +54,7 @@ func (s *Server) registerServerHandler() gin.HandlerFunc {
 				input.Command,
 				input.Args,
 				input.Env,
+				sessionMode,
 			)
 			if err != nil {
 				c.JSON(
@@ -62,6 +70,7 @@ func (s *Server) registerServerHandler() gin.HandlerFunc {
 				input.Description,
 				input.URL,
 				input.BearerToken,
+				sessionMode,
 			)
 			if err != nil {
 				c.JSON(
@@ -109,6 +118,7 @@ func (s *Server) listServersHandler() gin.HandlerFunc {
 				Name:        record.Name,
 				Transport:   string(record.Transport),
 				Description: record.Description,
+				SessionMode: string(record.SessionMode),
 			}
 
 			switch record.Transport {
@@ -215,6 +225,7 @@ func (s *Server) getServerConfigsHandler() gin.HandlerFunc {
 				Name:        record.Name,
 				Transport:   string(record.Transport),
 				Description: record.Description,
+				SessionMode: string(record.SessionMode),
 			}
 
 			switch record.Transport {
