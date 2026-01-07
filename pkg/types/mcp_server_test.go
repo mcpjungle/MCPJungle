@@ -2,6 +2,7 @@ package types
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -36,6 +37,7 @@ func TestMcpServerJSONMarshaling(t *testing.T) {
 		Command:     "/usr/bin/json-server",
 		Args:        []string{"--verbose"},
 		Env:         map[string]string{"ENV": "test"},
+		SessionMode: "stateless",
 	}
 
 	data, err := json.Marshal(server)
@@ -43,7 +45,7 @@ func TestMcpServerJSONMarshaling(t *testing.T) {
 		t.Fatalf("Failed to marshal McpServer: %v", err)
 	}
 
-	expected := `{"name":"json-server","transport":"stdio","description":"Server for JSON testing","url":"","command":"/usr/bin/json-server","args":["--verbose"],"env":{"ENV":"test"}}`
+	expected := `{"name":"json-server","transport":"stdio","description":"Server for JSON testing","url":"","command":"/usr/bin/json-server","args":["--verbose"],"env":{"ENV":"test"},"session_mode":"stateless"}`
 	if string(data) != expected {
 		t.Errorf("Expected JSON %s, got %s", expected, string(data))
 	}
@@ -123,5 +125,75 @@ func TestServerMetadata(t *testing.T) {
 
 	if result.Version != "v1.2.3" {
 		t.Errorf("Expected version v1.2.3, got %s", result.Version)
+	}
+}
+
+func TestValidateSessionMode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		input       string
+		wantMode    SessionMode
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:     "valid stateless",
+			input:    "stateless",
+			wantMode: SessionModeStateless,
+			wantErr:  false,
+		},
+		{
+			name:     "valid stateful",
+			input:    "stateful",
+			wantMode: SessionModeStateful,
+			wantErr:  false,
+		},
+		{
+			name:     "empty string defaults to stateless",
+			input:    "",
+			wantMode: SessionModeStateless,
+			wantErr:  false,
+		},
+		{
+			name:        "invalid session mode",
+			input:       "invalid",
+			wantMode:    "",
+			wantErr:     true,
+			errContains: "unsupported session mode",
+		},
+		{
+			name:        "case sensitive - uppercase fails",
+			input:       "Stateful",
+			wantMode:    "",
+			wantErr:     true,
+			errContains: "unsupported session mode",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mode, err := ValidateSessionMode(tt.input)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("Expected error, got nil")
+				} else if tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("Expected error containing %q, got %q", tt.errContains, err.Error())
+				}
+				if mode != tt.wantMode {
+					t.Errorf("Expected mode %q, got %q", tt.wantMode, mode)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			if mode != tt.wantMode {
+				t.Errorf("Expected mode %q, got %q", tt.wantMode, mode)
+			}
+		})
 	}
 }
