@@ -44,6 +44,7 @@ func (m *MCPService) RegisterMcpServer(ctx context.Context, s *model.McpServer) 
 // It also deregisters all the tools and prompts registered by the server.
 // If even a single tool or prompt fails to deregister, the server deregistration fails.
 // Deregistered tools and prompts are also removed from the MCP proxy server.
+// Any stateful sessions associated with this server are also closed.
 func (m *MCPService) DeregisterMcpServer(name string) error {
 	s, err := m.GetMcpServer(name)
 	if err != nil {
@@ -66,6 +67,9 @@ func (m *MCPService) DeregisterMcpServer(name string) error {
 	if err := m.db.Unscoped().Delete(s).Error; err != nil {
 		return fmt.Errorf("failed to deregister server %s: %w", name, err)
 	}
+
+	// Close any stateful session associated with this server
+	m.sessionManager.CloseSession(name)
 
 	return nil
 }
