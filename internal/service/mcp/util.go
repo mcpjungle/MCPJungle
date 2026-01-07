@@ -80,6 +80,52 @@ func splitServerPromptName(name string) (string, string, bool) {
 	return strings.Cut(name, serverPromptNameSep)
 }
 
+// isConnectionError checks if an error indicates a connection problem
+// that would warrant invalidating a stateful session.
+func isConnectionError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := strings.ToLower(err.Error())
+
+	// Check for common connection error patterns
+	connectionPatterns := []string{
+		"connection refused",
+		"connection reset",
+		"connection closed",
+		"broken pipe",
+		"eof",
+		"no such host",
+		"network is unreachable",
+		"timeout",
+		"context canceled",
+		"context deadline exceeded",
+		"transport",
+		"dial",
+		"i/o timeout",
+		"use of closed network connection",
+	}
+
+	for _, pattern := range connectionPatterns {
+		if strings.Contains(errStr, pattern) {
+			return true
+		}
+	}
+
+	// Check for specific error types
+	if errors.Is(err, io.EOF) ||
+		errors.Is(err, context.Canceled) ||
+		errors.Is(err, context.DeadlineExceeded) ||
+		errors.Is(err, syscall.ECONNREFUSED) ||
+		errors.Is(err, syscall.ECONNRESET) ||
+		errors.Is(err, syscall.EPIPE) {
+		return true
+	}
+
+	return false
+}
+
 // isLoopbackURL returns true if rawURL resolves to a loopback address.
 // It assumes that rawURL is a valid URL.
 func isLoopbackURL(rawURL string) bool {
@@ -341,10 +387,71 @@ func newMcpServerSession(ctx context.Context, s *model.McpServer, initReqTimeout
 	// A new sub-process is spun up for each call to a STDIO mcp server.
 	// This is especially a problem for the MCP proxy server, which is expected to call tools frequently.
 	// This causes a serious performance hit, but is easy to implement so it is used for now.
-	// TODO: Think of a better solution, ie, re-use connections to stdio MCP servers.
+	// For stateful sessions, use the SessionManager to keep the process running.
 	mcpClient, err := runStdioServer(ctx, s, initReqTimeoutSec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to run stdio MCP server %s: %w", s.Name, err)
 	}
 	return mcpClient, nil
+}
+
+// SessionResult holds the result of getting an MCP session.
+// It includes the client and whether the caller should close it after use.
+type SessionResult struct {
+	Client      *client.Client
+	ShouldClose bool // true for stateless sessions, false for stateful sessions
+
+	// For stateful sessions, these are used for reactive invalidation on errors
+	serverName     string
+	sessionManager *SessionManager
+}
+
+// GetSession returns a session for the given MCP server.
+// For stateful servers, it returns a persistent session from the SessionManager.
+// For stateless servers, it creates a new session that should be closed after use.
+func (m *MCPService) GetSession(ctx context.Context, server *model.McpServer) (*SessionResult, error) {
+	if server.SessionMode == types.SessionModeStateful {
+		// Use the session manager for stateful sessions
+		mcpClient, err := m.sessionManager.GetOrCreateSession(ctx, server)
+		if err != nil {
+			return nil, err
+		}
+		return &SessionResult{
+			Client:         mcpClient,
+			ShouldClose:    false, // Don't close stateful sessions after each call
+			serverName:     server.Name,
+			sessionManager: m.sessionManager,
+		}, nil
+	}
+
+	// Default: stateless mode - create a new session for each call
+	mcpClient, err := newMcpServerSession(ctx, server, m.mcpServerInitReqTimeoutSec)
+	if err != nil {
+		return nil, err
+	}
+	return &SessionResult{
+		Client:      mcpClient,
+		ShouldClose: true, // Close stateless sessions after each call
+	}, nil
+}
+
+// CloseIfNeeded closes the session if it should be closed (stateless mode).
+func (sr *SessionResult) CloseIfNeeded() {
+	if sr.ShouldClose && sr.Client != nil {
+		sr.Client.Close()
+	}
+}
+
+// InvalidateOnError checks if the error indicates a connection problem and
+// invalidates the stateful session so the next call will create a fresh one.
+// This should be called when a tool/prompt call fails with an error.
+func (sr *SessionResult) InvalidateOnError(err error) {
+	if err == nil || sr.ShouldClose || sr.sessionManager == nil {
+		return // Nothing to invalidate for stateless sessions or no error
+	}
+
+	// Check if this looks like a connection error
+	if isConnectionError(err) {
+		sr.sessionManager.InvalidateSession(sr.serverName, err.Error())
+	}
 }
