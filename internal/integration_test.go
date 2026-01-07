@@ -58,6 +58,7 @@ func TestPromptsIntegration(t *testing.T) {
 		"npx",
 		[]string{"-y", "@modelcontextprotocol/server-github"},
 		map[string]string{},
+		"",
 	)
 	require.NoError(t, err)
 	err = db.Create(testServer).Error
