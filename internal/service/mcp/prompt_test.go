@@ -30,6 +30,7 @@ func createTestServer(t *testing.T, db *gorm.DB) *model.McpServer {
 		"echo",
 		[]string{"hello"},
 		nil,
+		"",
 	)
 	require.NoError(t, err)
 
