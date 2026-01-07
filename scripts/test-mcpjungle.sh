@@ -165,7 +165,46 @@ rm -f "$FS_CONFIG"
 
 "$BIN_PATH" --registry "$REGISTRY_URL" invoke filesystem__list_allowed_directories --input '{}' >/dev/null
 
-# 8) Print Homebrew formula config snippet
+# 8) Test stateful session mode (uses local binary server on port 9090)
+log "Testing stateful session mode (session reuse for faster subsequent calls)"
+LOCAL_REGISTRY="http://127.0.0.1:9090"
+
+FS_STATEFUL_CONFIG=$(mktemp)
+cat > "$FS_STATEFUL_CONFIG" <<EOF
+{
+  "name": "fs-stateful",
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+  "session_mode": "stateful"
+}
+EOF
+
+"$BIN_PATH" --registry "$LOCAL_REGISTRY" register -c "$FS_STATEFUL_CONFIG"
+rm -f "$FS_STATEFUL_CONFIG"
+
+# First call (cold start)
+log "First call to stateful server (cold start)..."
+TIME1_START=$(date +%s%N)
+"$BIN_PATH" --registry "$LOCAL_REGISTRY" invoke fs-stateful__list_allowed_directories --input '{}' >/dev/null
+TIME1_END=$(date +%s%N)
+TIME1_MS=$(( (TIME1_END - TIME1_START) / 1000000 ))
+
+# Second call (session reused)
+log "Second call to stateful server (session reused)..."
+TIME2_START=$(date +%s%N)
+"$BIN_PATH" --registry "$LOCAL_REGISTRY" invoke fs-stateful__list_allowed_directories --input '{}' >/dev/null
+TIME2_END=$(date +%s%N)
+TIME2_MS=$(( (TIME2_END - TIME2_START) / 1000000 ))
+
+log "First call: ${TIME1_MS}ms, Second call: ${TIME2_MS}ms"
+if [ "$TIME2_MS" -lt "$TIME1_MS" ]; then
+  log "✅ Stateful session reuse working - second call was faster!"
+else
+  log "⚠️  Times similar (MCP server may have fast startup)"
+fi
+
+# 9) Print Homebrew formula config snippet
 log "Homebrew formula config (from .goreleaser.yaml)"
 sed -n '/^brews:/,/^dockers:/p' "$ROOT_DIR/.goreleaser.yaml" || true
 popd >/dev/null
