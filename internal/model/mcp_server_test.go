@@ -55,7 +55,7 @@ func TestNewStreamableHTTPServer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server, err := NewStreamableHTTPServer(tt.serverName, tt.description, tt.url, tt.bearerToken)
+			server, err := NewStreamableHTTPServer(tt.serverName, tt.description, tt.url, tt.bearerToken, "")
 
 			if tt.wantErr {
 				if err == nil {
@@ -156,7 +156,7 @@ func TestNewStdioServer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server, err := NewStdioServer(tt.serverName, tt.description, tt.command, tt.args, tt.env)
+			server, err := NewStdioServer(tt.serverName, tt.description, tt.command, tt.args, tt.env, "")
 
 			if tt.wantErr {
 				if err == nil {
@@ -268,7 +268,7 @@ func TestNewSSEServer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server, err := NewSSEServer(tt.serverName, tt.description, tt.url, tt.bearerToken)
+			server, err := NewSSEServer(tt.serverName, tt.description, tt.url, tt.bearerToken, "")
 
 			if tt.wantErr {
 				if err == nil {
@@ -312,6 +312,142 @@ func TestNewSSEServer(t *testing.T) {
 
 			if config.BearerToken != tt.bearerToken {
 				t.Errorf("expected bearer token %q, got %q", tt.bearerToken, config.BearerToken)
+			}
+		})
+	}
+}
+
+func TestNewStdioServerWithSessionMode(t *testing.T) {
+	tests := []struct {
+		name         string
+		sessionMode  types.SessionMode
+		expectedMode types.SessionMode
+	}{
+		{
+			name:         "stateful session mode",
+			sessionMode:  types.SessionModeStateful,
+			expectedMode: types.SessionModeStateful,
+		},
+		{
+			name:         "stateless session mode",
+			sessionMode:  types.SessionModeStateless,
+			expectedMode: types.SessionModeStateless,
+		},
+		{
+			name:         "empty session mode defaults to stateless",
+			sessionMode:  "",
+			expectedMode: types.SessionModeStateless,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server, err := NewStdioServer(
+				"test-server",
+				"Test description",
+				"echo",
+				[]string{"hello"},
+				nil,
+				tt.sessionMode,
+			)
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if server.SessionMode != tt.expectedMode {
+				t.Errorf("expected session mode %q, got %q", tt.expectedMode, server.SessionMode)
+			}
+		})
+	}
+}
+
+func TestNewStreamableHTTPServerWithSessionMode(t *testing.T) {
+	tests := []struct {
+		name         string
+		sessionMode  types.SessionMode
+		expectedMode types.SessionMode
+	}{
+		{
+			name:         "stateful session mode",
+			sessionMode:  types.SessionModeStateful,
+			expectedMode: types.SessionModeStateful,
+		},
+		{
+			name:         "stateless session mode",
+			sessionMode:  types.SessionModeStateless,
+			expectedMode: types.SessionModeStateless,
+		},
+		{
+			name:         "empty session mode defaults to stateless",
+			sessionMode:  "",
+			expectedMode: types.SessionModeStateless,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server, err := NewStreamableHTTPServer(
+				"test-server",
+				"Test description",
+				"https://example.com",
+				"",
+				tt.sessionMode,
+			)
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if server.SessionMode != tt.expectedMode {
+				t.Errorf("expected session mode %q, got %q", tt.expectedMode, server.SessionMode)
+			}
+		})
+	}
+}
+
+func TestNewSSEServerWithSessionMode(t *testing.T) {
+	tests := []struct {
+		name         string
+		sessionMode  types.SessionMode
+		expectedMode types.SessionMode
+	}{
+		{
+			name:         "stateful session mode",
+			sessionMode:  types.SessionModeStateful,
+			expectedMode: types.SessionModeStateful,
+		},
+		{
+			name:         "stateless session mode",
+			sessionMode:  types.SessionModeStateless,
+			expectedMode: types.SessionModeStateless,
+		},
+		{
+			name:         "empty session mode defaults to stateless",
+			sessionMode:  "",
+			expectedMode: types.SessionModeStateless,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server, err := NewSSEServer(
+				"test-server",
+				"Test description",
+				"https://example.com/sse",
+				"",
+				tt.sessionMode,
+			)
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if server.SessionMode != tt.expectedMode {
+				t.Errorf("expected session mode %q, got %q", tt.expectedMode, server.SessionMode)
 			}
 		})
 	}

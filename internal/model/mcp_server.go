@@ -49,10 +49,15 @@ type McpServer struct {
 	// Config describes the transport-specific configuration for the MCP server.
 	// It contains the JSON representation of either StreamableHTTPConfig or StdioConfig.
 	Config datatypes.JSON `json:"config" gorm:"type:jsonb;not null"`
+
+	// SessionMode controls how mcpjungle manages connections to this MCP server.
+	// "stateless" (default): Creates a new connection for each tool call.
+	// "stateful": Maintains a persistent connection across tool calls.
+	SessionMode types.SessionMode `json:"session_mode" gorm:"type:varchar(20);default:'stateless'"`
 }
 
 // NewStreamableHTTPServer creates a new MCP server with streamable HTTP transport configuration.
-func NewStreamableHTTPServer(name, description, url, bearerToken string) (*McpServer, error) {
+func NewStreamableHTTPServer(name, description, url, bearerToken string, sessionMode types.SessionMode) (*McpServer, error) {
 	if url == "" {
 		return nil, errors.New("url is required for streamable HTTP transport")
 	}
@@ -64,16 +69,20 @@ func NewStreamableHTTPServer(name, description, url, bearerToken string) (*McpSe
 	if err != nil {
 		return nil, err
 	}
+	if sessionMode == "" {
+		sessionMode = types.SessionModeStateless
+	}
 	return &McpServer{
 		Name:        name,
 		Description: description,
 		Transport:   types.TransportStreamableHTTP,
 		Config:      configJSON,
+		SessionMode: sessionMode,
 	}, nil
 }
 
 // NewStdioServer creates a new MCP server with stdio transport configuration.
-func NewStdioServer(name, description, command string, args []string, env map[string]string) (*McpServer, error) {
+func NewStdioServer(name, description, command string, args []string, env map[string]string, sessionMode types.SessionMode) (*McpServer, error) {
 	if command == "" {
 		return nil, errors.New("command is required for stdio transport")
 	}
@@ -86,16 +95,20 @@ func NewStdioServer(name, description, command string, args []string, env map[st
 	if err != nil {
 		return nil, err
 	}
-
+	if sessionMode == "" {
+		sessionMode = types.SessionModeStateless
+	}
 	return &McpServer{
 		Name:        name,
 		Description: description,
 		Transport:   types.TransportStdio,
 		Config:      datatypes.JSON(configJSON),
+		SessionMode: sessionMode,
 	}, nil
 }
 
-func NewSSEServer(name, description, url, bearerToken string) (*McpServer, error) {
+// NewSSEServer creates a new MCP server with SSE transport configuration.
+func NewSSEServer(name, description, url, bearerToken string, sessionMode types.SessionMode) (*McpServer, error) {
 	if url == "" {
 		return nil, errors.New("url is required for SSE transport")
 	}
@@ -107,11 +120,15 @@ func NewSSEServer(name, description, url, bearerToken string) (*McpServer, error
 	if err != nil {
 		return nil, err
 	}
+	if sessionMode == "" {
+		sessionMode = types.SessionModeStateless
+	}
 	return &McpServer{
 		Name:        name,
 		Description: description,
 		Transport:   types.TransportSSE,
 		Config:      configJSON,
+		SessionMode: sessionMode,
 	}, nil
 }
 
