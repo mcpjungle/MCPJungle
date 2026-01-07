@@ -45,9 +45,14 @@ const (
 	// the MCP server initialization request timeout.
 	McpServerInitReqTimeoutSecEnvVar = "MCP_SERVER_INIT_REQ_TIMEOUT_SEC"
 
-	// McpServerInitRequestTimeoutSecondsDefault is the default timeout in seconds for MCP server
-	// initialization requests.
+	// McpServerInitRequestTimeoutSecondsDefault is the default timeout in seconds for MCP server initialization requests.
 	McpServerInitRequestTimeoutSecondsDefault = 10
+
+	// SessionIdleTimeoutSecEnvVar is the environment variable for configuring
+	SessionIdleTimeoutSecEnvVar = "SESSION_IDLE_TIMEOUT_SEC"
+
+	// SessionIdleTimeoutSecondsDefault is the default idle timeout in seconds for stateful sessions.
+	SessionIdleTimeoutSecondsDefault = -1
 )
 
 var (
@@ -269,6 +274,22 @@ func getMcpServerInitReqTimeout() (int, error) {
 	return timeout, nil
 }
 
+// getSessionIdleTimeout returns the idle timeout (in seconds) for stateful sessions.
+func getSessionIdleTimeout() (int, error) {
+	timeoutStr := strings.TrimSpace(os.Getenv(SessionIdleTimeoutSecEnvVar))
+	if timeoutStr == "" {
+		return SessionIdleTimeoutSecondsDefault, nil
+	}
+	timeout, err := strconv.Atoi(timeoutStr)
+	if err != nil || timeout < 0 {
+		return 0, fmt.Errorf(
+			"invalid value for %s: '%s', must be a non-negative integer (0 = no timeout)",
+			SessionIdleTimeoutSecEnvVar, timeoutStr,
+		)
+	}
+	return timeout, nil
+}
+
 func runStartServer(cmd *cobra.Command, args []string) error {
 	_ = godotenv.Load()
 
@@ -359,12 +380,23 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 	}
 	log.Printf("[server] timeout for initialization requests to MCP servers is %d seconds\n", timeout)
 
+	sessionIdleTimeout, err := getSessionIdleTimeout()
+	if err != nil {
+		return err
+	}
+	if sessionIdleTimeout > 0 {
+		log.Printf("[server] idle timeout for stateful sessions is %d seconds\n", sessionIdleTimeout)
+	} else if sessionIdleTimeout == 0 {
+		log.Printf("[server] stateful sessions will not timeout (run until server shutdown)\n")
+	}
+
 	mcpServiceConfig := &mcp.ServiceConfig{
 		DB:                      dbConn,
 		McpProxyServer:          mcpProxyServer,
 		SseMcpProxyServer:       sseMcpProxyServer,
 		Metrics:                 mcpMetrics,
 		McpServerInitReqTimeout: timeout,
+		SessionIdleTimeoutSec:   sessionIdleTimeout,
 	}
 	mcpService, err := mcp.NewMCPService(mcpServiceConfig)
 	if err != nil {
