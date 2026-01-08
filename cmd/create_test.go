@@ -47,6 +47,10 @@ func TestCreateMcpClientSubcommand(t *testing.T) {
 	descriptionFlag := createMcpClientCmd.Flags().Lookup("description")
 	testhelpers.AssertNotNil(t, descriptionFlag)
 	testhelpers.AssertTrue(t, len(descriptionFlag.Usage) > 0, "Description flag should have usage description")
+
+	accessTokenFlag := createMcpClientCmd.Flags().Lookup("access-token")
+	testhelpers.AssertNotNil(t, accessTokenFlag)
+	testhelpers.AssertTrue(t, len(accessTokenFlag.Usage) > 0, "Access token flag should have usage description")
 }
 
 func TestCreateUserSubcommand(t *testing.T) {

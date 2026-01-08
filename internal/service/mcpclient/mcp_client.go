@@ -31,11 +31,20 @@ func (m *McpClientService) ListClients() ([]*model.McpClient, error) {
 // CreateClient creates a new MCP client in the database.
 // It also generates a new access token for the client.
 func (m *McpClientService) CreateClient(client model.McpClient) (*model.McpClient, error) {
-	token, err := internal.GenerateAccessToken()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate access token: %w", err)
+	if client.AccessToken != "" {
+		// user has supplied a custom access token, validate it
+		if err := internal.ValidateAccessToken(client.AccessToken); err != nil {
+			return nil, fmt.Errorf("invalid access token: %w", err)
+		}
+		// todo: add audit log entry for custom token usage
+	} else {
+		// no access token is provided by user, generate a new one
+		token, err := internal.GenerateAccessToken()
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate access token: %w", err)
+		}
+		client.AccessToken = token
 	}
-	client.AccessToken = token
 
 	// Initialize AllowList with empty array if not provided
 	if client.AllowList == nil {

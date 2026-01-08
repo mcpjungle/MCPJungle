@@ -26,6 +26,7 @@ var createMcpClientCmd = &cobra.Command{
 	Long: "Create an MCP client that can make authenticated requests to the MCPJungle MCP Proxy.\n" +
 		"This returns an access token which should be sent by your client in the " +
 		"`Authorization: Bearer {token}` http header.\n" +
+		"You can also send a custom access token by using the --access-token flag.\n" +
 		"Use the --allow option to control which MCP servers the client can access:\n" +
 		"    --allow \"server1, server2, server3\" | --allow \"*\"\n" +
 		"This command is only available in Enterprise mode.",
@@ -61,6 +62,7 @@ var createToolGroupCmd = &cobra.Command{
 var (
 	createMcpClientCmdAllowedServers string
 	createMcpClientCmdDescription    string
+	createMcpClientCmdAccessToken    string
 
 	createToolGroupConfigFilePath string
 )
@@ -78,6 +80,12 @@ func init() {
 		"description",
 		"",
 		"Description of the MCP client. This is optional and can be used to provide additional context.",
+	)
+	createMcpClientCmd.Flags().StringVar(
+		&createMcpClientCmdAccessToken,
+		"access-token",
+		"",
+		"Custom access token for the MCP client. If not provided, a random token will be generated.",
 	)
 
 	createToolGroupCmd.Flags().StringVarP(
@@ -116,12 +124,17 @@ func runCreateMcpClient(cmd *cobra.Command, args []string) error {
 		Description: createMcpClientCmdDescription,
 		AllowList:   allowList,
 	}
+	if createMcpClientCmdAccessToken != "" {
+		c.AccessToken = createMcpClientCmdAccessToken
+		c.IsCustomAccessToken = true
+	}
 
 	token, err := apiClient.CreateMcpClient(c)
 	if err != nil {
 		return fmt.Errorf("failed to create MCP client: %w", err)
 	}
-	if token == "" {
+	if !c.IsCustomAccessToken && token == "" {
+		// user didn't supply a custom token and server didn't generate a valid one
 		return fmt.Errorf("server returned an empty token, this was unexpected")
 	}
 
@@ -133,8 +146,11 @@ func runCreateMcpClient(cmd *cobra.Command, args []string) error {
 		cmd.Println("This client does not have access to any MCP servers.")
 	}
 
-	cmd.Printf("\nAccess token: %s\n", token)
-	cmd.Println("Your client should send this token in the `Authorization: Bearer {token}` HTTP header.")
+	if !c.IsCustomAccessToken {
+		// server generated the access token, display it to the user
+		cmd.Printf("\nAccess token: %s\n", token)
+	}
+	cmd.Println("Your client should send the access token in the `Authorization: Bearer {token}` HTTP header.")
 
 	return nil
 }

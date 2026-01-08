@@ -62,7 +62,7 @@ func TestMcpClientJSONMarshaling(t *testing.T) {
 		t.Fatalf("Failed to marshal McpClient: %v", err)
 	}
 
-	expected := `{"name":"json-client","description":"Client for JSON testing","allow_list":["server1","server2","server3"]}`
+	expected := `{"name":"json-client","description":"Client for JSON testing","is_custom_access_token":false,"allow_list":["server1","server2","server3"]}`
 	if string(data) != expected {
 		t.Errorf("Expected JSON %s, got %s", expected, string(data))
 	}
@@ -71,7 +71,7 @@ func TestMcpClientJSONMarshaling(t *testing.T) {
 func TestMcpClientJSONUnmarshaling(t *testing.T) {
 	t.Parallel()
 
-	jsonData := `{"name":"unmarshal-client","description":"Client from JSON","allow_list":["serverA","serverB"]}`
+	jsonData := `{"name":"unmarshal-client","description":"Client from JSON","allow_list":["serverA","serverB"],"is_custom_access_token":true,"access_token":"custom-token"}`
 	var client McpClient
 
 	err := json.Unmarshal([]byte(jsonData), &client)
@@ -93,6 +93,12 @@ func TestMcpClientJSONUnmarshaling(t *testing.T) {
 	}
 	if client.AllowList[1] != "serverB" {
 		t.Errorf("Expected second AllowList item 'serverB', got %s", client.AllowList[1])
+	}
+	if client.IsCustomAccessToken != true {
+		t.Errorf("Expected IsCustomAccessToken to be true, got %v", client.IsCustomAccessToken)
+	}
+	if client.AccessToken != "custom-token" {
+		t.Errorf("Expected AccessToken 'custom-token', got %s", client.AccessToken)
 	}
 }
 

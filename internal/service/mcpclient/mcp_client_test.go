@@ -92,6 +92,47 @@ func TestCreateClientWithExistingName(t *testing.T) {
 	}
 }
 
+func TestCreateClientWithAccessToken(t *testing.T) {
+	setup := testhelpers.SetupTestDB(t)
+	defer setup.Cleanup()
+
+	svc := NewMCPClientService(setup.DB)
+
+	clientInput := model.McpClient{
+		Name:        "test-client",
+		Description: "Test MCP client",
+		AccessToken: "custom-access-token-12345",
+	}
+
+	client, err := svc.CreateClient(clientInput)
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertNotNil(t, client)
+
+	// Verify client properties
+	testhelpers.AssertEqual(t, "test-client", client.Name)
+	testhelpers.AssertEqual(t, "Test MCP client", client.Description)
+	testhelpers.AssertEqual(t, "custom-access-token-12345", client.AccessToken)
+}
+
+func TestCreateClientWithInvalidAccessToken(t *testing.T) {
+	setup := testhelpers.SetupTestDB(t)
+	defer setup.Cleanup()
+
+	svc := NewMCPClientService(setup.DB)
+
+	clientInput := model.McpClient{
+		Name:        "test-client",
+		Description: "Test MCP client",
+		AccessToken: "invalid token with spaces",
+	}
+
+	client, err := svc.CreateClient(clientInput)
+	testhelpers.AssertError(t, err)
+	if client != nil {
+		t.Error("Expected client creation to fail with invalid access token")
+	}
+}
+
 func TestGetClientByToken(t *testing.T) {
 	db, err := testhelpers.CreateTestDB()
 	testhelpers.AssertNoError(t, err)
