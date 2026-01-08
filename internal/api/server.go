@@ -274,6 +274,11 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 			requireEnterpriseMode,
 			s.createMcpClientHandler(),
 		)
+		adminAPI.PUT(
+			"/clients/:name",
+			requireEnterpriseMode,
+			s.updateMcpClientHandler(),
+		)
 		adminAPI.DELETE(
 			"/clients/:name",
 			requireEnterpriseMode,

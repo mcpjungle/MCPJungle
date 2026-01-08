@@ -89,3 +89,30 @@ func (c *Client) CreateMcpClient(mcpClient *types.McpClient) (string, error) {
 
 	return response.AccessToken, nil
 }
+
+func (c *Client) UpdateMcpClient(mcpClient *types.McpClient) error {
+	u, _ := c.constructAPIEndpoint("/clients/" + mcpClient.Name)
+
+	body, err := json.Marshal(mcpClient)
+	if err != nil {
+		return fmt.Errorf("failed to marshal client data: %w", err)
+	}
+
+	req, err := c.newRequest(http.MethodPut, u, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request to %s: %w", u, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return c.parseErrorResponse(resp)
+	}
+
+	return nil
+}
