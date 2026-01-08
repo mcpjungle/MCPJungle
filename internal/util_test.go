@@ -233,21 +233,14 @@ func TestValidateAccessToken(t *testing.T) {
 	})
 
 	t.Run("too short token", func(t *testing.T) {
-		shortToken := "short"
+		shortToken := "1234567"
 		if err := ValidateAccessToken(shortToken); err == nil {
 			t.Error("Expected error for too short token, got nil")
 		}
 	})
 
-	t.Run("too long token", func(t *testing.T) {
-		longToken := strings.Repeat("a", 65)
-		if err := ValidateAccessToken(longToken); err == nil {
-			t.Error("Expected error for too long token, got nil")
-		}
-	})
-
 	t.Run("token with whitespace", func(t *testing.T) {
-		tokenWithSpace := "validtoken withspace"
+		tokenWithSpace := "invalidtoken withspace"
 		if err := ValidateAccessToken(tokenWithSpace); err == nil {
 			t.Error("Expected error for token with whitespace, got nil")
 		}

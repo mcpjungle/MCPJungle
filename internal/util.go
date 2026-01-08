@@ -18,11 +18,12 @@ func GenerateAccessToken() (string, error) {
 	return base64.URLEncoding.WithPadding(base64.NoPadding).EncodeToString(b), nil
 }
 
-// ValidateAccessToken checks if the provided access token is valid and
-// aligns with mcpjungle's security standards.
+// ValidateAccessToken checks if a user-provided access token is valid.
+// It doesn't impose many conditions to allow flexibility.
+// It is up to the user to follow best security practices when assigning access tokens.
 func ValidateAccessToken(token string) error {
-	if len(token) < 16 || len(token) > 64 {
-		return fmt.Errorf("access token length should be between 16 and 64 characters")
+	if len(token) < 8 {
+		return fmt.Errorf("access token should be at least 8 characters in length")
 	}
 	if hasWhitespace(token) {
 		return fmt.Errorf("access token should not contain whitespace characters")
