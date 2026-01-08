@@ -32,7 +32,7 @@ var updateToolGroupCmd = &cobra.Command{
 }
 
 var updateMcpClientCmd = &cobra.Command{
-	Use:   "mcp-client",
+	Use:   "mcp-client [name]",
 	Args:  cobra.ExactArgs(1),
 	Short: "Update an MCP client",
 	Long: "Update an existing MCP client\n" +

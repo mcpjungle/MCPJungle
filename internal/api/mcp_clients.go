@@ -73,6 +73,6 @@ func (s *Server) updateMcpClientHandler() gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusNoContent, resp)
+		c.JSON(http.StatusOK, resp)
 	}
 }
