@@ -292,3 +292,56 @@ func TestClientTokenUniqueness(t *testing.T) {
 		tokens[client.AccessToken] = true
 	}
 }
+
+func TestUpdateClientAccessToken(t *testing.T) {
+	setup := testhelpers.SetupTestDB(t)
+	defer setup.Cleanup()
+
+	svc := NewMCPClientService(setup.DB)
+
+	clientInput := model.McpClient{
+		Name:        "test-client",
+		Description: "Test MCP client",
+	}
+
+	_, _ = svc.CreateClient(clientInput)
+
+	clientInput.AccessToken = "new-access-token"
+
+	client, err := svc.UpdateClient(clientInput)
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertNotNil(t, client)
+
+	// Verify client properties
+	testhelpers.AssertEqual(t, "test-client", client.Name)
+	testhelpers.AssertEqual(t, "new-access-token", client.AccessToken)
+
+	// Verify client was saved to database
+	var savedClient model.McpClient
+	err = setup.DB.Where("name = ?", "test-client").First(&savedClient).Error
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertEqual(t, "test-client", savedClient.Name)
+	testhelpers.AssertEqual(t, "new-access-token", savedClient.AccessToken)
+}
+
+func TestUpdateClientInvalidAccessToken(t *testing.T) {
+	setup := testhelpers.SetupTestDB(t)
+	defer setup.Cleanup()
+
+	svc := NewMCPClientService(setup.DB)
+
+	clientInput := model.McpClient{
+		Name:        "test-client",
+		Description: "Test MCP client",
+	}
+
+	_, _ = svc.CreateClient(clientInput)
+
+	clientInput.AccessToken = "invalid token with spaces"
+
+	client, err := svc.UpdateClient(clientInput)
+	testhelpers.AssertError(t, err)
+	if client != nil {
+		t.Error("Expected client update to fail with invalid access token")
+	}
+}
