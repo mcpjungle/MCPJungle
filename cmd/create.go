@@ -64,6 +64,8 @@ var (
 	createMcpClientCmdDescription    string
 	createMcpClientCmdAccessToken    string
 
+	createUserCmdAccessToken string
+
 	createToolGroupConfigFilePath string
 )
 
@@ -86,6 +88,13 @@ func init() {
 		"access-token",
 		"",
 		"Custom access token for the MCP client. If not provided, a random token will be generated.",
+	)
+
+	createUserCmd.Flags().StringVar(
+		&createUserCmdAccessToken,
+		"access-token",
+		"",
+		"Custom access token for the user. If not provided, a random token will be generated.",
 	)
 
 	createToolGroupCmd.Flags().StringVarP(
@@ -157,7 +166,8 @@ func runCreateMcpClient(cmd *cobra.Command, args []string) error {
 
 func runCreateUser(cmd *cobra.Command, args []string) error {
 	u := &types.CreateUserRequest{
-		Username: args[0],
+		Username:    args[0],
+		AccessToken: createUserCmdAccessToken,
 	}
 	resp, err := apiClient.CreateUser(u)
 	if err != nil {

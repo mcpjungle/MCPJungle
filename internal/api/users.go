@@ -10,13 +10,13 @@ import (
 
 func (s *Server) createUserHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var input types.User
+		var input model.User
 		if err := c.ShouldBindJSON(&input); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		newUser, err := s.userService.CreateUser(input.Username)
+		newUser, err := s.userService.CreateUser(&input)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return

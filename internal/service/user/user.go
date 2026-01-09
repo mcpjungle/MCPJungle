@@ -52,15 +52,24 @@ func (u *UserService) GetUserByAccessToken(token string) (*model.User, error) {
 
 // CreateUser creates a new user with the specified username.
 // This method currently only supports creating a standard user, ie, user with the "user" role.
-func (u *UserService) CreateUser(username string) (*model.User, error) {
-	token, err := internal.GenerateAccessToken()
-	if err != nil {
-		return nil, err
-	}
+func (u *UserService) CreateUser(input *model.User) (*model.User, error) {
 	user := model.User{
-		Username:    username,
-		Role:        types.UserRoleUser,
-		AccessToken: token,
+		Username: input.Username,
+		Role:     types.UserRoleUser,
+	}
+	if input.AccessToken == "" {
+		// no custom access token provided, generate a new one
+		token, err := internal.GenerateAccessToken()
+		if err != nil {
+			return nil, err
+		}
+		user.AccessToken = token
+	} else {
+		// validate the user-provided custom access token
+		if err := internal.ValidateAccessToken(input.AccessToken); err != nil {
+			return nil, fmt.Errorf("invalid access token: %w", err)
+		}
+		user.AccessToken = input.AccessToken
 	}
 	if err := u.db.Create(&user).Error; err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)

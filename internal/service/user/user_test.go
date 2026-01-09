@@ -3,6 +3,7 @@ package user
 import (
 	"testing"
 
+	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
@@ -19,12 +20,14 @@ func TestCreateUser(t *testing.T) {
 	setup, _ := testhelpers.SetupUserTest(t)
 	defer setup.Cleanup()
 	svc := NewUserService(setup.DB)
-	username := "testuser2"
-	user, err := svc.CreateUser(username)
+	u := &model.User{
+		Username: "testuser2",
+	}
+	user, err := svc.CreateUser(u)
 	testhelpers.AssertNoError(t, err)
 	testhelpers.AssertNotNil(t, user)
 	// Verify user properties
-	testhelpers.AssertEqual(t, username, user.Username)
+	testhelpers.AssertEqual(t, u.Username, user.Username)
 	testhelpers.AssertEqual(t, types.UserRoleUser, user.Role)
 	if user.AccessToken == "" {
 		t.Error("Expected access token to be generated")
@@ -35,12 +38,14 @@ func TestCreateUserWithExistingUsername(t *testing.T) {
 	setup, _ := testhelpers.SetupUserTest(t)
 	defer setup.Cleanup()
 	svc := NewUserService(setup.DB)
-	username := "testuser2"
+	u := &model.User{
+		Username: "testuser2",
+	}
 	// Create first user
-	user1, _ := svc.CreateUser(username)
+	user1, _ := svc.CreateUser(u)
 	testhelpers.AssertNotNil(t, user1)
 	// Try to create another user with same username
-	user2, err := svc.CreateUser(username)
+	user2, err := svc.CreateUser(u)
 	testhelpers.AssertError(t, err)
 	if user2 != nil {
 		t.Error("Expected second user creation to fail")
@@ -62,17 +67,51 @@ func TestCreateAdminUser(t *testing.T) {
 	}
 }
 
+func TestCreateUserAccessToken(t *testing.T) {
+	setup, _ := testhelpers.SetupUserTest(t)
+	defer setup.Cleanup()
+	svc := NewUserService(setup.DB)
+	u := &model.User{
+		Username:    "testuser2",
+		AccessToken: "custom-token-123",
+	}
+	user, err := svc.CreateUser(u)
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertNotNil(t, user)
+	// Verify user properties
+	testhelpers.AssertEqual(t, u.Username, user.Username)
+	testhelpers.AssertEqual(t, types.UserRoleUser, user.Role)
+	testhelpers.AssertEqual(t, u.AccessToken, user.AccessToken)
+}
+
+func TestCreateUserInvalidAccessToken(t *testing.T) {
+	setup, _ := testhelpers.SetupUserTest(t)
+	defer setup.Cleanup()
+	svc := NewUserService(setup.DB)
+	u := &model.User{
+		Username:    "testuser2",
+		AccessToken: "short", // invalid token (too short)
+	}
+	user, err := svc.CreateUser(u)
+	testhelpers.AssertError(t, err)
+	if user != nil {
+		t.Error("Expected user creation to fail due to invalid access token")
+	}
+}
+
 func TestGetUserByAccessToken(t *testing.T) {
 	setup, _ := testhelpers.SetupUserTest(t)
 	defer setup.Cleanup()
 	svc := NewUserService(setup.DB)
 	// Create a test user first
-	username := "testuser2"
-	user, _ := svc.CreateUser(username)
+	u := &model.User{
+		Username: "testuser2",
+	}
+	user, _ := svc.CreateUser(u)
 	// Test getting user by valid token
 	retrievedUser, _ := svc.GetUserByAccessToken(user.AccessToken)
 	testhelpers.AssertNotNil(t, retrievedUser)
-	testhelpers.AssertEqual(t, username, retrievedUser.Username)
+	testhelpers.AssertEqual(t, u.Username, retrievedUser.Username)
 	testhelpers.AssertEqual(t, user.AccessToken, retrievedUser.AccessToken)
 	// Test getting user by invalid token
 	_, err := svc.GetUserByAccessToken("invalid-token")
@@ -88,8 +127,14 @@ func TestListUsers(t *testing.T) {
 	testhelpers.AssertNoError(t, err)
 	testhelpers.AssertEqual(t, 0, len(users))
 	// Create some users
-	_, _ = svc.CreateUser("user1")
-	_, _ = svc.CreateUser("user2")
+	ua := &model.User{
+		Username: "user1",
+	}
+	ub := &model.User{
+		Username: "user2",
+	}
+	_, _ = svc.CreateUser(ua)
+	_, _ = svc.CreateUser(ub)
 	// Now should have 2 users
 	users, _ = svc.ListUsers()
 	testhelpers.AssertEqual(t, 2, len(users))
@@ -111,13 +156,15 @@ func TestDeleteUser(t *testing.T) {
 	defer setup.Cleanup()
 	svc := NewUserService(setup.DB)
 	// Create a test user
-	username := "testuser2"
-	user, _ := svc.CreateUser(username)
+	u := &model.User{
+		Username: "testuser2",
+	}
+	user, _ := svc.CreateUser(u)
 	// Verify user exists
 	_, err := svc.GetUserByAccessToken(user.AccessToken)
 	testhelpers.AssertNoError(t, err)
 	// Delete the user
-	err = svc.DeleteUser(username)
+	err = svc.DeleteUser(u.Username)
 	testhelpers.AssertNoError(t, err)
 	// Verify user was deleted
 	_, err = svc.GetUserByAccessToken(user.AccessToken)
