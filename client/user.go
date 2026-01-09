@@ -10,7 +10,7 @@ import (
 )
 
 // CreateUser sends a request to create a new authenticated, human user in mcpjungle
-func (c *Client) CreateUser(user *types.CreateUserRequest) (*types.CreateUserResponse, error) {
+func (c *Client) CreateUser(user *types.CreateOrUpdateUserRequest) (*types.CreateOrUpdateUserResponse, error) {
 	u, _ := c.constructAPIEndpoint("/users")
 
 	body, err := json.Marshal(user)
@@ -34,7 +34,7 @@ func (c *Client) CreateUser(user *types.CreateUserRequest) (*types.CreateUserRes
 		return nil, c.parseErrorResponse(resp)
 	}
 
-	var createResp types.CreateUserResponse
+	var createResp types.CreateOrUpdateUserResponse
 	if err := json.NewDecoder(resp.Body).Decode(&createResp); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
@@ -61,6 +61,37 @@ func (c *Client) DeleteUser(username string) error {
 	}
 
 	return nil
+}
+
+func (c *Client) UpdateUser(user *types.CreateOrUpdateUserRequest) (*types.CreateOrUpdateUserResponse, error) {
+	u, _ := c.constructAPIEndpoint("/users/" + user.Username)
+
+	body, err := json.Marshal(user)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := c.newRequest(http.MethodPut, u, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request to %s: %w", u, err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request to %s: %w", u, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, c.parseErrorResponse(resp)
+	}
+
+	var updateResp types.CreateOrUpdateUserResponse
+	if err := json.NewDecoder(resp.Body).Decode(&updateResp); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return &updateResp, nil
 }
 
 // ListUsers sends a request to list all users in mcpjungle

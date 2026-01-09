@@ -22,7 +22,7 @@ func (s *Server) createUserHandler() gin.HandlerFunc {
 			return
 		}
 
-		resp := &types.CreateUserResponse{
+		resp := &types.CreateOrUpdateUserResponse{
 			Username:    newUser.Username,
 			Role:        string(newUser.Role),
 			AccessToken: newUser.AccessToken,
@@ -47,6 +47,35 @@ func (s *Server) listUsersHandler() gin.HandlerFunc {
 			}
 		}
 
+		c.JSON(http.StatusOK, resp)
+	}
+}
+
+func (s *Server) updateUserHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		username := c.Param("username")
+		if username == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "username is required"})
+			return
+		}
+
+		var input model.User
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		updatedUser, err := s.userService.UpdateUser(&input)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		resp := &types.CreateOrUpdateUserResponse{
+			Username:    updatedUser.Username,
+			Role:        string(updatedUser.Role),
+			AccessToken: updatedUser.AccessToken,
+		}
 		c.JSON(http.StatusOK, resp)
 	}
 }

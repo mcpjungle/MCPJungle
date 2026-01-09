@@ -193,3 +193,86 @@ func TestDeleteAdminUser(t *testing.T) {
 	retrievedUser, _ := svc.GetUserByAccessToken(admin.AccessToken)
 	testhelpers.AssertEqual(t, "admin", retrievedUser.Username)
 }
+
+func TestUpdateUser(t *testing.T) {
+	setup, _ := testhelpers.SetupUserTest(t)
+	defer setup.Cleanup()
+	svc := NewUserService(setup.DB)
+	// Create a test user
+	u := &model.User{
+		Username: "testuser2",
+	}
+	_, _ = svc.CreateUser(u)
+	// Update the user's access token
+	newToken := "new-custom-token-456"
+	updateInput := &model.User{
+		Username:    u.Username,
+		AccessToken: newToken,
+	}
+	updatedUser, err := svc.UpdateUser(updateInput)
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertNotNil(t, updatedUser)
+	testhelpers.AssertEqual(t, newToken, updatedUser.AccessToken)
+	// Verify the update persisted
+	retrievedUser, _ := svc.GetUserByAccessToken(newToken)
+	testhelpers.AssertNotNil(t, retrievedUser)
+	testhelpers.AssertEqual(t, u.Username, retrievedUser.Username)
+}
+
+func TestUpdateUserInvalidAccessToken(t *testing.T) {
+	setup, _ := testhelpers.SetupUserTest(t)
+	defer setup.Cleanup()
+	svc := NewUserService(setup.DB)
+	// Create a test user
+	u := &model.User{
+		Username: "testuser2",
+	}
+	_, _ = svc.CreateUser(u)
+	// Try to update with invalid access token
+	updateInput := &model.User{
+		Username:    u.Username,
+		AccessToken: "token\nwith\t\twhitespace", // invalid token
+	}
+	updatedUser, err := svc.UpdateUser(updateInput)
+	testhelpers.AssertError(t, err)
+	if updatedUser != nil {
+		t.Error("Expected update to fail due to invalid access token")
+	}
+}
+
+func TestUpdateUserNotFound(t *testing.T) {
+	setup, _ := testhelpers.SetupUserTest(t)
+	defer setup.Cleanup()
+	svc := NewUserService(setup.DB)
+	// Try to update non-existent user
+	updateInput := &model.User{
+		Username:    "nonexistent",
+		AccessToken: "new-token-789",
+	}
+	updatedUser, err := svc.UpdateUser(updateInput)
+	testhelpers.AssertError(t, err)
+	if updatedUser != nil {
+		t.Error("Expected update to fail for non-existent user")
+	}
+}
+
+func TestUpdateUserNoAccessToken(t *testing.T) {
+	setup, _ := testhelpers.SetupUserTest(t)
+	defer setup.Cleanup()
+	svc := NewUserService(setup.DB)
+	// Create a test user
+	u := &model.User{
+		Username: "testuser2",
+	}
+	_, _ = svc.CreateUser(u)
+	// Update without changing access token
+	updateInput := &model.User{
+		Username: u.Username,
+		// No AccessToken field set
+	}
+	updatedUser, err := svc.UpdateUser(updateInput)
+	testhelpers.AssertError(t, err)
+	if updatedUser != nil {
+		t.Error("Expected update to fail for non-existent user")
+	}
+}

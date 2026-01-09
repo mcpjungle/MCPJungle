@@ -77,6 +77,34 @@ func (u *UserService) CreateUser(input *model.User) (*model.User, error) {
 	return &user, nil
 }
 
+// UpdateUser updates an existing user's information based on the provided input.
+// Currently it only supports updating the user's access token.
+func (u *UserService) UpdateUser(input *model.User) (*model.User, error) {
+	var user model.User
+	err := u.db.Where("username = ?", input.Username).First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("user with username %s not found", input.Username)
+		}
+		return nil, fmt.Errorf("failed to find user: %w", err)
+	}
+
+	if input.AccessToken == "" {
+		return nil, fmt.Errorf("access token cannot be empty")
+	}
+	// validate the user-provided custom access token
+	if err := internal.ValidateAccessToken(input.AccessToken); err != nil {
+		return nil, fmt.Errorf("invalid access token: %w", err)
+	}
+	user.AccessToken = input.AccessToken
+
+	err = u.db.Save(&user).Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to update user: %w", err)
+	}
+	return &user, nil
+}
+
 // ListUsers retrieves all users from the database.
 func (u *UserService) ListUsers() ([]model.User, error) {
 	var users []model.User

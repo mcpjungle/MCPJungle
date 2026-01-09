@@ -16,12 +16,12 @@ type User struct {
 	Role     string `json:"role"`
 }
 
-type CreateUserRequest struct {
+type CreateOrUpdateUserRequest struct {
 	Username    string `json:"username"`
 	AccessToken string `json:"access_token,omitempty"`
 }
 
-type CreateUserResponse struct {
+type CreateOrUpdateUserResponse struct {
 	Username    string `json:"username"`
 	Role        string `json:"role"`
 	AccessToken string `json:"access_token"`

@@ -286,17 +286,25 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		)
 
 		// endpoints for managing human users (enterprise mode only)
-		adminAPI.POST("/users",
+		adminAPI.POST(
+			"/users",
 			requireEnterpriseMode,
 			s.createUserHandler(),
 		)
-		adminAPI.GET("/users",
+		adminAPI.GET(
+			"/users",
 			requireEnterpriseMode,
 			s.listUsersHandler(),
 		)
-		adminAPI.DELETE("/users/:username",
+		adminAPI.DELETE(
+			"/users/:username",
 			requireEnterpriseMode,
 			s.deleteUserHandler(),
+		)
+		adminAPI.PUT(
+			"/users/:username",
+			requireEnterpriseMode,
+			s.updateUserHandler(),
 		)
 
 		// endpoints for managing tool groups

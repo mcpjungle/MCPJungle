@@ -165,7 +165,7 @@ func runCreateMcpClient(cmd *cobra.Command, args []string) error {
 }
 
 func runCreateUser(cmd *cobra.Command, args []string) error {
-	u := &types.CreateUserRequest{
+	u := &types.CreateOrUpdateUserRequest{
 		Username:    args[0],
 		AccessToken: createUserCmdAccessToken,
 	}

@@ -100,7 +100,7 @@ func TestCreateUserRequest(t *testing.T) {
 	t.Parallel()
 
 	// Test struct creation
-	req := CreateUserRequest{
+	req := CreateOrUpdateUserRequest{
 		Username: "newuser",
 	}
 
@@ -112,7 +112,7 @@ func TestCreateUserRequest(t *testing.T) {
 func TestCreateUserRequestZeroValues(t *testing.T) {
 	t.Parallel()
 
-	var req CreateUserRequest
+	var req CreateOrUpdateUserRequest
 
 	if req.Username != "" {
 		t.Errorf("Expected empty Username, got %s", req.Username)
@@ -122,13 +122,13 @@ func TestCreateUserRequestZeroValues(t *testing.T) {
 func TestCreateUserRequestJSONMarshaling(t *testing.T) {
 	t.Parallel()
 
-	req := CreateUserRequest{
+	req := CreateOrUpdateUserRequest{
 		Username: "newuser",
 	}
 
 	data, err := json.Marshal(req)
 	if err != nil {
-		t.Fatalf("Failed to marshal CreateUserRequest: %v", err)
+		t.Fatalf("Failed to marshal CreateOrUpdateUserRequest: %v", err)
 	}
 
 	expected := `{"username":"newuser"}`
@@ -141,7 +141,7 @@ func TestCreateUserResponse(t *testing.T) {
 	t.Parallel()
 
 	// Test struct creation
-	resp := CreateUserResponse{
+	resp := CreateOrUpdateUserResponse{
 		Username:    "newuser",
 		Role:        "user",
 		AccessToken: "token123",
@@ -161,7 +161,7 @@ func TestCreateUserResponse(t *testing.T) {
 func TestCreateUserResponseJSONMarshaling(t *testing.T) {
 	t.Parallel()
 
-	resp := CreateUserResponse{
+	resp := CreateOrUpdateUserResponse{
 		Username:    "newuser",
 		Role:        "admin",
 		AccessToken: "admin_token_456",
@@ -169,7 +169,7 @@ func TestCreateUserResponseJSONMarshaling(t *testing.T) {
 
 	data, err := json.Marshal(resp)
 	if err != nil {
-		t.Fatalf("Failed to marshal CreateUserResponse: %v", err)
+		t.Fatalf("Failed to marshal CreateOrUpdateUserResponse: %v", err)
 	}
 
 	expected := `{"username":"newuser","role":"admin","access_token":"admin_token_456"}`
@@ -182,11 +182,11 @@ func TestCreateUserResponseJSONUnmarshaling(t *testing.T) {
 	t.Parallel()
 
 	jsonData := `{"username":"newuser","role":"user","access_token":"user_token_789"}`
-	var resp CreateUserResponse
+	var resp CreateOrUpdateUserResponse
 
 	err := json.Unmarshal([]byte(jsonData), &resp)
 	if err != nil {
-		t.Fatalf("Failed to unmarshal CreateUserResponse: %v", err)
+		t.Fatalf("Failed to unmarshal CreateOrUpdateUserResponse: %v", err)
 	}
 
 	if resp.Username != "newuser" {

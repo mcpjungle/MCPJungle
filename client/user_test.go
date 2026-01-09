@@ -14,7 +14,7 @@ func TestCreateUser(t *testing.T) {
 	t.Parallel()
 
 	t.Run("successful creation", func(t *testing.T) {
-		expectedResponse := &types.CreateUserResponse{
+		expectedResponse := &types.CreateOrUpdateUserResponse{
 			AccessToken: "user-access-token-12345",
 		}
 
@@ -34,7 +34,7 @@ func TestCreateUser(t *testing.T) {
 			}
 
 			// Verify request body
-			var createUserRequest types.CreateUserRequest
+			var createUserRequest types.CreateOrUpdateUserRequest
 			if err := json.NewDecoder(r.Body).Decode(&createUserRequest); err != nil {
 				t.Fatalf("Failed to decode request body: %v", err)
 			}
@@ -51,7 +51,7 @@ func TestCreateUser(t *testing.T) {
 		defer server.Close()
 
 		client := NewClient(server.URL, "test-token", &http.Client{})
-		createUserRequest := &types.CreateUserRequest{
+		createUserRequest := &types.CreateOrUpdateUserRequest{
 			Username: "testuser",
 		}
 
@@ -73,7 +73,7 @@ func TestCreateUser(t *testing.T) {
 		defer server.Close()
 
 		client := NewClient(server.URL, "test-token", &http.Client{})
-		createUserRequest := &types.CreateUserRequest{
+		createUserRequest := &types.CreateOrUpdateUserRequest{
 			Username: "testuser",
 		}
 
@@ -94,7 +94,7 @@ func TestCreateUser(t *testing.T) {
 
 	t.Run("network error", func(t *testing.T) {
 		client := NewClient("http://invalid-url", "test-token", &http.Client{})
-		createUserRequest := &types.CreateUserRequest{
+		createUserRequest := &types.CreateOrUpdateUserRequest{
 			Username: "testuser",
 		}
 
@@ -298,7 +298,7 @@ func TestCreateUserWithDifferentUsernames(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				// Verify the request payload
-				var createUserRequest types.CreateUserRequest
+				var createUserRequest types.CreateOrUpdateUserRequest
 				if err := json.NewDecoder(r.Body).Decode(&createUserRequest); err != nil {
 					t.Fatalf("Failed to decode request body: %v", err)
 				}
@@ -310,13 +310,13 @@ func TestCreateUserWithDifferentUsernames(t *testing.T) {
 
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusCreated)
-				response := &types.CreateUserResponse{AccessToken: "test-token"}
+				response := &types.CreateOrUpdateUserResponse{AccessToken: "test-token"}
 				_ = json.NewEncoder(w).Encode(response)
 			}))
 			defer server.Close()
 
 			client := NewClient(server.URL, "test-token", &http.Client{})
-			createUserRequest := &types.CreateUserRequest{
+			createUserRequest := &types.CreateOrUpdateUserRequest{
 				Username: tc.username,
 			}
 
