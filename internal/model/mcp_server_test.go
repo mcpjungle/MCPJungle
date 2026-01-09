@@ -350,7 +350,6 @@ func TestNewStdioServerWithSessionMode(t *testing.T) {
 				nil,
 				tt.sessionMode,
 			)
-
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 				return
@@ -395,7 +394,6 @@ func TestNewStreamableHTTPServerWithSessionMode(t *testing.T) {
 				"",
 				tt.sessionMode,
 			)
-
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 				return
@@ -440,7 +438,6 @@ func TestNewSSEServerWithSessionMode(t *testing.T) {
 				"",
 				tt.sessionMode,
 			)
-
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 				return

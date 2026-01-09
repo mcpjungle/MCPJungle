@@ -22,8 +22,9 @@ type ServiceConfig struct {
 
 	McpServerInitReqTimeout int
 
-	// SessionIdleTimeoutSec is the idle timeout in seconds for stateful sessions.
-	SessionIdleTimeoutSec int
+	// SessionManager manages persistent connections for MCP servers configured in stateful mode.
+	// If nil, a default SessionManager will be created.
+	SessionManager *SessionManager
 }
 
 // MCPService coordinates operations amongst the registry database, mcp proxy server and upstream MCP servers.
@@ -56,11 +57,14 @@ type MCPService struct {
 // NewMCPService creates a new instance of MCPService.
 // It initializes the MCP proxy server by loading all registered tools from the database.
 func NewMCPService(c *ServiceConfig) (*MCPService, error) {
-	// Initialize the session manager for stateful connections
-	sessionManager := NewSessionManager(&SessionManagerConfig{
-		IdleTimeoutSec:    c.SessionIdleTimeoutSec,
-		InitReqTimeoutSec: c.McpServerInitReqTimeout,
-	})
+	// Use the provided session manager, or create a default one if not provided
+	sessionManager := c.SessionManager
+	if sessionManager == nil {
+		sessionManager = NewSessionManager(&SessionManagerConfig{
+			IdleTimeoutSec:    DefaultSessionIdleTimeoutSec,
+			InitReqTimeoutSec: c.McpServerInitReqTimeout,
+		})
+	}
 
 	s := &MCPService{
 		db: c.DB,

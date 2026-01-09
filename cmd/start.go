@@ -48,7 +48,7 @@ const (
 	// McpServerInitRequestTimeoutSecondsDefault is the default timeout in seconds for MCP server initialization requests.
 	McpServerInitRequestTimeoutSecondsDefault = 10
 
-	// SessionIdleTimeoutSecEnvVar is the environment variable for configuring
+	// SessionIdleTimeoutSecEnvVar is the environment variable for configuring the idle timeout for stateful sessions.
 	SessionIdleTimeoutSecEnvVar = "SESSION_IDLE_TIMEOUT_SEC"
 
 	// SessionIdleTimeoutSecondsDefault is the default idle timeout in seconds for stateful sessions.
@@ -393,13 +393,19 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		log.Printf("[server] stateful sessions will not timeout (run until server shutdown)\n")
 	}
 
+	// Create the session manager for stateful MCP connections
+	sessionManager := mcp.NewSessionManager(&mcp.SessionManagerConfig{
+		IdleTimeoutSec:    sessionIdleTimeout,
+		InitReqTimeoutSec: timeout,
+	})
+
 	mcpServiceConfig := &mcp.ServiceConfig{
 		DB:                      dbConn,
 		McpProxyServer:          mcpProxyServer,
 		SseMcpProxyServer:       sseMcpProxyServer,
 		Metrics:                 mcpMetrics,
 		McpServerInitReqTimeout: timeout,
-		SessionIdleTimeoutSec:   sessionIdleTimeout,
+		SessionManager:          sessionManager,
 	}
 	mcpService, err := mcp.NewMCPService(mcpServiceConfig)
 	if err != nil {

@@ -53,20 +53,20 @@ func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request mcp.Ca
 		)
 	}
 
-	session, err := m.GetSession(ctx, server)
+	session, err := m.getSession(ctx, server)
 	if err != nil {
 		outcome = telemetry.ToolCallOutcomeError
 		return nil, err
 	}
-	defer session.CloseIfNeeded()
+	defer session.closeIfApplicable()
 
 	// Ensure the tool name is set correctly, ie, without the server name prefix
 	request.Params.Name = toolName
 
-	res, err := session.Client.CallTool(ctx, request)
+	res, err := session.client.CallTool(ctx, request)
 	if err != nil {
 		outcome = telemetry.ToolCallOutcomeError
-		session.InvalidateOnError(err) // Invalidate unhealthy stateful sessions
+		session.invalidateOnError(err) // Invalidate unhealthy stateful sessions
 	}
 
 	// forward the request to the upstream MCP server and relay the response back
@@ -115,21 +115,21 @@ func (m *MCPService) mcpProxyPromptHandler(ctx context.Context, request mcp.GetP
 		)
 	}
 
-	session, err := m.GetSession(ctx, server)
+	session, err := m.getSession(ctx, server)
 	if err != nil {
 		outcome = telemetry.PromptCallOutcomeError
 		return nil, err
 	}
-	defer session.CloseIfNeeded()
+	defer session.closeIfApplicable()
 
 	// Ensure the prompt name is set correctly, ie, without the server name prefix
 	request.Params.Name = promptName
 
 	// forward the request to the upstream MCP server and relay the response back
-	res, err := session.Client.GetPrompt(ctx, request)
+	res, err := session.client.GetPrompt(ctx, request)
 	if err != nil {
 		outcome = telemetry.PromptCallOutcomeError
-		session.InvalidateOnError(err) // Invalidate unhealthy stateful sessions
+		session.invalidateOnError(err) // Invalidate unhealthy stateful sessions
 	}
 
 	return res, err

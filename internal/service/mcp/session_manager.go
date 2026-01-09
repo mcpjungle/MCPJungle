@@ -76,48 +76,6 @@ func NewSessionManager(cfg *SessionManagerConfig) *SessionManager {
 	return sm
 }
 
-// startCleanupRoutine starts a background goroutine that periodically cleans up idle sessions.
-func (sm *SessionManager) startCleanupRoutine() {
-	sm.cleanupTicker = time.NewTicker(time.Duration(sessionCleanupIntervalSec) * time.Second)
-
-	go func() {
-		for {
-			select {
-			case <-sm.cleanupTicker.C:
-				sm.cleanupIdleSessions()
-			case <-sm.cleanupStopChan:
-				sm.cleanupTicker.Stop()
-				return
-			}
-		}
-	}()
-}
-
-// cleanupIdleSessions closes sessions that have been idle for longer than the idle timeout.
-func (sm *SessionManager) cleanupIdleSessions() {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-
-	if sm.idleTimeoutSec == 0 {
-		return // No timeout configured
-	}
-
-	now := time.Now()
-	idleThreshold := time.Duration(sm.idleTimeoutSec) * time.Second
-
-	for name, session := range sm.sessions {
-		if now.Sub(session.LastUsedAt) > idleThreshold {
-			log.Printf("[SessionManager] Closing idle session for server '%s' (idle for %v)", name, now.Sub(session.LastUsedAt))
-			if session.Client != nil {
-				if err := session.Client.Close(); err != nil {
-					log.Printf("[SessionManager] Error closing session for server '%s': %v", name, err)
-				}
-			}
-			delete(sm.sessions, name)
-		}
-	}
-}
-
 // GetOrCreateSession returns an existing session for the server or creates a new one.
 // This method should only be called for servers with SessionMode set to stateful.
 func (sm *SessionManager) GetOrCreateSession(ctx context.Context, server *model.McpServer) (*client.Client, error) {
@@ -224,6 +182,48 @@ func (sm *SessionManager) SessionCount() int {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
 	return len(sm.sessions)
+}
+
+// startCleanupRoutine starts a background goroutine that periodically cleans up idle sessions.
+func (sm *SessionManager) startCleanupRoutine() {
+	sm.cleanupTicker = time.NewTicker(time.Duration(sessionCleanupIntervalSec) * time.Second)
+
+	go func() {
+		for {
+			select {
+			case <-sm.cleanupTicker.C:
+				sm.cleanupIdleSessions()
+			case <-sm.cleanupStopChan:
+				sm.cleanupTicker.Stop()
+				return
+			}
+		}
+	}()
+}
+
+// cleanupIdleSessions closes sessions that have been idle for longer than the idle timeout.
+func (sm *SessionManager) cleanupIdleSessions() {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	if sm.idleTimeoutSec == 0 {
+		return // No timeout configured
+	}
+
+	now := time.Now()
+	idleThreshold := time.Duration(sm.idleTimeoutSec) * time.Second
+
+	for name, session := range sm.sessions {
+		if now.Sub(session.LastUsedAt) > idleThreshold {
+			log.Printf("[SessionManager] Closing idle session for server '%s' (idle for %v)", name, now.Sub(session.LastUsedAt))
+			if session.Client != nil {
+				if err := session.Client.Close(); err != nil {
+					log.Printf("[SessionManager] Error closing session for server '%s': %v", name, err)
+				}
+			}
+			delete(sm.sessions, name)
+		}
+	}
 }
 
 // createMcpServerConnection creates a new MCP client connection based on the server's transport type.

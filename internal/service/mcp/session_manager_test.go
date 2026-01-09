@@ -262,7 +262,7 @@ func TestSessionManager_LastUsedAtUpdated(t *testing.T) {
 	assert.True(t, newLastUsed.After(originalLastUsed), "LastUsedAt should be updated")
 }
 
-func TestSessionResult_CloseIfNeeded(t *testing.T) {
+func TestSessionResult_CloseIfApplicable(t *testing.T) {
 	tests := []struct {
 		name        string
 		shouldClose bool
@@ -279,13 +279,13 @@ func TestSessionResult_CloseIfNeeded(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sr := &SessionResult{
-				Client:      nil, // nil client for testing
-				ShouldClose: tt.shouldClose,
+			sr := &sessionResult{
+				client:      nil, // nil client for testing
+				shouldClose: tt.shouldClose,
 			}
 
 			// Should not panic even with nil client
-			sr.CloseIfNeeded()
+			sr.closeIfApplicable()
 		})
 	}
 }
@@ -387,14 +387,14 @@ func TestSessionResult_InvalidateOnError(t *testing.T) {
 				LastUsedAt: time.Now(),
 			}
 
-			sr := &SessionResult{
-				Client:         nil,
-				ShouldClose:    tt.shouldClose,
+			sr := &sessionResult{
+				client:         nil,
+				shouldClose:    tt.shouldClose,
 				serverName:     "test-server",
 				sessionManager: tt.sessionManager,
 			}
 
-			sr.InvalidateOnError(tt.err)
+			sr.invalidateOnError(tt.err)
 
 			if tt.expectInvalidation {
 				assert.False(t, sm.HasSession("test-server"), "session should be invalidated")
