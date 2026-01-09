@@ -43,6 +43,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	}
 
 	cfg := &config.ClientConfig{
+		RegistryURL: apiClient.BaseURL(),
 		AccessToken: accessToken,
 	}
 	if err := config.Save(cfg); err != nil {
