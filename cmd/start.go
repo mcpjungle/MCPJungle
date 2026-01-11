@@ -74,7 +74,10 @@ var startServerCmd = &cobra.Command{
 		"POSTGRES_HOST, POSTGRES_PORT (default 5432), POSTGRES_USER (default postgres), POSTGRES_PASSWORD, POSTGRES_DB (default postgres)\n\n" +
 		"You can also configure the amount of time (in seconds) mcpjungle will wait for a new MCP server's initialization before aborting it.\n" +
 		"Set the MCP_SERVER_INIT_REQ_TIMEOUT_SEC environment variable to an integer (default is 10).\n" +
-		"This is useful when you register a MCP server (usually stdio, like filesystem) that may take some time to start up.\n",
+		"This is useful when you register a MCP server (usually stdio, like filesystem) that may take some time to start up.\n\n" +
+		"Finally, you can also configure the idle timeout (in seconds) for stateful sessions.\n" +
+		"Set the SESSION_IDLE_TIMEOUT_SEC environment variable to an integer (default is -1, meaning no timeout).\n" +
+		"This is useful to automatically clean up idle sessions after a certain period of inactivity.",
 	RunE: runStartServer,
 	Annotations: map[string]string{
 		"group": string(subCommandGroupBasic),

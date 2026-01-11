@@ -425,7 +425,7 @@ This connection is not closed when the tool call is complete. Subsequent tool ca
 The connection is only closed when:
 1. mcpjungle server is stopped
 2. the mcp server is deregistered from mcpjungle
-3. the connection times out after a period of inactivity (default is 1 hour, but you can set the number of seconds using the `SESSION_IDLE_TIMEOUT_SEC` env var to configure this globally in mcpjungle server)
+3. the connection times out after a period of inactivity. You can set the number of seconds using the `SESSION_IDLE_TIMEOUT_SEC` env var to configure this globally in mcpjungle server (default value is -1, which means no timeout).
 
 When possible, it is recommended that you use stateless connections (default setting).
 
