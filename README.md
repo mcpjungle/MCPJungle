@@ -37,6 +37,7 @@ MCPJungle is a single source-of-truth registry for all [Model Context Protocol](
     - [Adding Streamable HTTP-based MCP servers](#registering-streamable-http-based-servers)
     - [Adding STDIO-based MCP servers](#registering-stdio-based-servers)
     - [Removing MCP servers](#deregistering-mcp-servers)
+  - [Cold-start problem & Stateful Connections](#cold-start-problem--stateful-connections)
   - [Connect to mcpjungle from Claude](#claude)
   - [Connect to mcpjungle from Cursor](#cursor)
   - [Enabling/Disabling Tools globally](#enablingdisabling-tools)
@@ -356,16 +357,6 @@ You can also watch a quick video on [How to register a STDIO-based MCP server](h
 > [!TIP]
 > If your STDIO server fails or throws errors for some reason, check the mcpjungle server's logs to view its `stderr` output.
 
-**Limitation** 🚧
-
-MCPJungle creates a new connection when a tool is called. This means a new sub-process for a STDIO mcp server is started for every tool call.
-
-This has some performance overhead but ensures that there are no memory leaks.
-
-But it also means that currently MCPJungle doesn't support stateful connections with your MCP server.
-
-We want to hear your feedback to improve this mechanism, feel free to create an issue, start a discussion or just reach out on Discord.
-
 
 **Caveat** ⚠️
 
@@ -404,6 +395,39 @@ mcpjungle deregister filesystem
 ```
 
 Once removed, this mcp server and its tools are no longer available to you or your MCP clients.
+
+## Cold-start problem & Stateful Connections
+By default, MCPJungle always creates a new connection with the upstream MCP server when a tool is called.
+
+When the tool call is complete, the connection is closed.
+
+This keeps the system clean and avoids memory leaks.
+
+But sometimes this can cause a latency overhead. For eg- a new process is spawned every time you call a tool of a STDIO-based mcp server. If the server takes several seconds to start up, this slows down the tool call and the overall interaction.
+
+To solve this, MCPJungle also supports stateful connections.
+
+You can set the `session_mode` to `stateful` (default is `stateless`) in you MCP server configuration:
+```json
+{
+  "name": "filesystem",
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+  "session_mode": "stateful"
+}
+```
+
+mcpjungle will create a new connection with this mcp server **the first time you call one of its tools**.
+
+This connection is not closed when the tool call is complete. Subsequent tool calls to this server reuse the same connection, avoiding the cold-start overhead.
+
+The connection is only closed when:
+1. mcpjungle server is stopped
+2. the mcp server is deregistered from mcpjungle
+3. the connection times out after a period of inactivity (default is 1 hour, but you can set the number of seconds using the `SESSION_IDLE_TIMEOUT_SEC` env var to configure this globally in mcpjungle server)
+
+When possible, it is recommended that you use stateless connections (default setting).
 
 ## Integration with other MCP Clients
 Assuming that MCPJungle is running on `http://localhost:8080`, use the following configurations to connect to it:
@@ -735,22 +759,7 @@ Once the mcpjungle server is started, metrics are available at the `/metrics` en
 # Current limitations 🚧
 We're not perfect yet, but we're working hard to get there!
 
-### 1. MCPJungle doesn't maintain any long-running connections to the registered MCP Servers
-When you call a tool in a Streamable HTTP server, mcpjungle creates a new connection to the server to serve the request.
-
-When you call a tool in a STDIO server, mcpjungle creates a new connection and starts a new sub-process to run this server.
-
-After servicing your request, it terminates this sub-process.
-
-So a new stdio server process is started for every tool call.
-
-This has some performance overhead but ensures that there are no memory leaks.
-
-It also means that if you rely on stateful connections with your MCP server, mcpjungle can currently not provide that.
-
-We plan on improving this mechanism in future releases and are open to ideas from the community!
-
-### 2. MCPJungle does not support OAuth flow for authentication.
+### 1. MCPJungle does not support OAuth flow for authentication yet
 This is a work in progress.
 
 We're collecting more feedback on how people use OAuth with MCP servers, so feel free to start a Discussion or open an issue to share your use case.

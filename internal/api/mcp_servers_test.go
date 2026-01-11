@@ -216,3 +216,34 @@ func TestInputStructureValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestSessionModeValidation(t *testing.T) {
+	tests := []struct {
+		name         string
+		mode         string
+		expectValid  bool
+		expectedMode types.SessionMode
+	}{
+		{"valid stateless", "stateless", true, types.SessionModeStateless},
+		{"valid stateful", "stateful", true, types.SessionModeStateful},
+		{"invalid mode", "invalid", false, ""},
+		{"empty mode", "", true, types.SessionModeStateless}, // default to stateless
+		{"whitespace", "\n\t  \n", false, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m, err := types.ValidateSessionMode(tt.mode)
+			isValid := err == nil
+
+			if isValid != tt.expectValid {
+				t.Errorf("Expected session mode '%s' to be valid=%v, got valid=%v",
+					tt.mode, tt.expectValid, isValid)
+			}
+			if isValid && m != tt.expectedMode {
+				t.Errorf("Expected session mode '%s' to be '%s', got '%s'",
+					tt.mode, tt.expectedMode, m)
+			}
+		})
+	}
+}
