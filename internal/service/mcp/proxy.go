@@ -87,8 +87,8 @@ func (m *MCPService) mcpProxyPromptHandler(ctx context.Context, request mcp.GetP
 	}
 
 	serverMode := ctx.Value("mode").(model.ServerMode)
-	if serverMode == model.ModeProd {
-		// In production mode, we need to check whether the MCP client is authorized to access the MCP server.
+	if model.IsEnterpriseMode(serverMode) {
+		// In enterprise mode, we need to check whether the MCP client is authorized to access the MCP server.
 		// If not, return error Unauthorized.
 		c := ctx.Value("client").(*model.McpClient)
 		if !c.CheckHasServerAccess(serverName) {
