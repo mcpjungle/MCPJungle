@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -432,7 +433,6 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 
 	// create the API server
 	opts := &api.ServerOptions{
-		Port:              bindPort,
 		MCPProxyServer:    mcpProxyServer,
 		SseMcpProxyServer: sseMcpProxyServer,
 		MCPService:        mcpService,
@@ -499,7 +499,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 
 	// Start the server in a goroutine
 	go func() {
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("failed to run the server: %v", err)
 		}
 	}()
