@@ -33,6 +33,7 @@ MCPJungle is a single source-of-truth registry for all [Model Context Protocol](
   - [Server](#server)
     - [Running mcpjungle server inside Docker](#running-inside-docker)
     - [Running mcpjungle server directly on the host machine](#running-directly-on-host)
+    - [Shutting down the server](#shutting-down)
   - [Client](#client)
     - [Adding Streamable HTTP-based MCP servers](#registering-streamable-http-based-servers)
     - [Adding STDIO-based MCP servers](#registering-stdio-based-servers)
@@ -205,6 +206,11 @@ mcpjungle start
 ```
 
 This starts the main registry server and MCP gateway, accessible on port `8080` by default.
+
+### Shutting down
+It is important that the mcpjungle server shuts down gracefully to ensure proper cleanup.
+
+The recommended way to stop the server process is to send a `SIGTERM` signal to it.
 
 
 
