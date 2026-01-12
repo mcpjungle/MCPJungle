@@ -142,6 +142,12 @@ func (s *Server) Start() error {
 	return nil
 }
 
+// Router returns the underlying HTTP handler for use with a custom HTTP server.
+// This is useful for graceful shutdown support.
+func (s *Server) Router() http.Handler {
+	return s.router
+}
+
 // setupRouter sets up the Gin router with the MCP proxy server and API endpoints.
 func (s *Server) setupRouter() (*gin.Engine, error) {
 	gin.SetMode(gin.ReleaseMode)

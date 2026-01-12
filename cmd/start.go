@@ -1,12 +1,17 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/mark3labs/mcp-go/server"
@@ -481,9 +486,39 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 	// Display startup banner when the server is started
 	cmd.Print(asciiArt)
 	cmd.Printf("MCPJungle HTTP server listening on :%s\n\n", bindPort)
-	if err := s.Start(); err != nil {
-		return fmt.Errorf("failed to run the server: %v", err)
+
+	// Create HTTP server for graceful shutdown support
+	httpServer := &http.Server{
+		Addr:    ":" + bindPort,
+		Handler: s.Router(),
 	}
 
+	// Channel to receive OS signals
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	// Start the server in a goroutine
+	go func() {
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("failed to run the server: %v", err)
+		}
+	}()
+
+	// Block until we receive a shutdown signal
+	sig := <-quit
+	log.Printf("[server] Received signal %v, initiating graceful shutdown...\n", sig)
+
+	// Gracefully shutdown the MCP service (closes all stateful sessions)
+	mcpService.Shutdown()
+
+	// Gracefully shutdown the HTTP server with a timeout
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		return fmt.Errorf("server forced to shutdown: %v", err)
+	}
+
+	log.Println("[server] Server gracefully stopped")
 	return nil
 }
