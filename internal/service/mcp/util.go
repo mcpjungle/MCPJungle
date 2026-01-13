@@ -267,7 +267,9 @@ func runStdioServer(ctx context.Context, s *model.McpServer, initReqTimeoutSec i
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, fmt.Errorf(
 				"initialization request to MCP server timed out after %d seconds,"+
-					" check mcpungle server logs for any errors from this MCP server",
+					" check mcpungle server logs for any errors from this MCP server"+
+					" update the MCP_SERVER_INIT_REQ_TIMEOUT_SEC env var to change the timeout,"+
+					" default is 30 seconds",
 				initReqTimeoutSec,
 			)
 		}
