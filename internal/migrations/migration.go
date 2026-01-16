@@ -31,5 +31,14 @@ func Migrate(db *gorm.DB) error {
 	if err := db.AutoMigrate(&model.Prompt{}); err != nil {
 		return fmt.Errorf("auto‑migration failed for Prompt model: %v", err)
 	}
+	if err := db.AutoMigrate(&model.OAuthClient{}); err != nil {
+		return fmt.Errorf("auto‑migration failed for OAuthClient model: %v", err)
+	}
+	if err := db.AutoMigrate(&model.OAuthCode{}); err != nil {
+		return fmt.Errorf("auto‑migration failed for OAuthCode model: %v", err)
+	}
+	if err := db.AutoMigrate(&model.OAuthToken{}); err != nil {
+		return fmt.Errorf("auto‑migration failed for OAuthToken model: %v", err)
+	}
 	return nil
 }
