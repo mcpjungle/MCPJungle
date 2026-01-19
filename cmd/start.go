@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -487,11 +488,23 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 	cmd.Print(asciiArt)
 	cmd.Printf("MCPJungle HTTP server listening on :%s\n\n", bindPort)
 
+	// Create a cancellable base context for all requests - when cancelled, all active connections terminate
+	requestBaseCtx, cancelRequests := context.WithCancel(context.Background())
+
 	// Create HTTP server for graceful shutdown support
 	httpServer := &http.Server{
 		Addr:    ":" + bindPort,
 		Handler: s.Router(),
+		BaseContext: func(l net.Listener) context.Context {
+			return requestBaseCtx
+		},
 	}
+
+	// Register shutdown callback - cancels base context when Shutdown() is called
+	httpServer.RegisterOnShutdown(func() {
+		log.Println("[server] Cancelling active connections...")
+		cancelRequests()
+	})
 
 	// Channel to receive OS signals
 	quit := make(chan os.Signal, 1)
