@@ -131,6 +131,9 @@ npx @modelcontextprotocol/inspector
    
    # set your github access token
    export GITHUB_TOKEN="<your GH token>"
+
+   # [New] Login to GHCR (required for pushing docker images)
+   echo $GITHUB_TOKEN | docker login ghcr.io -u <your-github-username> --password-stdin
    
    goreleaser release --clean
    ```
