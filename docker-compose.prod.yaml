@@ -32,7 +32,7 @@ services:
       - db
 
   mcpjungle:
-    image: mcpjungle/mcpjungle:${MCPJUNGLE_IMAGE_TAG:-latest}
+    image: ghcr.io/mcpjungle/mcpjungle:${MCPJUNGLE_IMAGE_TAG:-latest}
     container_name: mcpjungle-server
     environment:
       DATABASE_URL: postgres://mcpjungle:mcpjungle@db:5432/mcpjungle

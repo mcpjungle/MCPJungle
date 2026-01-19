@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
 
   mcpjungle:
-    image: mcpjungle/mcpjungle:${MCPJUNGLE_IMAGE_TAG:-latest-stdio}
+    image: ghcr.io/mcpjungle/mcpjungle:${MCPJUNGLE_IMAGE_TAG:-latest-stdio}
     container_name: mcpjungle-server
     environment:
       DATABASE_URL: postgres://mcpjungle:mcpjungle@db:5432/mcpjungle

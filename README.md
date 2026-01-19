@@ -132,7 +132,7 @@ mcpjungle version
 MCPJungle provides a Docker image which is useful for running the registry server (more about it later).
 
 ```bash
-docker pull mcpjungle/mcpjungle
+docker pull ghcr.io/mcpjungle/mcpjungle
 ```
 
 # Usage
@@ -190,7 +190,7 @@ But if you also want to use stdio-based servers like `filesystem`, `time`, `gith
 
 **Production Deployment**
 
-The default [MCPJungle Docker image](https://hub.docker.com/r/mcpjungle/mcpjungle) is very lightweight - it only contains a minimal base image and the `mcpjungle` binary.
+The default [MCPJungle Docker image](https://ghcr.io/mcpjungle/mcpjungle) is very lightweight - it only contains a minimal base image and the `mcpjungle` binary.
 
 It is therefore suitable and recommended for production deployments.
 
@@ -226,7 +226,7 @@ For more serious deployments, mcpjungle also supports Postgresql. You can supply
 export DATABASE_URL=postgres://admin:root@localhost:5432/mcpjungle_db
 
 #run as container
-docker run mcpjungle/mcpjungle:latest
+docker run ghcr.io/mcpjungle/mcpjungle:latest
 
 # or run directly
 mcpjungle start
