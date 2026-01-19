@@ -79,6 +79,8 @@ dockers:
     image_templates:
       - "mcpjungle/mcpjungle:{{ .Tag }}-amd64"
       - "mcpjungle/mcpjungle:latest-amd64"
+      - "ghcr.io/mcpjungle/mcpjungle:{{ .Tag }}-amd64"
+      - "ghcr.io/mcpjungle/mcpjungle:latest-amd64"
     use: buildx
     build_flag_templates:
       - "--pull"
@@ -89,6 +91,8 @@ dockers:
     image_templates:
       - "mcpjungle/mcpjungle:{{ .Tag }}-arm64"
       - "mcpjungle/mcpjungle:latest-arm64"
+      - "ghcr.io/mcpjungle/mcpjungle:{{ .Tag }}-arm64"
+      - "ghcr.io/mcpjungle/mcpjungle:latest-arm64"
     use: buildx
     build_flag_templates:
       - "--pull"
@@ -99,6 +103,8 @@ dockers:
     image_templates:
       - "mcpjungle/mcpjungle:{{ .Tag }}-stdio-amd64"
       - "mcpjungle/mcpjungle:latest-stdio-amd64"
+      - "ghcr.io/mcpjungle/mcpjungle:{{ .Tag }}-stdio-amd64"
+      - "ghcr.io/mcpjungle/mcpjungle:latest-stdio-amd64"
     use: buildx
     build_flag_templates:
       - "--pull"
@@ -109,6 +115,8 @@ dockers:
     image_templates:
       - "mcpjungle/mcpjungle:{{ .Tag }}-stdio-arm64"
       - "mcpjungle/mcpjungle:latest-stdio-arm64"
+      - "ghcr.io/mcpjungle/mcpjungle:{{ .Tag }}-stdio-arm64"
+      - "ghcr.io/mcpjungle/mcpjungle:latest-stdio-arm64"
     use: buildx
     build_flag_templates:
       - "--pull"
@@ -120,18 +128,46 @@ docker_manifests:
     image_templates:
       - "mcpjungle/mcpjungle:{{ .Tag }}-amd64"
       - "mcpjungle/mcpjungle:{{ .Tag }}-arm64"
+      - "ghcr.io/mcpjungle/mcpjungle:{{ .Tag }}-amd64"
+      - "ghcr.io/mcpjungle/mcpjungle:{{ .Tag }}-arm64"
+
+  - name_template: "ghcr.io/mcpjungle/mcpjungle:{{ .Tag }}"
+    image_templates:
+      - "ghcr.io/mcpjungle/mcpjungle:{{ .Tag }}-amd64"
+      - "ghcr.io/mcpjungle/mcpjungle:{{ .Tag }}-arm64"
 
   - name_template: "mcpjungle/mcpjungle:latest"
     image_templates:
       - "mcpjungle/mcpjungle:latest-amd64"
       - "mcpjungle/mcpjungle:latest-arm64"
+      - "ghcr.io/mcpjungle/mcpjungle:latest-amd64"
+      - "ghcr.io/mcpjungle/mcpjungle:latest-arm64"
+
+  - name_template: "ghcr.io/mcpjungle/mcpjungle:latest"
+    image_templates:
+      - "ghcr.io/mcpjungle/mcpjungle:latest-amd64"
+      - "ghcr.io/mcpjungle/mcpjungle:latest-arm64"
 
   - name_template: "mcpjungle/mcpjungle:{{ .Tag }}-stdio"
     image_templates:
       - "mcpjungle/mcpjungle:{{ .Tag }}-stdio-amd64"
       - "mcpjungle/mcpjungle:{{ .Tag }}-stdio-arm64"
+      - "ghcr.io/mcpjungle/mcpjungle:{{ .Tag }}-stdio-amd64"
+      - "ghcr.io/mcpjungle/mcpjungle:{{ .Tag }}-stdio-arm64"
+
+  - name_template: "ghcr.io/mcpjungle/mcpjungle:{{ .Tag }}-stdio"
+    image_templates:
+      - "ghcr.io/mcpjungle/mcpjungle:{{ .Tag }}-stdio-amd64"
+      - "ghcr.io/mcpjungle/mcpjungle:{{ .Tag }}-stdio-arm64"
 
   - name_template: "mcpjungle/mcpjungle:latest-stdio"
     image_templates:
       - "mcpjungle/mcpjungle:latest-stdio-amd64"
       - "mcpjungle/mcpjungle:latest-stdio-arm64"
+      - "ghcr.io/mcpjungle/mcpjungle:latest-stdio-amd64"
+      - "ghcr.io/mcpjungle/mcpjungle:latest-stdio-arm64"
+
+  - name_template: "ghcr.io/mcpjungle/mcpjungle:latest-stdio"
+    image_templates:
+      - "ghcr.io/mcpjungle/mcpjungle:latest-stdio-amd64"
+      - "ghcr.io/mcpjungle/mcpjungle:latest-stdio-arm64"
