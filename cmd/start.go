@@ -23,6 +23,7 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
+	"github.com/mcpjungle/mcpjungle/internal/service/oauth"
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
@@ -425,6 +426,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 
 	configService := config.NewServerConfigService(dbConn)
 	userService := user.NewUserService(dbConn)
+	oauthService := oauth.NewOAuthService(dbConn)
 
 	toolGroupService, err := toolgroup.NewToolGroupService(dbConn, mcpService)
 	if err != nil {
@@ -437,6 +439,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		SseMcpProxyServer: sseMcpProxyServer,
 		MCPService:        mcpService,
 		MCPClientService:  mcpClientService,
+		OAuthService:      oauthService,
 		ConfigService:     configService,
 		UserService:       userService,
 		ToolGroupService:  toolGroupService,

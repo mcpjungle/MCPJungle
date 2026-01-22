@@ -169,16 +169,38 @@ func (s *Server) checkAuthForMcpProxyAccess() gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing MCP client access token"})
 			return
 		}
+
+		// First, check if it's a static MCP client token (legacy authentication method)
+		// Static tokens are created via `mcpjungle create mcp-client` and are long-lived.
 		client, err := s.mcpClientService.GetClientByToken(token)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid MCP client token"})
+		if err == nil {
+			// inject the authenticated MCP client in context for the proxy to use
+			ctx = context.WithValue(c.Request.Context(), "client", client)
+			c.Request = c.Request.WithContext(ctx)
+			c.Next()
 			return
 		}
 
-		// inject the authenticated MCP client in context for the proxy to use
-		ctx = context.WithValue(c.Request.Context(), "client", client)
-		c.Request = c.Request.WithContext(ctx)
+		// Second, check if it's an OAuth token issued by mcpjungle (OAuth 2.0 flow)
+		// OAuth tokens are issued via the /oauth/token endpoint after user authorization.
+		// They are tied to a specific MCPJungle user and have expiration times.
+		oauthToken, err := s.oauthService.GetTokenByValue(token)
+		if err == nil {
+			// Create a "virtual" McpClient for the OAuth-authenticated user.
+			// This allows us to reuse the existing proxy authorization logic without major changes.
+			// The virtual client represents the user's OAuth session.
+			// TODO: Implement proper User -> Server ACLs instead of wildcard access.
+			virtualClient := &model.McpClient{
+				Name:        "oauth-user-" + fmt.Sprint(oauthToken.UserID),
+				AccessToken: oauthToken.Token,
+				AllowList:   []byte("[\"*\"]"), // Wildcard access for authenticated users for now
+			}
+			ctx = context.WithValue(c.Request.Context(), "client", virtualClient)
+			c.Request = c.Request.WithContext(ctx)
+			c.Next()
+			return
+		}
 
-		c.Next()
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid access token"})
 	}
 }
