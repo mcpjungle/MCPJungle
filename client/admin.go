@@ -8,6 +8,7 @@ import (
 	"net/url"
 
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
 type InitServerResponse struct {
@@ -49,4 +50,35 @@ func (c *Client) InitServer() (*InitServerResponse, error) {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 	return &initResp, nil
+}
+
+// CreateOAuthClient creates a new OAuth client in the registry
+func (c *Client) CreateOAuthClient(client *types.CreateOAuthClientRequest) (*model.OAuthClient, error) {
+	u, err := c.constructAPIEndpoint("/oauth-clients")
+	if err != nil {
+		return nil, err
+	}
+	body, err := json.Marshal(client)
+	if err != nil {
+		return nil, err
+	}
+	req, err := c.newRequest(http.MethodPost, u, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		return nil, c.parseErrorResponse(resp)
+	}
+
+	var created model.OAuthClient
+	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
+		return nil, err
+	}
+	return &created, nil
 }
