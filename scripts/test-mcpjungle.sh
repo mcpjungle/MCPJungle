@@ -204,7 +204,16 @@ else
   log "⚠️  Times similar (MCP server may have fast startup)"
 fi
 
-# 9) Print Homebrew formula config snippet
+# 9) Test OAuth 2.0 endpoints
+log "Testing OAuth 2.0 endpoints"
+curl -fsS "$LOCAL_REGISTRY/.well-known/openid-configuration" | grep -q "issuer" || { log "ERROR: OIDC discovery endpoint failed"; exit 1; }
+curl -fsS "$LOCAL_REGISTRY/.well-known/oauth-protected-resource" | grep -q "resource" || { log "ERROR: OAuth protected resource endpoint failed"; exit 1; }
+curl -fsS "$LOCAL_REGISTRY/oauth/authorize?client_id=test&redirect_uri=https://example.com/callback" | grep -q "Authorize MCPJungle" || { log "ERROR: Authorization endpoint failed"; exit 1; }
+TOKEN_RESPONSE=$(curl -s -X POST "$LOCAL_REGISTRY/oauth/token" -d "grant_type=invalid")
+echo "$TOKEN_RESPONSE" | grep -q "unsupported grant type" || { log "ERROR: Token endpoint validation failed. Response: $TOKEN_RESPONSE"; exit 1; }
+log "✅ OAuth endpoints working"
+
+# 10) Print Homebrew formula config snippet
 log "Homebrew formula config (from .goreleaser.yaml)"
 sed -n '/^brews:/,/^dockers:/p' "$ROOT_DIR/.goreleaser.yaml" || true
 popd >/dev/null
