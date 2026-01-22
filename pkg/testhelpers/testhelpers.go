@@ -217,6 +217,9 @@ func SetupTestDB(t *testing.T) *TestDBSetup {
 		&model.ServerConfig{},
 		&model.ToolGroup{},
 		&model.Prompt{},
+		&model.OAuthClient{},
+		&model.OAuthCode{},
+		&model.OAuthToken{},
 	)
 	AssertNoError(t, err)
 

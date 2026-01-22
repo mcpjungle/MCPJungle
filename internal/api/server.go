@@ -12,6 +12,7 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
+	"github.com/mcpjungle/mcpjungle/internal/service/oauth"
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
@@ -39,6 +40,7 @@ type ServerOptions struct {
 
 	MCPService       *mcp.MCPService
 	MCPClientService *mcpclient.McpClientService
+	OAuthService     *oauth.OAuthService
 	ConfigService    *config.ServerConfigService
 	UserService      *user.UserService
 	ToolGroupService *toolgroup.ToolGroupService
@@ -56,6 +58,7 @@ type Server struct {
 
 	mcpService       *mcp.MCPService
 	mcpClientService *mcpclient.McpClientService
+	oauthService     *oauth.OAuthService
 
 	configService    *config.ServerConfigService
 	userService      *user.UserService
@@ -77,6 +80,7 @@ func NewServer(opts *ServerOptions) (*Server, error) {
 		sseMcpProxyServer: opts.SseMcpProxyServer,
 		mcpService:        opts.MCPService,
 		mcpClientService:  opts.MCPClientService,
+		oauthService:      opts.OAuthService,
 		configService:     opts.ConfigService,
 		userService:       opts.UserService,
 		toolGroupService:  opts.ToolGroupService,
@@ -167,6 +171,13 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 	)
 
 	r.POST("/init", s.registerInitServerHandler())
+
+	// OAuth 2.0 / OIDC endpoints
+	r.GET("/.well-known/openid-configuration", s.oidcConfigurationHandler())
+	r.GET("/.well-known/oauth-protected-resource", s.oauthProtectedResourceHandler())
+	r.GET("/oauth/authorize", s.oauthAuthorizeHandler())
+	r.POST("/oauth/authorize", s.oauthAuthorizeHandler()) // Handles the actual authorization form POST
+	r.POST("/oauth/token", s.oauthTokenHandler())
 
 	requireEnterpriseMode := s.requireServerMode(model.ModeEnterprise)
 
@@ -306,6 +317,11 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		adminAPI.GET("/tool-groups", s.listToolGroupsHandler())
 		adminAPI.DELETE("/tool-groups/:name", s.deleteToolGroupHandler())
 		adminAPI.PUT("/tool-groups/:name", s.updateToolGroupHandler())
+
+		// OAuth client management
+		adminAPI.POST("/oauth-clients", s.createOAuthClientHandler())
+		adminAPI.GET("/oauth-clients", s.listOAuthClientsHandler())
+		adminAPI.DELETE("/oauth-clients/:client_id", s.deleteOAuthClientHandler())
 	}
 
 	return r, nil

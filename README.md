@@ -45,6 +45,7 @@ MCPJungle is an open source, self-hosted Gateway for all your [Model Context Pro
   - [Prompts](#prompts)
   - [Tool Groups](#tool-groups)
   - [Authentication](#authentication)
+  - [OAuth 2.0 Integration](#oauth-20-integration)
   - [Enterprise features](#enterprise-features-)
     - [Access Control](#access-control)
     - [OpenTelemetry](#opentelemetry)
@@ -665,7 +666,41 @@ Or from your configuration file
 }
 ```
 
-Support for Oauth flow is coming soon!
+## OAuth 2.0 Integration
+
+MCPJungle supports OAuth 2.0 / OpenID Connect (OIDC) for connecting external LLM platforms like ChatGPT. This uses the Authorization Code flow with PKCE for security.
+
+OAuth is only available in Enterprise mode.
+
+### Setting Up OAuth for ChatGPT
+
+1. Start MCPJungle in enterprise mode and initialize it:
+```bash
+mcpjungle start --enterprise
+mcpjungle init-server
+```
+
+2. Create an OAuth client:
+```bash
+mcpjungle create oauth-client chatgpt \
+  --redirect-uris "https://chatgpt.com/connector_platform_oauth_redirect"
+```
+
+3. Expose MCPJungle publicly (for local development, use [ngrok](https://ngrok.com/)):
+```bash
+ngrok http 8080
+```
+
+4. In ChatGPT, go to **Settings > Connectors > Advanced > Developer mode** and add a connector:
+   - Endpoint URL: `https://your-ngrok-url/mcp`
+   - Authentication: **OAuth**
+   - Client ID: (from step 2)
+   - Authorize URL: `https://your-ngrok-url/oauth/authorize`
+   - Token URL: `https://your-ngrok-url/oauth/token`
+
+5. When prompted, authorize access using your MCPJungle username and access token.
+
+MCPJungle exposes OAuth discovery endpoints at `/.well-known/openid-configuration` and `/.well-known/oauth-protected-resource` for automatic client configuration.
 
 ## Enterprise Features 🔒
 
@@ -818,10 +853,9 @@ Once the mcpjungle server is started, metrics are available at the `/metrics` en
 # Current limitations 🚧
 We're not perfect yet, but we're working hard to get there!
 
-### 1. MCPJungle does not support OAuth flow for authentication yet
-This is a work in progress.
+### 1. OAuth refresh token flow
 
-We're collecting more feedback on how people use OAuth with MCP servers, so feel free to start a Discussion or open an issue to share your use case.
+While MCPJungle issues refresh tokens during the OAuth flow, the token refresh endpoint is not yet implemented. Users will need to re-authorize when their access tokens expire (after 24 hours). This will be added in a future release.
 
 # Contributing 💻
 

@@ -75,6 +75,14 @@ var createToolGroupCmd = &cobra.Command{
 	RunE: runCreateToolGroup,
 }
 
+var createOAuthClientCmd = &cobra.Command{
+	Use:   "oauth-client [name]",
+	Args:  cobra.ExactArgs(1),
+	Short: "Create an OAuth 2.0 client (Enterprise mode)",
+	Long:  "Create an OAuth 2.0 client for integrating with external LLMs like ChatGPT.",
+	RunE:  runCreateOAuthClient,
+}
+
 var (
 	createMcpClientCmdAllowedServers string
 	createMcpClientCmdDescription    string
@@ -85,6 +93,9 @@ var (
 	createUserCmdConfigFilePath string
 
 	createToolGroupConfigFilePath string
+
+	createOAuthClientCmdRedirectURIs string
+	createOAuthClientCmdDescription  string
 )
 
 func init() {
@@ -142,9 +153,24 @@ func init() {
 	)
 	_ = createToolGroupCmd.MarkFlagRequired("conf")
 
+	createOAuthClientCmd.Flags().StringVar(
+		&createOAuthClientCmdRedirectURIs,
+		"redirect-uris",
+		"",
+		"Comma-separated list of allowed redirect URIs",
+	)
+	createOAuthClientCmd.Flags().StringVar(
+		&createOAuthClientCmdDescription,
+		"description",
+		"",
+		"Description of the OAuth client",
+	)
+	_ = createOAuthClientCmd.MarkFlagRequired("redirect-uris")
+
 	createCmd.AddCommand(createMcpClientCmd)
 	createCmd.AddCommand(createUserCmd)
 	createCmd.AddCommand(createToolGroupCmd)
+	createCmd.AddCommand(createOAuthClientCmd)
 
 	rootCmd.AddCommand(createCmd)
 }
@@ -292,6 +318,28 @@ func runCreateToolGroup(cmd *cobra.Command, args []string) error {
 	cmd.Print("Tools using the SSE (server-sent events) transport are accessible at:\n\n")
 	cmd.Println("    " + resp.SSEEndpoint)
 	cmd.Println("    " + resp.SSEMessageEndpoint + "\n")
+
+	return nil
+}
+
+func runCreateOAuthClient(cmd *cobra.Command, args []string) error {
+	req := &types.CreateOAuthClientRequest{
+		Name:         args[0],
+		RedirectURIs: createOAuthClientCmdRedirectURIs,
+		Description:  createOAuthClientCmdDescription,
+	}
+
+	created, err := apiClient.CreateOAuthClient(req)
+	if err != nil {
+		return fmt.Errorf("failed to create OAuth client: %w", err)
+	}
+
+	cmd.Printf("OAuth client '%s' created successfully!\n", created.Name)
+	cmd.Printf("Client ID:     %s\n", created.ClientID)
+	if created.ClientSecret != "" {
+		cmd.Printf("Client Secret: %s\n", created.ClientSecret)
+	}
+	cmd.Printf("Redirect URIs: %s\n", created.RedirectURIs)
 
 	return nil
 }
