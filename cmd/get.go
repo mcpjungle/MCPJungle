@@ -109,8 +109,28 @@ func runGetGroup(cmd *cobra.Command, args []string) error {
 	}
 	cmd.Println()
 
+	if len(group.IncludedPrompts) == 0 {
+		cmd.Println("Included Prompts: None")
+	} else {
+		cmd.Println("Included Prompts:")
+		for i, p := range group.IncludedPrompts {
+			cmd.Printf("%d. %s\n", i+1, p)
+		}
+	}
+	cmd.Println()
+
+	if len(group.ExcludedPrompts) == 0 {
+		cmd.Println("Excluded Prompts: None")
+	} else {
+		cmd.Println("Excluded Prompts:")
+		for i, p := range group.ExcludedPrompts {
+			cmd.Printf("%d. %s\n", i+1, p)
+		}
+	}
+	cmd.Println()
+
 	cmd.Println(
-		"NOTE: If a tool in this group is disabled globally or has been deleted, " +
+		"NOTE: If a tool or prompt in this group is disabled globally or has been deleted, " +
 			"then it will not be available via the group's MCP endpoint.",
 	)
 

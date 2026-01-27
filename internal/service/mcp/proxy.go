@@ -73,10 +73,10 @@ func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request mcp.Ca
 	return res, err
 }
 
-// mcpProxyPromptHandler handles prompt requests for the MCP proxy server
+// MCPProxyPromptHandler handles prompt requests for the MCP proxy server
 // by forwarding the request to the appropriate upstream MCP server and
 // relaying the response back.
-func (m *MCPService) mcpProxyPromptHandler(ctx context.Context, request mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+func (m *MCPService) MCPProxyPromptHandler(ctx context.Context, request mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	started := time.Now()
 	outcome := telemetry.PromptCallOutcomeSuccess
 
@@ -219,9 +219,9 @@ func (m *MCPService) initMCPProxyServer() error {
 		}
 
 		if server.Transport == types.TransportSSE {
-			m.sseMcpProxyServer.AddPrompt(prompt, m.mcpProxyPromptHandler)
+			m.sseMcpProxyServer.AddPrompt(prompt, m.MCPProxyPromptHandler)
 		} else {
-			m.mcpProxyServer.AddPrompt(prompt, m.mcpProxyPromptHandler)
+			m.mcpProxyServer.AddPrompt(prompt, m.MCPProxyPromptHandler)
 		}
 	}
 

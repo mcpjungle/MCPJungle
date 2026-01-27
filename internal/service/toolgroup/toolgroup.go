@@ -55,9 +55,11 @@ func NewToolGroupService(db *gorm.DB, mcpService *mcp.MCPService) (*ToolGroupSer
 		sseMcpServerMu: sync.RWMutex{},
 	}
 
-	// register callbacks with mcp service to be notified when a tool gets added/removed
+	// register callbacks with mcp service to be notified when tools/prompts get added/removed
 	mcpService.SetToolDeletionCallback(s.handleToolDeletion)
 	mcpService.SetToolAdditionCallback(s.handleToolAddition)
+	mcpService.SetPromptDeletionCallback(s.handlePromptDeletion)
+	mcpService.SetPromptAdditionCallback(s.handlePromptAddition)
 
 	if err := s.initToolGroupMCPServers(); err != nil {
 		return nil, fmt.Errorf("failed to initialize tool group MCP servers: %w", err)
@@ -87,6 +89,11 @@ func (s *ToolGroupService) CreateToolGroup(group *model.ToolGroup) error {
 		return errors.New("tool group must contain at least one tool after resolving servers and exclusions")
 	}
 
+	promptNames, err := group.ResolveEffectivePrompts(s.mcpService)
+	if err != nil {
+		return fmt.Errorf("failed to resolve prompts: %w", err)
+	}
+
 	// create the proxy MCP servers that expose only specified tools
 	mcpServer := s.newMCPServer(group.Name)
 	sseMcpServer := s.newSseMCPServer(group.Name)
@@ -109,6 +116,24 @@ func (s *ToolGroupService) CreateToolGroup(group *model.ToolGroup) error {
 			sseMcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
 		} else {
 			mcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+		}
+	}
+
+	for _, name := range promptNames {
+		prompt, exists := s.mcpService.GetPromptInstance(name)
+		if !exists {
+			return fmt.Errorf("prompt %s does not exist or is disabled", name)
+		}
+
+		parentServer, err := s.mcpService.GetPromptParentServer(name)
+		if err != nil {
+			return fmt.Errorf("failed to get parent MCP server of the tool %s: %w", name, err)
+		}
+
+		if parentServer.Transport == types.TransportSSE {
+			sseMcpServer.AddPrompt(prompt, s.mcpService.MCPProxyPromptHandler)
+		} else {
+			mcpServer.AddPrompt(prompt, s.mcpService.MCPProxyPromptHandler)
 		}
 	}
 
@@ -146,11 +171,23 @@ func (s *ToolGroupService) UpdateToolGroup(name string, updatedGroup *model.Tool
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve effective tools of the updated group: %w", err)
 	}
+	toolsAdded, toolsRemoved := util.DiffItems(oldToolNames, updatedToolNames)
 
-	toolsAdded, toolsRemoved := util.DiffTools(oldToolNames, updatedToolNames)
+	// determine which prompts were added or removed from the group
+	oldPromptNames, err := oldGroup.ResolveEffectivePrompts(s.mcpService)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve effective prompts of original group: %w", err)
+	}
+	updatedPromptNames, err := updatedGroup.ResolveEffectivePrompts(s.mcpService)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve effective prompts of the updated group: %w", err)
+	}
+	promptsAdded, promptsRemoved := util.DiffItems(oldPromptNames, updatedPromptNames)
 
 	// if nothing was actually changed in the group, no need to proceed further
-	if updatedGroup.Description == oldGroup.Description && len(toolsAdded) == 0 && len(toolsRemoved) == 0 {
+	if updatedGroup.Description == oldGroup.Description &&
+		len(toolsAdded) == 0 && len(toolsRemoved) == 0 &&
+		len(promptsAdded) == 0 && len(promptsRemoved) == 0 {
 		return oldGroup, nil
 	}
 
@@ -165,50 +202,65 @@ func (s *ToolGroupService) UpdateToolGroup(name string, updatedGroup *model.Tool
 		return nil, fmt.Errorf("SSE MCP server for tool group %s does not exist", name)
 	}
 
-	// tools added to the group must be added to its MCP server instances
-	var sseToolsToAdd, normalToolsToAdd []mcpgo.Tool
-	for _, toolName := range toolsAdded {
-		tool, exists := s.mcpService.GetToolInstance(toolName)
-		if !exists {
-			return nil, fmt.Errorf("tool %s does not exist or is disabled", toolName)
-		}
-
-		parentServer, err := s.mcpService.GetToolParentServer(toolName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get parent MCP server of the tool %s: %w", toolName, err)
-		}
-
-		if parentServer.Transport == types.TransportSSE {
-			sseToolsToAdd = append(sseToolsToAdd, tool)
-		} else {
-			normalToolsToAdd = append(normalToolsToAdd, tool)
-		}
+	// partition tools by transport type
+	sseToolsToAdd, normalToolsToAdd, err := partitionItemsToAdd(
+		toolsAdded,
+		s.mcpService.GetToolInstance,
+		s.mcpService.GetToolParentServer,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to partition tools to add: %w", err)
 	}
 
-	// tools removed from the group must be removed from its MCP server instances
-	var sseToolsToRemove, normalToolsToRemove []string
-	for _, toolName := range toolsRemoved {
-		parentServer, err := s.mcpService.GetToolParentServer(toolName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get parent MCP server of the tool %s: %w", toolName, err)
-		}
+	sseToolsToRemove, normalToolsToRemove, err := partitionNamesToRemove(
+		toolsRemoved,
+		s.mcpService.GetToolParentServer,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to partition tools to remove: %w", err)
+	}
 
-		if parentServer.Transport == types.TransportSSE {
-			sseToolsToRemove = append(sseToolsToRemove, toolName)
-		} else {
-			normalToolsToRemove = append(normalToolsToRemove, toolName)
-		}
+	// partition prompts by transport type
+	ssePromptsToAdd, normalPromptsToAdd, err := partitionItemsToAdd(
+		promptsAdded,
+		s.mcpService.GetPromptInstance,
+		s.mcpService.GetPromptParentServer,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to partition prompts to add: %w", err)
+	}
+
+	ssePromptsToRemove, normalPromptsToRemove, err := partitionNamesToRemove(
+		promptsRemoved,
+		s.mcpService.GetPromptParentServer,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to partition prompts to remove: %w", err)
 	}
 
 	// make all the changes together to avoid inconsistent state in case of errors
+	// remove tools
 	mcpServer.DeleteTools(normalToolsToRemove...)
 	sseMcpServer.DeleteTools(sseToolsToRemove...)
 
+	// remove prompts
+	mcpServer.DeletePrompts(normalPromptsToRemove...)
+	sseMcpServer.DeletePrompts(ssePromptsToRemove...)
+
+	// add tools
 	for _, tool := range normalToolsToAdd {
 		mcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
 	}
 	for _, tool := range sseToolsToAdd {
 		sseMcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+	}
+
+	// add prompts
+	for _, prompt := range normalPromptsToAdd {
+		mcpServer.AddPrompt(prompt, s.mcpService.MCPProxyPromptHandler)
+	}
+	for _, prompt := range ssePromptsToAdd {
+		sseMcpServer.AddPrompt(prompt, s.mcpService.MCPProxyPromptHandler)
 	}
 
 	// as a final step, update the tool group record in the database
@@ -322,6 +374,88 @@ func (s *ToolGroupService) deleteToolGroupMCPServers(name string) {
 	delete(s.sseMcpServers, name)
 }
 
+// addItemsToServers is a helper that adds items (tools or prompts) to MCP servers based on transport type.
+// It uses functional composition to work with both tools and prompts.
+// Missing items are skipped (useful during init when items may not exist yet).
+func addItemsToServers[T any](
+	names []string,
+	mcpServer *server.MCPServer,
+	sseMcpServer *server.MCPServer,
+	getInstance func(name string) (T, bool),
+	getParentServer func(name string) (*model.McpServer, error),
+	addToServer func(srv *server.MCPServer, item T),
+) error {
+	for _, name := range names {
+		item, exists := getInstance(name)
+		if !exists {
+			// TODO: Add a warning log here.
+			continue
+		}
+
+		parentServer, err := getParentServer(name)
+		if err != nil {
+			return fmt.Errorf("failed to get parent MCP server of item %s: %w", name, err)
+		}
+
+		if parentServer.Transport == types.TransportSSE {
+			addToServer(sseMcpServer, item)
+		} else {
+			addToServer(mcpServer, item)
+		}
+	}
+	return nil
+}
+
+// partitionItemsToAdd partitions items to add into SSE and normal transport categories.
+// Returns (sseItems, normalItems, error).
+func partitionItemsToAdd[T any](
+	names []string,
+	getInstance func(name string) (T, bool),
+	getParentServer func(name string) (*model.McpServer, error),
+) ([]T, []T, error) {
+	var sseItems, normalItems []T
+	for _, name := range names {
+		item, exists := getInstance(name)
+		if !exists {
+			return nil, nil, fmt.Errorf("item %s does not exist or is disabled", name)
+		}
+
+		parentServer, err := getParentServer(name)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get parent MCP server of item %s: %w", name, err)
+		}
+
+		if parentServer.Transport == types.TransportSSE {
+			sseItems = append(sseItems, item)
+		} else {
+			normalItems = append(normalItems, item)
+		}
+	}
+	return sseItems, normalItems, nil
+}
+
+// partitionNamesToRemove partitions item names to remove into SSE and normal transport categories.
+// Returns (sseNames, normalNames, error).
+func partitionNamesToRemove(
+	names []string,
+	getParentServer func(name string) (*model.McpServer, error),
+) ([]string, []string, error) {
+	var sseNames, normalNames []string
+	for _, name := range names {
+		parentServer, err := getParentServer(name)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get parent MCP server of item %s: %w", name, err)
+		}
+
+		if parentServer.Transport == types.TransportSSE {
+			sseNames = append(sseNames, name)
+		} else {
+			normalNames = append(normalNames, name)
+		}
+	}
+	return sseNames, normalNames, nil
+}
+
 // initToolGroupMCPServers initializes the MCP proxy servers for all existing tool groups in the database.
 // It initializes both the mcpServers and sseMcpServers.
 func (s *ToolGroupService) initToolGroupMCPServers() error {
@@ -337,28 +471,38 @@ func (s *ToolGroupService) initToolGroupMCPServers() error {
 		}
 		// TODO: Log a warning if a group has no tools, ie, len(toolNames) == 0
 
+		promptNames, err := group.ResolveEffectivePrompts(s.mcpService)
+		if err != nil {
+			return fmt.Errorf("failed to resolve prompts for group %s: %w", group.Name, err)
+		}
+
 		mcpServer := s.newMCPServer(group.Name)
 		sseMcpServer := s.newSseMCPServer(group.Name)
 
-		for _, name := range toolNames {
-			tool, exists := s.mcpService.GetToolInstance(name)
-			if !exists {
-				// it is possible that a tool group contains a tool that does not exist.
-				// this should not prevent server startup, so just skip instead of returning an error.
-				// TODO: Add a warning log here.
-				continue
-			}
+		// Add tools to servers (skip missing during init)
+		err = addItemsToServers(
+			toolNames, mcpServer, sseMcpServer,
+			s.mcpService.GetToolInstance,
+			s.mcpService.GetToolParentServer,
+			func(srv *server.MCPServer, tool mcpgo.Tool) {
+				srv.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+			},
+		)
+		if err != nil {
+			return fmt.Errorf("failed to add tools for group %s: %w", group.Name, err)
+		}
 
-			parentServer, err := s.mcpService.GetToolParentServer(name)
-			if err != nil {
-				return fmt.Errorf("failed to get parent MCP server of the tool %s: %w", name, err)
-			}
-
-			if parentServer.Transport == types.TransportSSE {
-				sseMcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
-			} else {
-				mcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
-			}
+		// Add prompts to servers (skip missing during init)
+		err = addItemsToServers(
+			promptNames, mcpServer, sseMcpServer,
+			s.mcpService.GetPromptInstance,
+			s.mcpService.GetPromptParentServer,
+			func(srv *server.MCPServer, prompt mcpgo.Prompt) {
+				srv.AddPrompt(prompt, s.mcpService.MCPProxyPromptHandler)
+			},
+		)
+		if err != nil {
+			return fmt.Errorf("failed to add prompts for group %s: %w", group.Name, err)
 		}
 
 		s.addToolGroupMCPServer(group.Name, mcpServer)
@@ -444,6 +588,85 @@ func (s *ToolGroupService) handleToolAddition(newTool string) error {
 		mcpServer, exists := s.mcpServers[name]
 		if exists {
 			mcpServer.AddTool(newToolInstance, s.mcpService.MCPProxyToolCallHandler)
+		}
+	}
+
+	return nil
+}
+
+// handlePromptDeletion is a callback that is called when one or more prompts is deleted or disabled.
+// It removes the prompts from all tool group MCP proxy servers.
+func (s *ToolGroupService) handlePromptDeletion(prompts ...string) {
+	s.mcpServersMu.RLock()
+	defer s.mcpServersMu.RUnlock()
+
+	s.sseMcpServerMu.Lock()
+	defer s.sseMcpServerMu.Unlock()
+
+	for _, mcpServer := range s.mcpServers {
+		mcpServer.DeletePrompts(prompts...)
+	}
+
+	for _, sseMcpServer := range s.sseMcpServers {
+		sseMcpServer.DeletePrompts(prompts...)
+	}
+}
+
+// handlePromptAddition is a callback that is called when a prompt is added or (re)enabled in mcpjungle.
+// This callback adds the new prompt to MCP proxy servers of all groups that include it.
+func (s *ToolGroupService) handlePromptAddition(newPrompt string) error {
+	// get all tool groups from the database
+	groups, err := s.ListToolGroups()
+	if err != nil {
+		return fmt.Errorf("failed to list tool groups from DB: %w", err)
+	}
+
+	// find all groups that include the added prompt
+	groupsToUpdate := make([]string, 0, len(groups))
+	for i := range groups {
+		name := groups[i].Name
+		groupPrompts, err := groups[i].ResolveEffectivePrompts(s.mcpService)
+		if err != nil {
+			return fmt.Errorf("failed to resolve effective prompts for group %s: %w", name, err)
+		}
+		for _, p := range groupPrompts {
+			if p != newPrompt {
+				continue
+			}
+			groupsToUpdate = append(groupsToUpdate, name)
+			break
+		}
+	}
+
+	newPromptInstance, exists := s.mcpService.GetPromptInstance(newPrompt)
+	if !exists {
+		return fmt.Errorf("prompt instance %s does not exist", newPrompt)
+	}
+
+	parentServer, err := s.mcpService.GetPromptParentServer(newPrompt)
+	if err != nil {
+		return fmt.Errorf("failed to get parent MCP server of the prompt %s: %w", newPrompt, err)
+	}
+
+	// add the new prompt instance to all relevant MCP proxy servers
+	s.mcpServersMu.RLock()
+	defer s.mcpServersMu.RUnlock()
+
+	s.sseMcpServerMu.Lock()
+	defer s.sseMcpServerMu.Unlock()
+
+	for _, name := range groupsToUpdate {
+		if parentServer.Transport == types.TransportSSE {
+			sseMcpServer, exists := s.sseMcpServers[name]
+			if exists {
+				sseMcpServer.AddPrompt(newPromptInstance, s.mcpService.MCPProxyPromptHandler)
+			}
+			continue
+		}
+
+		mcpServer, exists := s.mcpServers[name]
+		if exists {
+			mcpServer.AddPrompt(newPromptInstance, s.mcpService.MCPProxyPromptHandler)
 		}
 	}
 

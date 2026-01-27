@@ -12,6 +12,28 @@ import (
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
+// PromptDeletionCallback is a function type that can be registered to be called
+// whenever one or more prompts are deleted (deregistered) or disabled.
+// The callback receives the names of the deleted prompts as arguments.
+type PromptDeletionCallback func(promptNames ...string)
+
+// PromptAdditionCallback is a function type that can be registered to be called
+// whenever a prompt is added (registered or re-enabled).
+// The callback receives the name of the added prompt as argument.
+type PromptAdditionCallback func(promptName string) error
+
+// SetPromptDeletionCallback registers a callback function to be called
+// whenever one or more prompts are deleted (deregistered) or disabled.
+func (m *MCPService) SetPromptDeletionCallback(callback PromptDeletionCallback) {
+	m.promptDeletionCallback = callback
+}
+
+// SetPromptAdditionCallback registers a callback function to be called
+// whenever one or more prompts are added (registered or re-enabled).
+func (m *MCPService) SetPromptAdditionCallback(callback PromptAdditionCallback) {
+	m.promptAdditionCallback = callback
+}
+
 // ListPrompts returns all prompts registered in the registry.
 func (m *MCPService) ListPrompts() ([]model.Prompt, error) {
 	var prompts []model.Prompt
@@ -198,10 +220,11 @@ func (m *MCPService) setPromptsEnabled(entity string, enabled bool) ([]string, e
 			mcpPrompt.Name = entity
 
 			if s.Transport == types.TransportSSE {
-				m.sseMcpProxyServer.AddPrompt(mcpPrompt, m.mcpProxyPromptHandler)
+				m.sseMcpProxyServer.AddPrompt(mcpPrompt, m.MCPProxyPromptHandler)
 			} else {
-				m.mcpProxyServer.AddPrompt(mcpPrompt, m.mcpProxyPromptHandler)
+				m.mcpProxyServer.AddPrompt(mcpPrompt, m.MCPProxyPromptHandler)
 			}
+			m.notifyPromptAddition(entity)
 		} else {
 			// if the prompt was disabled, remove it from the MCP proxy server
 			if s.Transport == types.TransportSSE {
@@ -209,6 +232,7 @@ func (m *MCPService) setPromptsEnabled(entity string, enabled bool) ([]string, e
 			} else {
 				m.mcpProxyServer.DeletePrompts(entity)
 			}
+			m.notifyPromptDeletion(entity)
 		}
 
 		return []string{entity}, nil
@@ -246,16 +270,18 @@ func (m *MCPService) setPromptsEnabled(entity string, enabled bool) ([]string, e
 			mcpPrompt.Name = canonicalPromptName
 
 			if s.Transport == types.TransportSSE {
-				m.sseMcpProxyServer.AddPrompt(mcpPrompt, m.mcpProxyPromptHandler)
+				m.sseMcpProxyServer.AddPrompt(mcpPrompt, m.MCPProxyPromptHandler)
 			} else {
-				m.mcpProxyServer.AddPrompt(mcpPrompt, m.mcpProxyPromptHandler)
+				m.mcpProxyServer.AddPrompt(mcpPrompt, m.MCPProxyPromptHandler)
 			}
+			m.notifyPromptAddition(canonicalPromptName)
 		} else {
 			if s.Transport == types.TransportSSE {
 				m.sseMcpProxyServer.DeletePrompts(canonicalPromptName)
 			} else {
 				m.mcpProxyServer.DeletePrompts(canonicalPromptName)
 			}
+			m.notifyPromptDeletion(canonicalPromptName)
 		}
 
 		changedPromptNames = append(changedPromptNames, canonicalPromptName)
@@ -294,10 +320,11 @@ func (m *MCPService) registerServerPrompts(ctx context.Context, s *model.McpServ
 			prompt.Name = canonicalPromptName
 
 			if s.Transport == types.TransportSSE {
-				m.sseMcpProxyServer.AddPrompt(prompt, m.mcpProxyPromptHandler)
+				m.sseMcpProxyServer.AddPrompt(prompt, m.MCPProxyPromptHandler)
 			} else {
-				m.mcpProxyServer.AddPrompt(prompt, m.mcpProxyPromptHandler)
+				m.mcpProxyServer.AddPrompt(prompt, m.MCPProxyPromptHandler)
 			}
+			m.notifyPromptAddition(canonicalPromptName)
 		}
 	}
 	return nil
@@ -330,5 +357,47 @@ func (m *MCPService) deregisterServerPrompts(s *model.McpServer) error {
 		m.mcpProxyServer.DeletePrompts(promptNames...)
 	}
 
+	// notify any registered callbacks about the prompt deletion
+	m.notifyPromptDeletion(promptNames...)
+
 	return nil
+}
+
+// GetPromptInstance returns the mcp.Prompt instance for the given prompt name.
+// Returns the prompt instance and a boolean indicating if it was found.
+func (m *MCPService) GetPromptInstance(name string) (mcp.Prompt, bool) {
+	prompt, err := m.GetPrompt(name)
+	if err != nil || !prompt.Enabled {
+		return mcp.Prompt{}, false
+	}
+
+	mcpPrompt, err := convertPromptModelToMcpObject(prompt)
+	if err != nil {
+		return mcp.Prompt{}, false
+	}
+
+	return mcpPrompt, true
+}
+
+// GetToolParentServer returns the MCP server that provides the given tool.
+// The input name must be the canonical tool name, ie, it must contain the server name prefix (eg- "server__tool").
+func (m *MCPService) GetPromptParentServer(name string) (*model.McpServer, error) {
+	serverName, _, ok := splitServerPromptName(name)
+	if !ok {
+		return nil, fmt.Errorf("invalid input: prompt name does not contain a %s separator", serverPromptNameSep)
+	}
+	return m.GetMcpServer(serverName)
+}
+
+// notifyPromptDeletion calls all registered prompt deletion callbacks with the given prompt names.
+func (m *MCPService) notifyPromptDeletion(promptNames ...string) {
+	m.promptDeletionCallback(promptNames...)
+}
+
+// notifyPromptAddition calls all registered prompt addition callbacks with the given prompt name.
+// This method works on best-effort basis. If a callback fails, it logs the error but does not propagate it.
+func (m *MCPService) notifyPromptAddition(promptName string) {
+	if err := m.promptAdditionCallback(promptName); err != nil {
+		log.Printf("[ERROR] prompt addition callback failed for %s: %v", promptName, err)
+	}
 }

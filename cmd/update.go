@@ -103,15 +103,21 @@ func runUpdateGroup(cmd *cobra.Command, args []string) error {
 	}
 
 	// Check if anything was actually changed
-	toolsAdded, toolsRemoved := util.DiffTools(resp.Old.IncludedTools, resp.New.IncludedTools)
-	serversAdded, serversRemoved := util.DiffTools(resp.Old.IncludedServers, resp.New.IncludedServers)
-	excludedAdded, excludedRemoved := util.DiffTools(resp.Old.ExcludedTools, resp.New.ExcludedTools)
+	toolsAdded, toolsRemoved := util.DiffItems(resp.Old.IncludedTools, resp.New.IncludedTools)
+	serversAdded, serversRemoved := util.DiffItems(resp.Old.IncludedServers, resp.New.IncludedServers)
+	excludedToolsAdded, excludedToolsRemoved := util.DiffItems(resp.Old.ExcludedTools, resp.New.ExcludedTools)
+	promptsAdded, promptsRemoved := util.DiffItems(resp.Old.IncludedPrompts, resp.New.IncludedPrompts)
+	excludedPromptsAdded, excludedPromptsRemoved := util.DiffItems(resp.Old.ExcludedPrompts, resp.New.ExcludedPrompts)
 
 	noChangeInTools := len(toolsAdded) == 0 && len(toolsRemoved) == 0
 	noChangeInServers := len(serversAdded) == 0 && len(serversRemoved) == 0
-	noChangeInExcluded := len(excludedAdded) == 0 && len(excludedRemoved) == 0
+	noChangeInExcludedTools := len(excludedToolsAdded) == 0 && len(excludedToolsRemoved) == 0
+	noChangeInPrompts := len(promptsAdded) == 0 && len(promptsRemoved) == 0
+	noChangeInExcludedPrompts := len(excludedPromptsAdded) == 0 && len(excludedPromptsRemoved) == 0
 
-	if resp.Old.Description == resp.New.Description && noChangeInTools && noChangeInServers && noChangeInExcluded {
+	if resp.Old.Description == resp.New.Description &&
+		noChangeInTools && noChangeInServers && noChangeInExcludedTools &&
+		noChangeInPrompts && noChangeInExcludedPrompts {
 		cmd.Printf("No changes detected for Tool Group %s. Nothing was updated.\n", resp.Name)
 		return nil
 	}
@@ -159,17 +165,51 @@ func runUpdateGroup(cmd *cobra.Command, args []string) error {
 	}
 
 	// Report changes in excluded_tools
-	if !noChangeInExcluded {
-		if len(excludedRemoved) > 0 {
+	if !noChangeInExcludedTools {
+		if len(excludedToolsRemoved) > 0 {
 			cmd.Println("* Tools removed from excluded_tools:")
-			for _, e := range excludedRemoved {
+			for _, e := range excludedToolsRemoved {
 				cmd.Printf("    - %s\n", e)
 			}
 		}
-		if len(excludedAdded) > 0 {
+		if len(excludedToolsAdded) > 0 {
 			cmd.Println("* Tools added to excluded_tools:")
-			for _, e := range excludedAdded {
+			for _, e := range excludedToolsAdded {
 				cmd.Printf("    - %s\n", e)
+			}
+		}
+		cmd.Println()
+	}
+
+	// Report changes in included_prompts
+	if !noChangeInPrompts {
+		if len(promptsRemoved) > 0 {
+			cmd.Println("* Prompts removed from included_prompts:")
+			for _, p := range promptsRemoved {
+				cmd.Printf("    - %s\n", p)
+			}
+		}
+		if len(promptsAdded) > 0 {
+			cmd.Println("* Prompts added to included_prompts:")
+			for _, p := range promptsAdded {
+				cmd.Printf("    - %s\n", p)
+			}
+		}
+		cmd.Println()
+	}
+
+	// Report changes in excluded_prompts
+	if !noChangeInExcludedPrompts {
+		if len(excludedPromptsRemoved) > 0 {
+			cmd.Println("* Prompts removed from excluded_prompts:")
+			for _, p := range excludedPromptsRemoved {
+				cmd.Printf("    - %s\n", p)
+			}
+		}
+		if len(excludedPromptsAdded) > 0 {
+			cmd.Println("* Prompts added to excluded_prompts:")
+			for _, p := range excludedPromptsAdded {
+				cmd.Printf("    - %s\n", p)
 			}
 		}
 		cmd.Println()

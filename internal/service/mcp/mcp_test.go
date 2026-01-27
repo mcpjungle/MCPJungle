@@ -63,6 +63,12 @@ func TestNewMCPService(t *testing.T) {
 				if mcpService.toolAdditionCallback == nil {
 					t.Error("Expected toolAdditionCallback to be initialized")
 				}
+				if mcpService.promptDeletionCallback == nil {
+					t.Error("Expected promptDeletionCallback to be initialized")
+				}
+				if mcpService.promptAdditionCallback == nil {
+					t.Error("Expected promptAdditionCallback to be initialized")
+				}
 			}
 		})
 	}
@@ -101,6 +107,12 @@ func TestMCPServiceInitialization(t *testing.T) {
 	if mcpService.toolAdditionCallback == nil {
 		t.Error("Expected toolAdditionCallback to be initialized")
 	}
+	if mcpService.promptDeletionCallback == nil {
+		t.Error("Expected promptDeletionCallback to be initialized")
+	}
+	if mcpService.promptAdditionCallback == nil {
+		t.Error("Expected promptAdditionCallback to be initialized")
+	}
 }
 
 func TestMCPServiceCallbacks(t *testing.T) {
@@ -136,6 +148,63 @@ func TestMCPServiceCallbacks(t *testing.T) {
 
 	err = mcpService.toolAdditionCallback("tool1")
 	testhelpers.AssertNoError(t, err)
+
+	// Test that prompt callbacks are initialized to NOOP functions
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("Expected no panic from promptDeletionCallback, but got: %v", r)
+			}
+		}()
+		mcpService.promptDeletionCallback("prompt1", "prompt2")
+	}()
+
+	err = mcpService.promptAdditionCallback("prompt1")
+	testhelpers.AssertNoError(t, err)
+}
+
+func TestMCPServiceSetPromptCallbacks(t *testing.T) {
+	db, err := testhelpers.CreateTestDB()
+	testhelpers.AssertNoError(t, err)
+
+	err = db.AutoMigrate(&model.McpServer{}, &model.Tool{}, &model.Prompt{})
+	testhelpers.AssertNoError(t, err)
+
+	proxyServer := &server.MCPServer{}
+
+	conf := &ServiceConfig{
+		DB:                      db,
+		McpProxyServer:          proxyServer,
+		SseMcpProxyServer:       proxyServer,
+		Metrics:                 telemetry.NewNoopCustomMetrics(),
+		McpServerInitReqTimeout: 10,
+	}
+	mcpService, err := NewMCPService(conf)
+	testhelpers.AssertNoError(t, err)
+
+	t.Run("set_prompt_deletion_callback", func(t *testing.T) {
+		var deletedPrompts []string
+		mcpService.SetPromptDeletionCallback(func(promptNames ...string) {
+			deletedPrompts = append(deletedPrompts, promptNames...)
+		})
+
+		mcpService.promptDeletionCallback("p1", "p2")
+		testhelpers.AssertEqual(t, 2, len(deletedPrompts))
+		testhelpers.AssertEqual(t, "p1", deletedPrompts[0])
+		testhelpers.AssertEqual(t, "p2", deletedPrompts[1])
+	})
+
+	t.Run("set_prompt_addition_callback", func(t *testing.T) {
+		var addedPrompt string
+		mcpService.SetPromptAdditionCallback(func(promptName string) error {
+			addedPrompt = promptName
+			return nil
+		})
+
+		err := mcpService.promptAdditionCallback("p1")
+		testhelpers.AssertNoError(t, err)
+		testhelpers.AssertEqual(t, "p1", addedPrompt)
+	})
 }
 
 func TestMCPServiceConcurrency(t *testing.T) {
