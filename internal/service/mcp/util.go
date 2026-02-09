@@ -151,14 +151,13 @@ func convertPromptModelToMcpObject(p *model.Prompt) (mcp.Prompt, error) {
 	return mcpPrompt, nil
 }
 
-// createHTTPMcpServerConn creates a new connection with a streamable http MCP server and returns the client.
-func createHTTPMcpServerConn(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*client.Client, error) {
-	conf, err := s.GetStreamableHTTPConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get streamable HTTP config for MCP server %s: %w", s.Name, err)
-	}
-
+// prepareSHTTPClientOptions prepares the options (specifically, http headers) for creating a
+// streamable HTTP client based on the MCP server's configuration.
+// If a bearer token is provided in the config and a custom Authorization header is set, the custom header
+// takes precedence and the bearer token is ignored.
+func prepareSHTTPClientOptions(serverName string, conf *model.StreamableHTTPConfig) []transport.StreamableHTTPCOption {
 	var opts []transport.StreamableHTTPCOption
+
 	headers := map[string]string{}
 	for key, value := range conf.Headers {
 		headers[key] = value
@@ -166,7 +165,7 @@ func createHTTPMcpServerConn(ctx context.Context, s *model.McpServer, initReqTim
 
 	if conf.BearerToken != "" {
 		if _, hasAuthorizationHeader := headers["Authorization"]; hasAuthorizationHeader {
-			log.Printf("[INFO] custom Authorization header will be used for MCP server %s; bearer_token ignored", s.Name)
+			log.Printf("[INFO] custom Authorization header will be used for MCP server %s; bearer_token ignored", serverName)
 		} else {
 			headers["Authorization"] = "Bearer " + conf.BearerToken
 		}
@@ -176,6 +175,18 @@ func createHTTPMcpServerConn(ctx context.Context, s *model.McpServer, initReqTim
 		o := transport.WithHTTPHeaders(headers)
 		opts = append(opts, o)
 	}
+
+	return opts
+}
+
+// createHTTPMcpServerConn creates a new connection with a streamable http MCP server and returns the client.
+func createHTTPMcpServerConn(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*client.Client, error) {
+	conf, err := s.GetStreamableHTTPConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get streamable HTTP config for MCP server %s: %w", s.Name, err)
+	}
+
+	opts := prepareSHTTPClientOptions(s.Name, conf)
 
 	c, err := client.NewStreamableHttpClient(conf.URL, opts...)
 	if err != nil {

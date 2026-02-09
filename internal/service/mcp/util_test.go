@@ -1,8 +1,10 @@
 package mcp
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"reflect"
 	"strings"
 	"testing"
@@ -218,5 +220,68 @@ func TestConvertToolModelToMcpObject_InvalidAnnotationsLoggedButNoError(t *testi
 	// When annotations fail to unmarshal, function should not set them and should not error.
 	if !reflect.DeepEqual(got.Annotations, mcp.ToolAnnotation{}) {
 		t.Errorf("Annotations = %+v, want zero value %+v when annotations are invalid", got.Annotations, mcp.ToolAnnotation{})
+	}
+}
+
+func TestPrepareSHTTPClientOptions_NoHeadersNoBearer(t *testing.T) {
+	conf := &model.StreamableHTTPConfig{
+		URL:         "http://example.com",
+		BearerToken: "",
+		Headers:     nil,
+	}
+	opts := prepareSHTTPClientOptions("srv", conf)
+	if len(opts) != 0 {
+		t.Fatalf("expected no options when no headers and no bearer token, got %d", len(opts))
+	}
+}
+
+func TestPrepareSHTTPClientOptions_HeaderOnly(t *testing.T) {
+	conf := &model.StreamableHTTPConfig{
+		URL:         "http://example.com",
+		BearerToken: "",
+		Headers: map[string]string{
+			"X-Custom": "value",
+		},
+	}
+	opts := prepareSHTTPClientOptions("srv", conf)
+	if len(opts) != 1 {
+		t.Fatalf("expected 1 option when headers present, got %d", len(opts))
+	}
+}
+
+func TestPrepareSHTTPClientOptions_BearerOnly(t *testing.T) {
+	conf := &model.StreamableHTTPConfig{
+		URL:         "http://example.com",
+		BearerToken: "secrettoken",
+		Headers:     nil,
+	}
+	opts := prepareSHTTPClientOptions("srv", conf)
+	if len(opts) != 1 {
+		t.Fatalf("expected 1 option when bearer token present, got %d", len(opts))
+	}
+}
+
+func TestPrepareSHTTPClientOptions_BearerWithCustomAuthorization(t *testing.T) {
+	conf := &model.StreamableHTTPConfig{
+		URL:         "http://example.com",
+		BearerToken: "should_be_ignored",
+		Headers: map[string]string{
+			"Authorization": "Custom auth-value",
+		},
+	}
+
+	var buf bytes.Buffer
+	old := log.Writer()
+	log.SetOutput(&buf)
+	defer log.SetOutput(old)
+
+	opts := prepareSHTTPClientOptions("my-server", conf)
+	if len(opts) != 1 {
+		t.Fatalf("expected 1 option when custom Authorization header present, got %d", len(opts))
+	}
+
+	logOutput := buf.String()
+	if !strings.Contains(logOutput, "custom Authorization header will be used for MCP server my-server; bearer_token ignored") {
+		t.Fatalf("expected log to mention bearer_token ignored when custom Authorization header present, got: %q", logOutput)
 	}
 }
