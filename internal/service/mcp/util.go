@@ -159,11 +159,21 @@ func createHTTPMcpServerConn(ctx context.Context, s *model.McpServer, initReqTim
 	}
 
 	var opts []transport.StreamableHTTPCOption
+	headers := map[string]string{}
+	for key, value := range conf.Headers {
+		headers[key] = value
+	}
+
 	if conf.BearerToken != "" {
-		// If bearer token is provided, set the Authorization header
-		o := transport.WithHTTPHeaders(map[string]string{
-			"Authorization": "Bearer " + conf.BearerToken,
-		})
+		if _, hasAuthorizationHeader := headers["Authorization"]; hasAuthorizationHeader {
+			log.Printf("[INFO] custom Authorization header will be used for MCP server %s; bearer_token ignored", s.Name)
+		} else {
+			headers["Authorization"] = "Bearer " + conf.BearerToken
+		}
+	}
+
+	if len(headers) > 0 {
+		o := transport.WithHTTPHeaders(headers)
 		opts = append(opts, o)
 	}
 

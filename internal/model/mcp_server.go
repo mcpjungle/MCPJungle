@@ -17,6 +17,9 @@ type StreamableHTTPConfig struct {
 	// BearerToken is an optional token used for authenticating requests to the MCP server.
 	// If present, it will be used to set the Authorization header in all requests to this MCP server.
 	BearerToken string `json:"bearer_token,omitempty"`
+
+	// Headers are optional custom HTTP headers forwarded to the MCP server.
+	Headers map[string]string `json:"headers,omitempty"`
 }
 
 type StdioConfig struct {
@@ -57,13 +60,14 @@ type McpServer struct {
 }
 
 // NewStreamableHTTPServer creates a new MCP server with streamable HTTP transport configuration.
-func NewStreamableHTTPServer(name, description, url, bearerToken string, sessionMode types.SessionMode) (*McpServer, error) {
+func NewStreamableHTTPServer(name, description, url, bearerToken string, headers map[string]string, sessionMode types.SessionMode) (*McpServer, error) {
 	if url == "" {
 		return nil, errors.New("url is required for streamable HTTP transport")
 	}
 	config := StreamableHTTPConfig{
 		URL:         url,
 		BearerToken: bearerToken,
+		Headers:     headers,
 	}
 	configJSON, err := json.Marshal(config)
 	if err != nil {

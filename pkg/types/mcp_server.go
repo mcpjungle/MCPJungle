@@ -65,6 +65,10 @@ type RegisterServerInput struct {
 	// If the transport is "stdio", this field is ignored.
 	BearerToken string `json:"bearer_token,omitempty"`
 
+	// Headers is an optional set of HTTP headers to forward to upstream streamable_http MCP servers.
+	// If both BearerToken and Headers["Authorization"] are provided, the custom Authorization header takes precedence.
+	Headers map[string]string `json:"headers,omitempty"`
+
 	// Command is the command to run the mcp server.
 	// It is mandatory when the transport is "stdio".
 	Command string `json:"command,omitempty"`

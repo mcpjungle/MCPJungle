@@ -13,6 +13,7 @@ func TestNewStreamableHTTPServer(t *testing.T) {
 		description string
 		url         string
 		bearerToken string
+		headers     map[string]string
 		wantErr     bool
 		errMsg      string
 	}{
@@ -23,6 +24,17 @@ func TestNewStreamableHTTPServer(t *testing.T) {
 			url:         "https://example.com",
 			bearerToken: "secret-token",
 			wantErr:     false,
+		},
+		{
+			name:        "valid server with custom headers",
+			serverName:  "test-server-headers",
+			description: "Server with custom headers",
+			url:         "https://example.com/mcp",
+			headers: map[string]string{
+				"Authorization": "token abc",
+				"Foo":           "Bar",
+			},
+			wantErr: false,
 		},
 		{
 			name:        "valid server without bearer token",
@@ -55,7 +67,7 @@ func TestNewStreamableHTTPServer(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server, err := NewStreamableHTTPServer(tt.serverName, tt.description, tt.url, tt.bearerToken, "")
+			server, err := NewStreamableHTTPServer(tt.serverName, tt.description, tt.url, tt.bearerToken, tt.headers, "")
 
 			if tt.wantErr {
 				if err == nil {
@@ -392,6 +404,7 @@ func TestNewStreamableHTTPServerWithSessionMode(t *testing.T) {
 				"Test description",
 				"https://example.com",
 				"",
+				nil,
 				tt.sessionMode,
 			)
 			if err != nil {

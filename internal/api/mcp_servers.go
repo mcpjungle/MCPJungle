@@ -38,6 +38,7 @@ func (s *Server) registerServerHandler() gin.HandlerFunc {
 				input.Description,
 				input.URL,
 				input.BearerToken,
+				input.Headers,
 				sessionMode,
 			)
 			if err != nil {
@@ -242,6 +243,7 @@ func (s *Server) getServerConfigsHandler() gin.HandlerFunc {
 				}
 				servers[i].URL = conf.URL
 				servers[i].BearerToken = conf.BearerToken
+				servers[i].Headers = conf.Headers
 			case types.TransportStdio:
 				conf, err := record.GetStdioConfig()
 				if err != nil {
