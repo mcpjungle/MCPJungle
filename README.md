@@ -320,7 +320,10 @@ The config file format for registering a Streamable HTTP-based MCP server is:
   "transport": "streamable_http",
   "description": "<description>",
   "url": "<url of the mcp server>",
-  "bearer_token": "<optional bearer token for authentication>"
+  "bearer_token": "<optional bearer token for authentication>",
+  "headers": {
+    "<custom http header>": "<value>"
+  }
 }
 ```
 
@@ -681,6 +684,19 @@ Or from your configuration file
   "url": "https://huggingface.co/mcp",
   "description": "hugging face mcp server",
   "bearer_token": "<your-hf-api-token>"
+}
+```
+
+If you need to supply a custom value for the `Authorization` header or add additional custom headers, you can use the `headers` field in the config file:
+```json
+{
+  "name": "sourcegraph",
+  "transport": "streamable_http",
+  "url": "https://sourcegraph.mycompany.com/.api/mcp",
+  "headers": {
+    "Authorization": "token <your-sourcegraph-token>",
+    "Custom-Header": "custom-value"
+  }
 }
 ```
 
