@@ -1,9 +1,16 @@
 package toolgroup
 
 import (
+	"errors"
+	"reflect"
 	"testing"
 
+	"github.com/glebarez/sqlite"
+	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 func TestValidGroupNameRegex(t *testing.T) {
@@ -127,5 +134,67 @@ func TestValidGroupNameConsistency(t *testing.T) {
 		if result1 != result2 {
 			t.Errorf("Regex results inconsistent for '%s': got %v and %v", testName, result1, result2)
 		}
+	}
+}
+
+func setupInMemoryDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("failed to open in-memory db: %v", err)
+	}
+	// AutoMigrate the model.ToolGroup so tests can create records.
+	if err := db.AutoMigrate(&model.ToolGroup{}); err != nil {
+		t.Fatalf("failed to migrate ToolGroup: %v", err)
+	}
+	return db
+}
+
+func TestResolveEffectiveTools_GroupNotFound(t *testing.T) {
+	db := setupInMemoryDB(t)
+	s := &ToolGroupService{
+		db:         db,
+		mcpService: &mcp.MCPService{}, // zero value is fine for this test
+	}
+
+	_, err := s.ResolveEffectiveTools("nonexistent-group")
+	if !errors.Is(err, ErrToolGroupNotFound) {
+		t.Fatalf("expected ErrToolGroupNotFound, got: %v", err)
+	}
+}
+
+func TestResolveEffectiveTools_ReturnsSorted(t *testing.T) {
+	db := setupInMemoryDB(t)
+
+	// Create a ToolGroup that contains an unsorted list of tools.
+	// The model.ToolGroup implementation is expected to return those tools
+	// (or otherwise resolve them); this test asserts that ResolveEffectiveTools
+	// sorts the result before returning.
+	group := model.ToolGroup{
+		Name:          "my-group",
+		IncludedTools: datatypes.JSON([]byte(`["tool-b","tool-a","tool-c"]`)),
+	}
+
+	if err := db.Create(&group).Error; err != nil {
+		t.Fatalf("failed to create tool group: %v", err)
+	}
+
+	s := &ToolGroupService{
+		db:         db,
+		mcpService: &mcp.MCPService{},
+	}
+
+	tools, err := s.ResolveEffectiveTools("my-group")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Expect sorted order
+	expected := []string{"tool-a", "tool-b", "tool-c"}
+	// If the underlying ResolveEffectiveTools implementation returns a different
+	// set because it resolves servers/excludes, adapt expectations accordingly.
+	// For the common case where explicit tools were stored, assert sorting.
+	if !reflect.DeepEqual(tools, expected) {
+		t.Fatalf("expected sorted tools %v, got %v", expected, tools)
 	}
 }
