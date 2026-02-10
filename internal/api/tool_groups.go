@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mark3labs/mcp-go/server"
@@ -146,6 +147,29 @@ func (s *Server) getToolGroupHandler() gin.HandlerFunc {
 		resp.ExcludedTools = excludedTools
 
 		c.JSON(http.StatusOK, resp)
+	}
+}
+
+func (s *Server) getToolGroupEffectiveToolsHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		name := c.Param("name")
+		if name == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
+			return
+		}
+
+		tools, err := s.toolGroupService.ResolveEffectiveTools(name)
+		if err != nil {
+			if errors.Is(err, toolgroup.ErrToolGroupNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("tool group %s not found", name)})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		sort.Strings(tools)
+		c.JSON(http.StatusOK, gin.H{"tools": tools})
 	}
 }
 

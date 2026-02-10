@@ -118,7 +118,12 @@ func runListTools(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to get tool group '%s': %w", listToolsCmdGroupName, err)
 		}
 
-		// Get all tools first, then filter by group's included tools.
+		effectiveTools, err := apiClient.GetToolGroupEffectiveTools(listToolsCmdGroupName)
+		if err != nil {
+			return fmt.Errorf("failed to resolve effective tools for group '%s': %w", listToolsCmdGroupName, err)
+		}
+
+		// Get all tools first, then filter by group's effective tools.
 		// This is necessary because a group might contain tools that do not currently exist in mcpjungle.
 		// for eg- the tool was deleted after group creation or the group includes a non-existent tool.
 		// ListTools only returns tools that actually exist in mcpjungle, so we must cross-check.
@@ -128,14 +133,14 @@ func runListTools(cmd *cobra.Command, args []string) error {
 		}
 
 		// Create a map for efficient lookup
-		includedToolsMap := make(map[string]bool)
-		for _, toolName := range group.IncludedTools {
-			includedToolsMap[toolName] = true
+		effectiveToolsMap := make(map[string]bool)
+		for _, toolName := range effectiveTools {
+			effectiveToolsMap[toolName] = true
 		}
 
 		// Filter tools that are in the group
 		for _, tool := range allTools {
-			if includedToolsMap[tool.Name] {
+			if effectiveToolsMap[tool.Name] {
 				tools = append(tools, tool)
 			}
 		}

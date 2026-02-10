@@ -309,3 +309,57 @@ func TestListToolGroups(t *testing.T) {
 		}
 	})
 }
+
+func TestGetToolGroupEffectiveTools(t *testing.T) {
+	t.Parallel()
+
+	t.Run("successful retrieval", func(t *testing.T) {
+		expectedTools := []string{"alpha", "beta"}
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet {
+				t.Errorf("Expected GET method, got %s", r.Method)
+			}
+			if !strings.HasSuffix(r.URL.Path, "/tool-groups/test-group/effective-tools") {
+				t.Errorf("Expected path to end with /tool-groups/test-group/effective-tools, got %s", r.URL.Path)
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(map[string]any{"tools": expectedTools})
+		}))
+		defer server.Close()
+
+		client := NewClient(server.URL, "test-token", &http.Client{})
+		tools, err := client.GetToolGroupEffectiveTools("test-group")
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+
+		if len(tools) != len(expectedTools) {
+			t.Fatalf("Expected %d tools, got %d", len(expectedTools), len(tools))
+		}
+		for i := range expectedTools {
+			if tools[i] != expectedTools[i] {
+				t.Errorf("Expected tools[%d] to be %s, got %s", i, expectedTools[i], tools[i])
+			}
+		}
+	})
+
+	t.Run("group not found", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("Tool group not found"))
+		}))
+		defer server.Close()
+
+		client := NewClient(server.URL, "test-token", &http.Client{})
+		tools, err := client.GetToolGroupEffectiveTools("missing")
+		if err == nil {
+			t.Fatal("Expected error, got nil")
+		}
+		if tools != nil {
+			t.Fatal("Expected nil tools on error")
+		}
+	})
+}

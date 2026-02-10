@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"sort"
 	"sync"
 
 	mcpgo "github.com/mark3labs/mcp-go/mcp"
@@ -221,6 +222,23 @@ func (s *ToolGroupService) UpdateToolGroup(name string, updatedGroup *model.Tool
 	}
 
 	return oldGroup, nil
+}
+
+// ResolveEffectiveTools resolves all effective tools for the specified tool group.
+// The resulting list is sorted for deterministic API responses and tests.
+func (s *ToolGroupService) ResolveEffectiveTools(name string) ([]string, error) {
+	group, err := s.GetToolGroup(name)
+	if err != nil {
+		return nil, err
+	}
+
+	tools, err := group.ResolveEffectiveTools(s.mcpService)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve effective tools for group %s: %w", name, err)
+	}
+
+	sort.Strings(tools)
+	return tools, nil
 }
 
 // GetToolGroup retrieves a tool group by name from the database.

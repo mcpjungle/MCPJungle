@@ -115,6 +115,35 @@ func (c *Client) GetToolGroup(name string) (*types.GetToolGroupResponse, error) 
 	return &group, nil
 }
 
+// GetToolGroupEffectiveTools sends API request to get effective tools of a specific Tool Group by name.
+func (c *Client) GetToolGroupEffectiveTools(name string) ([]string, error) {
+	u, _ := c.constructAPIEndpoint("/tool-groups/" + name + "/effective-tools")
+
+	req, err := c.newRequest(http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request to %s: %w", u, err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request to %s: %w", u, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, c.parseErrorResponse(resp)
+	}
+
+	var out struct {
+		Tools []string `json:"tools"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return out.Tools, nil
+}
+
 func (c *Client) UpdateToolGroup(group *types.ToolGroup) (*types.UpdateToolGroupResponse, error) {
 	u, _ := c.constructAPIEndpoint("/tool-groups/" + group.Name)
 

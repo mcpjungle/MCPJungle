@@ -303,6 +303,7 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		// endpoints for managing tool groups
 		adminAPI.POST("/tool-groups", s.createToolGroupHandler())
 		adminAPI.GET("/tool-groups/:name", s.getToolGroupHandler())
+		adminAPI.GET("/tool-groups/:name/effective-tools", s.getToolGroupEffectiveToolsHandler())
 		adminAPI.GET("/tool-groups", s.listToolGroupsHandler())
 		adminAPI.DELETE("/tool-groups/:name", s.deleteToolGroupHandler())
 		adminAPI.PUT("/tool-groups/:name", s.updateToolGroupHandler())
