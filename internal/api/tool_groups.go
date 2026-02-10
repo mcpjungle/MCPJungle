@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"sort"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mark3labs/mcp-go/server"
@@ -168,7 +167,6 @@ func (s *Server) getToolGroupEffectiveToolsHandler() gin.HandlerFunc {
 			return
 		}
 
-		sort.Strings(tools)
 		c.JSON(http.StatusOK, gin.H{"tools": tools})
 	}
 }
