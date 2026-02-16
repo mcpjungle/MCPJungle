@@ -254,6 +254,27 @@ mcpjungle start
 ## Client
 Once the server is up, you can use the mcpjungle CLI to interact with it.
 
+### Configuring a custom registry URL
+
+By default, the CLI connects to `http://127.0.0.1:8000`. If your MCPJungle server is running on a different host or port (e.g., a remote deployment), you can configure the registry URL in two ways:
+
+**Option 1: Use the `--registry` flag**
+```bash
+mcpjungle list tools --registry http://my-server:8080
+```
+
+**Option 2: Set it in the config file**
+
+Create or edit `~/.mcpjungle.conf`:
+```yaml
+registry_url: http://my-server:8080
+```
+
+This avoids having to pass the `--registry` flag on every command.
+
+> [!TIP]
+> The CLI will automatically suggest saving the registry URL to `~/.mcpjungle.conf` when you use the `--registry` flag for the first time.
+
 MCPJungle currently supports MCP servers using [stdio](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#stdio) and [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) Transports.
 
 > [!NOTE]
