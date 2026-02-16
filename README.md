@@ -136,6 +136,40 @@ MCPJungle provides a Docker image which is useful for running the registry serve
 docker pull ghcr.io/mcpjungle/mcpjungle
 ```
 
+# Configuration
+
+By default, MCPJungle runs on `http://localhost:8080`. If you need to deploy MCPJungle on a remote server or use a different port, you can configure the registry URL in two ways:
+
+### Option 1: Using CLI Flag
+
+When registering MCP servers, use the `--registry` flag to point to your remote MCPJungle instance:
+
+```bash
+mcpjungle register --name my-server --url https://your-mcp-server.com --registry http://your-remote-mcpjungle.com:8080
+```
+
+### Option 2: Using Configuration File
+
+Create a `~/.mcpjungle.conf` file with your custom registry URL:
+
+```json
+{
+  "registry_url": "http://your-remote-mcpjungle.com:8080"
+}
+```
+
+This is useful when you deploy MCPJungle remotely and want all your local tools to automatically connect to the remote instance.
+
+### Verifying Your Configuration
+
+Check the current registry URL configuration:
+
+```bash
+mcpjungle config get registry_url
+```
+
+---
+
 # Usage
 MCPJungle has a Client-Server architecture and the binary lets you run both the Server and the Client.
 
