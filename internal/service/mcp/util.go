@@ -288,7 +288,7 @@ func runStdioServer(ctx context.Context, s *model.McpServer, initReqTimeoutSec i
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, fmt.Errorf(
 				"initialization request to MCP server timed out after %d seconds,"+
-					" check mcpungle server logs for any errors from this MCP server",
+					" check mcpjungle server logs for any errors from this MCP server",
 				initReqTimeoutSec,
 			)
 		}
