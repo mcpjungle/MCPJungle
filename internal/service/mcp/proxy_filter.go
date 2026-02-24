@@ -2,8 +2,6 @@ package mcp
 
 import (
 	"context"
-	"log"
-
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 )
@@ -20,7 +18,6 @@ func ProxyToolFilter(ctx context.Context, tools []mcp.Tool) []mcp.Tool {
 		serverName, _, _ := splitServerToolName(tool.Name)
 		c := ctx.Value("client").(*model.McpClient)
 		if !c.CheckHasServerAccess(serverName) {
-			log.Printf("[INFO] client %s is not authorized to access MCP tool %s", c.Name, tool.Name)
 			continue
 		}
 		filteredTools = append(filteredTools, tool)
