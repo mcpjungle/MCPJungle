@@ -73,6 +73,80 @@ func TestMcpProxyToolFilter(t *testing.T) {
 	}
 }
 
+func TestMcpProxyToolFilter_MissingModeInContext(t *testing.T) {
+	t.Parallel()
+
+	got := ProxyToolFilter(context.Background(), []mcp.Tool{
+		{Name: "time__get_current_time"},
+	})
+
+	assert.Empty(t, got)
+}
+
+func TestMcpProxyToolFilter_InvalidModeTypeInContext(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.WithValue(context.Background(), "mode", "enterprise")
+	got := ProxyToolFilter(ctx, []mcp.Tool{
+		{Name: "time__get_current_time"},
+	})
+
+	assert.Empty(t, got)
+}
+
+func TestMcpProxyToolFilter_EnterpriseMissingClientInContext(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.WithValue(context.Background(), "mode", model.ModeEnterprise)
+	got := ProxyToolFilter(ctx, []mcp.Tool{
+		{Name: "time__get_current_time"},
+	})
+
+	assert.Empty(t, got)
+}
+
+func TestMcpProxyToolFilter_EnterpriseInvalidClientTypeInContext(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.WithValue(context.Background(), "mode", model.ModeEnterprise)
+	ctx = context.WithValue(ctx, "client", "not-a-client")
+	got := ProxyToolFilter(ctx, []mcp.Tool{
+		{Name: "time__get_current_time"},
+	})
+
+	assert.Empty(t, got)
+}
+
+func TestMcpProxyToolFilter_EnterpriseNilClientInContext(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.WithValue(context.Background(), "mode", model.ModeEnterprise)
+	var client *model.McpClient
+	ctx = context.WithValue(ctx, "client", client)
+	got := ProxyToolFilter(ctx, []mcp.Tool{
+		{Name: "time__get_current_time"},
+	})
+
+	assert.Empty(t, got)
+}
+
+func TestMcpProxyToolFilter_EnterpriseMalformedToolNamesAreDenied(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.WithValue(context.Background(), "mode", model.ModeEnterprise)
+	ctx = context.WithValue(ctx, "client", &model.McpClient{
+		Name:      "claude",
+		AllowList: datatypes.JSON(`["time"]`),
+	})
+
+	got := ProxyToolFilter(ctx, []mcp.Tool{
+		{Name: "missing_separator"},
+		{Name: "time__get_current_time"},
+	})
+
+	assert.Equal(t, []string{"time__get_current_time"}, toolNames(got))
+}
+
 func toolNames(tools []mcp.Tool) []string {
 	names := make([]string, len(tools))
 	for i, tool := range tools {
