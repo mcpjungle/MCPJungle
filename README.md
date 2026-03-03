@@ -368,6 +368,10 @@ You can also watch a quick video on [How to register a STDIO-based MCP server](h
 > [!TIP]
 > If your STDIO server fails or throws errors for some reason, check the mcpjungle server's logs to view its `stderr` output.
 
+### Connecting to server which is hosted in remote docker / kuberentes container
+If you have docker container running or have deployed in a kubernetes cluster, you can directly exec and run the `/mcpjungle` command
+`docker exec -it <container_name> /mcpjungle`  or `kubectl -n <namespace> exec -it po/<pod_name> -- /mcpjungle`
+Note: There is NO shell in the standard container and hence you cannot exec into the shell and execute the command. It has to be executed directly as specified above
 
 **Caveat** ⚠️
 
