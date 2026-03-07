@@ -368,11 +368,6 @@ You can also watch a quick video on [How to register a STDIO-based MCP server](h
 > [!TIP]
 > If your STDIO server fails or throws errors for some reason, check the mcpjungle server's logs to view its `stderr` output.
 
-### Connecting to server which is hosted in remote docker / kuberentes container
-If you have docker container running or have deployed in a kubernetes cluster, you can directly exec and run the `/mcpjungle` command
-`docker exec -it <container_name> /mcpjungle`  or `kubectl -n <namespace> exec -it po/<pod_name> -- /mcpjungle`
-Note: There is NO shell in the standard container and hence you cannot exec into the shell and execute the command. It has to be executed directly as specified above
-
 **Caveat** ⚠️
 
 When running mcpjungle inside Docker, you need some extra configuration to run the `filesystem` mcp server.
@@ -400,6 +395,18 @@ Then, the mcp has access to `/host`, ie, the current working directory on your h
 
 See [DEVELOPMENT.md](./DEVELOPMENT.md#docker-filesystem-access) for more details.
 
+#### Running CLI commands from a Docker or Kubernetes deployment
+If your MCPJungle server is running in a remote Docker container or Kubernetes cluster, you can also execute the `mcpjungle` binary directly inside the container:
+
+```bash
+docker exec -it <container_name> /mcpjungle
+kubectl -n <namespace> exec -it po/<pod_name> -- /mcpjungle
+```
+
+> [!NOTE]
+> The standard image does not include a shell. Run `/mcpjungle` directly via `docker exec` or `kubectl exec`.
+
+This is useful for running CLI commands from the same environment where the server is running.
 
 ### Deregistering MCP servers
 You can remove a MCP server from mcpjungle.
