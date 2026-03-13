@@ -45,6 +45,9 @@ type ServerOptions struct {
 
 	OtelProviders *telemetry.Providers
 	Metrics       telemetry.CustomMetrics
+
+	// OnInitialized is an optional callback that gets called when the server is initialized
+	OnInitialized func(mode model.ServerMode)
 }
 
 // Server represents the MCPJungle registry server that handles MCP proxy and API requests
@@ -63,6 +66,7 @@ type Server struct {
 
 	otelProviders *telemetry.Providers
 	metrics       telemetry.CustomMetrics
+	onInitialized func(mode model.ServerMode)
 
 	// groupMcpServers keeps track of mcp-go's server.SSEServer instances created for each tool group.
 	// These instances serve the requests made to tool groups' SSE tools.
@@ -82,6 +86,7 @@ func NewServer(opts *ServerOptions) (*Server, error) {
 		toolGroupService:  opts.ToolGroupService,
 		otelProviders:     opts.OtelProviders,
 		metrics:           opts.Metrics,
+		onInitialized:     opts.OnInitialized,
 	}
 
 	// Set up the router after the server is fully initialized

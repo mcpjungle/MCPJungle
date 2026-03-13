@@ -10,8 +10,10 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -22,11 +24,13 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/migrations"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
+	"github.com/mcpjungle/mcpjungle/internal/service/configsync"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/spf13/cobra"
 )
 
@@ -37,6 +41,9 @@ const (
 	DBUrlEnvVar            = "DATABASE_URL"
 	ServerModeEnvVar       = "SERVER_MODE"
 	TelemetryEnabledEnvVar = "OTEL_ENABLED"
+
+	ConfigSyncEnabledEnvVar = "MCPJUNGLE_CONFIG_SYNC_ENABLED"
+	ConfigSyncDirEnvVar     = "MCPJUNGLE_CONFIG_DIR"
 )
 
 const (
@@ -66,6 +73,8 @@ var (
 	startServerCmdBindPort          string
 	startServerCmdEnterpriseEnabled bool
 	startServerCmdProdEnabled       bool
+	startServerCmdConfigSyncEnabled bool
+	startServerCmdConfigDir         string
 )
 
 var startServerCmd = &cobra.Command{
@@ -114,6 +123,18 @@ func init() {
 		"prod",
 		false,
 		"[DEPRECATED] Alias for --enterprise flag.",
+	)
+	startServerCmd.Flags().BoolVar(
+		&startServerCmdConfigSyncEnabled,
+		"config-sync",
+		false,
+		fmt.Sprintf("Enable live sync of entity configs from a directory (or env var %s)", ConfigSyncEnabledEnvVar),
+	)
+	startServerCmd.Flags().StringVar(
+		&startServerCmdConfigDir,
+		"config-dir",
+		"",
+		fmt.Sprintf("Directory containing config files for sync (or env var %s, default ~/.mcpjungle)", ConfigSyncDirEnvVar),
 	)
 
 	rootCmd.AddCommand(startServerCmd)
@@ -303,6 +324,35 @@ func getSessionIdleTimeout() (int, error) {
 	return timeout, nil
 }
 
+// getConfigSyncEnabled returns true if config directory sync is enabled via the flag or environment variable,
+// false otherwise.
+func getConfigSyncEnabled() bool {
+	if startServerCmdConfigSyncEnabled {
+		return true
+	}
+	v := strings.TrimSpace(strings.ToLower(os.Getenv(ConfigSyncEnabledEnvVar)))
+	return v == "1" || v == "true"
+}
+
+// getConfigSyncDir returns the directory to be used for config sync, based on the following precedence:
+// 1. Command line flag
+// 2. Environment variable
+// 3. Default value (~/.mcpjungle)
+func getConfigSyncDir() string {
+	if strings.TrimSpace(startServerCmdConfigDir) != "" {
+		return strings.TrimSpace(startServerCmdConfigDir)
+	}
+	v := strings.TrimSpace(os.Getenv(ConfigSyncDirEnvVar))
+	if v != "" {
+		return v
+	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join("~", types.DefaultConfigSyncDirName)
+	}
+	return filepath.Join(homeDir, types.DefaultConfigSyncDirName)
+}
+
 func runStartServer(cmd *cobra.Command, args []string) error {
 	_ = godotenv.Load()
 
@@ -434,6 +484,36 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create Tool Group service: %v", err)
 	}
 
+	// setup configuration syncing
+	csOpts := configsync.Options{
+		Enabled:                    getConfigSyncEnabled(),
+		Dir:                        getConfigSyncDir(),
+		EnableEnterpriseEntitySync: model.IsEnterpriseMode(desiredServerMode),
+	}
+	csServices := configsync.Services{
+		MCPService:       mcpService,
+		ToolGroupService: toolGroupService,
+		MCPClientService: mcpClientService,
+		UserService:      userService,
+	}
+	configSyncService, err := configsync.New(csOpts, dbConn, csServices)
+	if err != nil {
+		return fmt.Errorf("failed to initialize config sync service: %w", err)
+	}
+
+	// config sync should only start after mcpjungle server is initialized
+	// this callback is therefore intended to be called post initialization,
+	// and also on startup if the server is already initialized.
+	var configSyncStartOnce sync.Once
+	startConfigSyncWhenReady := func(reason string) {
+		configSyncStartOnce.Do(func() {
+			if err := configSyncService.Start(cmd.Context()); err != nil {
+				log.Printf("[config-sync] failed to start configuration sync (%s): %v", reason, err)
+			}
+		})
+	}
+	defer configSyncService.Stop()
+
 	// create the API server
 	opts := &api.ServerOptions{
 		MCPProxyServer:    mcpProxyServer,
@@ -445,6 +525,10 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		ToolGroupService:  toolGroupService,
 		OtelProviders:     otelProviders,
 		Metrics:           mcpMetrics,
+
+		OnInitialized: func(mode model.ServerMode) {
+			startConfigSyncWhenReady(fmt.Sprintf("initialize mcpjungle server in %s mode", mode))
+		},
 	}
 	s, err := api.NewServer(opts)
 	if err != nil {
@@ -469,6 +553,9 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 				mode, desiredServerMode,
 			)
 		}
+
+		// since mcpjungle is already initialized, we can start config sync already
+		startConfigSyncWhenReady("mcpjungle server startup")
 	} else {
 		// If server isn't already initialized and the desired mode is dev, silently initialize the server.
 		// Individual (dev mode) users need not worry about server initialization.
@@ -476,13 +563,19 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 			if err := s.InitDev(); err != nil {
 				return fmt.Errorf("failed to initialize server in development mode: %v", err)
 			}
+
+			// since the server is now initialized, we can start config sync
+			startConfigSyncWhenReady("auto-initialize mcpjungle server")
 		} else {
 			// If desired mode is enterprise, then server initialization is a manual next step to be taken by the user.
 			// This is so that they can obtain the admin access token on their client machine.
-			cmd.Println(
-				"Starting server in Enterprise mode," +
+			log.Println(
+				"[server] starting server in Enterprise mode," +
 					" don't forget to initialize it by running the `init-server` command",
 			)
+			if csOpts.Enabled {
+				log.Println("[server] configuration syncing is enabled, but it will only work after server initialization.")
+			}
 		}
 	}
 

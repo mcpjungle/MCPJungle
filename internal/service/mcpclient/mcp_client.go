@@ -10,6 +10,8 @@ import (
 	"gorm.io/gorm"
 )
 
+var ErrMCPClientNotFound = errors.New("mcp client not found")
+
 // McpClientService provides methods to manage MCP clients in the database.
 type McpClientService struct {
 	db *gorm.DB
@@ -63,7 +65,20 @@ func (m *McpClientService) GetClientByToken(token string) (*model.McpClient, err
 	var client model.McpClient
 	if err := m.db.Where("access_token = ?", token).First(&client).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("client not found")
+			return nil, ErrMCPClientNotFound
+		}
+		return nil, err
+	}
+	return &client, nil
+}
+
+// GetClient retrieves an MCP client by its name from the database.
+// It returns an error if no such client is found.
+func (m *McpClientService) GetClient(name string) (*model.McpClient, error) {
+	var client model.McpClient
+	if err := m.db.Where("name = ?", name).First(&client).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("%w: name=%s", ErrMCPClientNotFound, name)
 		}
 		return nil, err
 	}
@@ -83,7 +98,7 @@ func (m *McpClientService) UpdateClient(updatedClient model.McpClient) (*model.M
 	var client model.McpClient
 	if err := m.db.Where("name = ?", updatedClient.Name).First(&client).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("client not found")
+			return nil, fmt.Errorf("%w: name=%s", ErrMCPClientNotFound, updatedClient.Name)
 		}
 		return nil, err
 	}

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mcpjungle/mcpjungle/pkg/accesstoken"
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/spf13/cobra"
@@ -214,7 +215,8 @@ func TestResolveAccessTokenFromConfig(t *testing.T) {
 
 	t.Run("direct token wins", func(t *testing.T) {
 		t.Parallel()
-		token, err := resolveAccessTokenFromConfig("direct-token", types.AccessTokenRef{})
+		r := types.AccessTokenRef{}
+		token, err := accesstoken.Resolve(accesstoken.Input{Inline: "direct-token", Ref: r})
 		testhelpers.AssertNoError(t, err)
 		testhelpers.AssertEqual(t, "direct-token", token)
 	})
@@ -225,7 +227,8 @@ func TestResolveAccessTokenFromConfig(t *testing.T) {
 		_ = os.Setenv(env, "  env-token  ")
 		defer os.Unsetenv(env)
 
-		token, err := resolveAccessTokenFromConfig("", types.AccessTokenRef{Env: env})
+		r := types.AccessTokenRef{Env: env}
+		token, err := accesstoken.Resolve(accesstoken.Input{Ref: r})
 		testhelpers.AssertNoError(t, err)
 		testhelpers.AssertEqual(t, "env-token", token)
 	})
@@ -236,7 +239,8 @@ func TestResolveAccessTokenFromConfig(t *testing.T) {
 		_ = os.Setenv(env, "   ")
 		defer os.Unsetenv(env)
 
-		_, err := resolveAccessTokenFromConfig("", types.AccessTokenRef{Env: env})
+		r := types.AccessTokenRef{Env: env}
+		_, err := accesstoken.Resolve(accesstoken.Input{Ref: r})
 		testhelpers.AssertError(t, err)
 	})
 
@@ -247,7 +251,8 @@ func TestResolveAccessTokenFromConfig(t *testing.T) {
 		_ = os.WriteFile(f.Name(), []byte("  file-token\n"), 0o600)
 		defer os.Remove(f.Name())
 
-		token, err := resolveAccessTokenFromConfig("", types.AccessTokenRef{File: f.Name()})
+		r := types.AccessTokenRef{File: f.Name()}
+		token, err := accesstoken.Resolve(accesstoken.Input{Ref: r})
 		testhelpers.AssertNoError(t, err)
 		testhelpers.AssertEqual(t, "file-token", token)
 	})
@@ -263,14 +268,16 @@ func TestResolveAccessTokenFromConfig(t *testing.T) {
 		_ = os.WriteFile(f.Name(), []byte("from-file"), 0o600)
 		defer os.Remove(f.Name())
 
-		token, err := resolveAccessTokenFromConfig("", types.AccessTokenRef{Env: env, File: f.Name()})
+		r := types.AccessTokenRef{Env: env, File: f.Name()}
+		token, err := accesstoken.Resolve(accesstoken.Input{Ref: r})
 		testhelpers.AssertNoError(t, err)
 		testhelpers.AssertEqual(t, "from-file", token)
 	})
 
 	t.Run("missing file -> error", func(t *testing.T) {
 		t.Parallel()
-		_, err := resolveAccessTokenFromConfig("", types.AccessTokenRef{File: "/no/such/file/xxxx"})
+		r := types.AccessTokenRef{File: "/no/such/file/xxxx"}
+		_, err := accesstoken.Resolve(accesstoken.Input{Ref: r})
 		testhelpers.AssertError(t, err)
 	})
 
@@ -281,13 +288,15 @@ func TestResolveAccessTokenFromConfig(t *testing.T) {
 		// leave file empty
 		defer os.Remove(f.Name())
 
-		_, err = resolveAccessTokenFromConfig("", types.AccessTokenRef{File: f.Name()})
+		r := types.AccessTokenRef{File: f.Name()}
+		_, err = accesstoken.Resolve(accesstoken.Input{Ref: r})
 		testhelpers.AssertError(t, err)
 	})
 
 	t.Run("nothing provided -> empty and no error", func(t *testing.T) {
 		t.Parallel()
-		token, err := resolveAccessTokenFromConfig("", types.AccessTokenRef{})
+		r := types.AccessTokenRef{}
+		token, err := accesstoken.Resolve(accesstoken.Input{Ref: r})
 		testhelpers.AssertNoError(t, err)
 		testhelpers.AssertEqual(t, "", token)
 	})

@@ -1,6 +1,7 @@
 package mcpclient
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/mcpjungle/mcpjungle/internal/model"
@@ -175,8 +176,53 @@ func TestGetClientByTokenNotFound(t *testing.T) {
 	// Try to get client with non-existent token
 	client, err := svc.GetClientByToken("non-existent-token")
 	testhelpers.AssertError(t, err)
+	if !errors.Is(err, ErrMCPClientNotFound) {
+		t.Fatalf("expected ErrMCPClientNotFound, got: %v", err)
+	}
 	if client != nil {
 		t.Error("Expected client to be nil when token not found")
+	}
+}
+
+func TestGetClient(t *testing.T) {
+	db, err := testhelpers.CreateTestDB()
+	testhelpers.AssertNoError(t, err)
+
+	err = db.AutoMigrate(&model.McpClient{})
+	testhelpers.AssertNoError(t, err)
+
+	svc := NewMCPClientService(db)
+
+	clientInput := model.McpClient{
+		Name:        "test-client",
+		Description: "Test MCP client",
+	}
+	created, err := svc.CreateClient(clientInput)
+	testhelpers.AssertNoError(t, err)
+
+	got, err := svc.GetClient("test-client")
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertNotNil(t, got)
+	testhelpers.AssertEqual(t, created.Name, got.Name)
+	testhelpers.AssertEqual(t, created.AccessToken, got.AccessToken)
+}
+
+func TestGetClientNotFound(t *testing.T) {
+	db, err := testhelpers.CreateTestDB()
+	testhelpers.AssertNoError(t, err)
+
+	err = db.AutoMigrate(&model.McpClient{})
+	testhelpers.AssertNoError(t, err)
+
+	svc := NewMCPClientService(db)
+
+	got, err := svc.GetClient("missing-client")
+	testhelpers.AssertError(t, err)
+	if !errors.Is(err, ErrMCPClientNotFound) {
+		t.Fatalf("expected ErrMCPClientNotFound, got: %v", err)
+	}
+	if got != nil {
+		t.Errorf("expected nil client, got: %+v", got)
 	}
 }
 

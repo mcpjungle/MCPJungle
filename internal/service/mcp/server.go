@@ -2,11 +2,15 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"gorm.io/gorm"
 )
+
+var ErrMCPServerNotFound = errors.New("mcp server not found")
 
 // RegisterMcpServer registers a new MCP server in the database.
 // It also registers all the Tools and Prompts provided by the server.
@@ -89,6 +93,9 @@ func (m *MCPService) ListMcpServers() ([]model.McpServer, error) {
 func (m *MCPService) GetMcpServer(name string) (*model.McpServer, error) {
 	var serverModel model.McpServer
 	if err := m.db.Where("name = ?", name).First(&serverModel).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("%w: name=%s", ErrMCPServerNotFound, name)
+		}
 		return nil, err
 	}
 	return &serverModel, nil

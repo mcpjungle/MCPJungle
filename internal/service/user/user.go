@@ -11,6 +11,8 @@ import (
 	"gorm.io/gorm"
 )
 
+var ErrUserNotFound = errors.New("user not found")
+
 // UserService provides methods to manage users in the MCPJungle system.
 type UserService struct {
 	db *gorm.DB
@@ -37,13 +39,26 @@ func (u *UserService) CreateAdminUser() (*model.User, error) {
 	return &user, nil
 }
 
+// GetUser retrieves a user by their username.
+// If a user with the specified username does not exist, an error is returned.
+func (u *UserService) GetUser(username string) (*model.User, error) {
+	var user model.User
+	if err := u.db.Where("username = ?", username).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("%w: username=%s", ErrUserNotFound, username)
+		}
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+	return &user, nil
+}
+
 // GetUserByAccessToken returns a user associated with the provided access token.
 // If no user is found, an error is returned.
 func (u *UserService) GetUserByAccessToken(token string) (*model.User, error) {
 	var user model.User
 	if err := u.db.Where("access_token = ?", token).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("user not found")
+			return nil, ErrUserNotFound
 		}
 		return nil, fmt.Errorf("failed to verify token: %w", err)
 	}
@@ -84,7 +99,7 @@ func (u *UserService) UpdateUser(input *model.User) (*model.User, error) {
 	err := u.db.Where("username = ?", input.Username).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("user with username %s not found", input.Username)
+			return nil, fmt.Errorf("%w: username=%s", ErrUserNotFound, input.Username)
 		}
 		return nil, fmt.Errorf("failed to find user: %w", err)
 	}
@@ -121,7 +136,7 @@ func (u *UserService) DeleteUser(username string) error {
 	err := u.db.Where("username = ?", username).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return fmt.Errorf("user with username %s not found", username)
+			return fmt.Errorf("%w: username=%s", ErrUserNotFound, username)
 		}
 		return fmt.Errorf("failed to find user: %w", err)
 	}

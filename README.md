@@ -209,6 +209,55 @@ mcpjungle start
 
 This starts the main registry server and MCP gateway, accessible on port `8080` by default.
 
+### Auto-synced configuration directory
+
+MCPJungle can optionally manage entities from a configuration directory as desired state.
+
+By default, this feature is **disabled**.
+
+Enable it using either CLI flags or environment variables:
+
+```bash
+# enable sync
+mcpjungle start --config-sync
+
+# enable sync + custom directory
+mcpjungle start --config-sync --config-dir /path/to/configs
+
+# equivalent env vars
+export MCPJUNGLE_CONFIG_SYNC_ENABLED=true
+export MCPJUNGLE_CONFIG_DIR=~/.mcpjungle
+mcpjungle start
+```
+
+Default directory layout:
+
+```
+~/.mcpjungle/
+  mcp_servers/
+    calculator.json
+  mcp_clients/
+    claude-desktop.json
+  groups/
+    claude-tools.json
+  users/
+    analyst.json
+```
+
+Behavior:
+- Files represent the desired state for entities managed from this directory.
+- New file => create entity in MCPJungle.
+- Updated file => update entity in DB and live in-memory state.
+- Deleted file => delete corresponding managed entity from MCPJungle.
+- The server applies sync on startup and keeps syncing live while running.
+
+Important rules:
+- Only entities tracked as directory-managed are enforced by desired state; manually managed entities are otherwise left alone.
+- If a file is added for an existing manual entity, MCPJungle adopts it and starts managing it from the directory.
+- Invalid config files do not remove the last-good applied state. MCPJungle logs detailed errors and retries on future changes.
+- Admin user is never managed by config sync and must be managed manually.
+- Startup fails if sync is enabled and reconciliation finds errors/conflicts; detailed errors are logged.
+
 ### Shutting down
 It is important that the mcpjungle server shuts down gracefully to ensure proper cleanup.
 

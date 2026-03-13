@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
 func TestStartCommandStructure(t *testing.T) {
@@ -315,5 +317,58 @@ func TestGetMcpServerInitReqTimeout(t *testing.T) {
 				}
 			})
 		}
+	})
+}
+
+func TestGetConfigSyncEnabled(t *testing.T) {
+	t.Run("cli flag has precedence", func(t *testing.T) {
+		prev := startServerCmdConfigSyncEnabled
+		defer func() { startServerCmdConfigSyncEnabled = prev }()
+		startServerCmdConfigSyncEnabled = true
+		withEnv(map[string]string{ConfigSyncEnabledEnvVar: "false"}, func() {
+			if !getConfigSyncEnabled() {
+				t.Fatal("expected config sync enabled via CLI flag")
+			}
+		})
+	})
+
+	t.Run("env var enables sync", func(t *testing.T) {
+		prev := startServerCmdConfigSyncEnabled
+		defer func() { startServerCmdConfigSyncEnabled = prev }()
+		startServerCmdConfigSyncEnabled = false
+		withEnv(map[string]string{ConfigSyncEnabledEnvVar: "1"}, func() {
+			if !getConfigSyncEnabled() {
+				t.Fatal("expected config sync enabled via env")
+			}
+		})
+	})
+}
+
+func TestGetConfigSyncDir(t *testing.T) {
+	t.Run("cli flag has precedence", func(t *testing.T) {
+		prev := startServerCmdConfigDir
+		defer func() { startServerCmdConfigDir = prev }()
+		startServerCmdConfigDir = "/tmp/cli-dir"
+		withEnv(map[string]string{ConfigSyncDirEnvVar: "/tmp/env-dir"}, func() {
+			if got := getConfigSyncDir(); got != "/tmp/cli-dir" {
+				t.Fatalf("expected /tmp/cli-dir, got %s", got)
+			}
+		})
+	})
+
+	t.Run("defaults when unset", func(t *testing.T) {
+		prev := startServerCmdConfigDir
+		defer func() { startServerCmdConfigDir = prev }()
+		startServerCmdConfigDir = ""
+		withEnv(map[string]string{ConfigSyncDirEnvVar: ""}, func() {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				t.Fatalf("failed to get user home dir: %v", err)
+			}
+			expected := filepath.Join(home, types.DefaultConfigSyncDirName)
+			if got := getConfigSyncDir(); got != expected {
+				t.Fatalf("expected default dir %s, got %s", expected, got)
+			}
+		})
 	})
 }

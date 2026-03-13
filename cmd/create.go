@@ -1,11 +1,11 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
+	"github.com/mcpjungle/mcpjungle/pkg/accesstoken"
+	"github.com/mcpjungle/mcpjungle/pkg/configfiles"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/spf13/cobra"
 )
@@ -181,7 +181,10 @@ func runCreateMcpClient(cmd *cobra.Command, args []string) error {
 			Description: config.Description,
 			AllowList:   config.AllowMcpServers,
 		}
-		accessToken, err := resolveAccessTokenFromConfig(config.AccessToken, config.AccessTokenRef)
+		accessToken, err := accesstoken.Resolve(accesstoken.Input{
+			Inline: config.AccessToken,
+			Ref:    config.AccessTokenRef,
+		})
 		if err != nil {
 			return err
 		}
@@ -245,7 +248,10 @@ func runCreateUser(cmd *cobra.Command, args []string) error {
 		if config.Username == "" {
 			return fmt.Errorf("config file must define a username")
 		}
-		accessToken, err := resolveAccessTokenFromConfig(config.AccessToken, config.AccessTokenRef)
+		accessToken, err := accesstoken.Resolve(accesstoken.Input{
+			Inline: config.AccessToken,
+			Ref:    config.AccessTokenRef,
+		})
 		if err != nil {
 			return err
 		}
@@ -296,47 +302,30 @@ func runCreateToolGroup(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// readToolGroupConfig reads the tool group configuration from a JSON file.
 func readToolGroupConfig(filePath string) (*types.ToolGroup, error) {
-	var input types.ToolGroup
-
-	data, err := os.ReadFile(filePath)
+	input, err := configfiles.ReadJSONFile[types.ToolGroup](filePath)
 	if err != nil {
-		return &input, fmt.Errorf("failed to read config file %s: %w", filePath, err)
+		return nil, err
 	}
-	if err := json.Unmarshal(data, &input); err != nil {
-		return &input, fmt.Errorf("failed to parse config file: %w", err)
-	}
-
 	return &input, nil
 }
 
 // readMcpClientConfig reads the MCP client configuration from a JSON file.
 func readMcpClientConfig(filePath string) (*types.McpClientConfig, error) {
-	var input types.McpClientConfig
-
-	data, err := os.ReadFile(filePath)
+	input, err := configfiles.ReadJSONFile[types.McpClientConfig](filePath)
 	if err != nil {
-		return &input, fmt.Errorf("failed to read config file %s: %w", filePath, err)
+		return nil, err
 	}
-	if err := json.Unmarshal(data, &input); err != nil {
-		return &input, fmt.Errorf("failed to parse config file: %w", err)
-	}
-
 	return &input, nil
 }
 
 // readUserConfig reads the user configuration from a JSON file.
 func readUserConfig(filePath string) (*types.UserConfig, error) {
-	var input types.UserConfig
-
-	data, err := os.ReadFile(filePath)
+	input, err := configfiles.ReadJSONFile[types.UserConfig](filePath)
 	if err != nil {
-		return &input, fmt.Errorf("failed to read config file %s: %w", filePath, err)
+		return nil, err
 	}
-	if err := json.Unmarshal(data, &input); err != nil {
-		return &input, fmt.Errorf("failed to parse config file: %w", err)
-	}
-
 	return &input, nil
 }
 
@@ -354,45 +343,6 @@ func parseAllowList(input string, cmd *cobra.Command) []string {
 	}
 
 	return allowList
-}
-
-// resolveAccessTokenFromConfig resolves the access token from the provided config.
-// Precedence:
-// 1. Direct access token string
-// 2. Environment variable specified in accessTokenRef.Env
-// 3. File specified in accessTokenRef.File
-// If none are provided, returns an empty string.
-func resolveAccessTokenFromConfig(accessToken string, accessTokenRef types.AccessTokenRef) (string, error) {
-	if accessToken != "" {
-		return accessToken, nil
-	}
-
-	if accessTokenRef.Env != "" {
-		value, ok := os.LookupEnv(accessTokenRef.Env)
-		if ok {
-			trimmed := strings.TrimSpace(value)
-			if trimmed != "" {
-				return trimmed, nil
-			}
-		}
-		if accessTokenRef.File == "" {
-			return "", fmt.Errorf("environment variable %s is not set or empty", accessTokenRef.Env)
-		}
-	}
-
-	if accessTokenRef.File != "" {
-		data, err := os.ReadFile(accessTokenRef.File)
-		if err != nil {
-			return "", fmt.Errorf("failed to read access token file %s: %w", accessTokenRef.File, err)
-		}
-		trimmed := strings.TrimSpace(string(data))
-		if trimmed == "" {
-			return "", fmt.Errorf("access token file %s is empty", accessTokenRef.File)
-		}
-		return trimmed, nil
-	}
-
-	return "", nil
 }
 
 // warnAllowAll displays a warning message about using a wildcard in the allow list.

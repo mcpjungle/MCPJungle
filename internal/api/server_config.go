@@ -28,6 +28,9 @@ func (s *Server) registerInitServerHandler() gin.HandlerFunc {
 		if req.Mode == model.ModeDev {
 			// If the server was successfully initialized and the mode is dev,
 			// return a success message without creating an admin user
+			if s.onInitialized != nil {
+				s.onInitialized(req.Mode)
+			}
 			c.JSON(http.StatusOK, gin.H{"status": "Server initialized successfully in development mode"})
 			return
 		}
@@ -40,6 +43,9 @@ func (s *Server) registerInitServerHandler() gin.HandlerFunc {
 				gin.H{"error": "Initialization succeeded but failed to create admin user: " + err.Error()},
 			)
 			return
+		}
+		if s.onInitialized != nil {
+			s.onInitialized(req.Mode)
 		}
 		payload := gin.H{
 			"status":             "Server initialized successfully",

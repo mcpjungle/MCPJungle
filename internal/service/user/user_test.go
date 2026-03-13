@@ -1,6 +1,7 @@
 package user
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/mcpjungle/mcpjungle/internal/model"
@@ -116,6 +117,39 @@ func TestGetUserByAccessToken(t *testing.T) {
 	// Test getting user by invalid token
 	_, err := svc.GetUserByAccessToken("invalid-token")
 	testhelpers.AssertError(t, err)
+	if !errors.Is(err, ErrUserNotFound) {
+		t.Fatalf("expected ErrUserNotFound, got: %v", err)
+	}
+}
+
+func TestGetUser(t *testing.T) {
+	setup, _ := testhelpers.SetupUserTest(t)
+	defer setup.Cleanup()
+	svc := NewUserService(setup.DB)
+
+	created, err := svc.CreateUser(&model.User{Username: "alice"})
+	testhelpers.AssertNoError(t, err)
+
+	got, err := svc.GetUser("alice")
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertNotNil(t, got)
+	testhelpers.AssertEqual(t, created.Username, got.Username)
+	testhelpers.AssertEqual(t, created.AccessToken, got.AccessToken)
+}
+
+func TestGetUserNotFound(t *testing.T) {
+	setup, _ := testhelpers.SetupUserTest(t)
+	defer setup.Cleanup()
+	svc := NewUserService(setup.DB)
+
+	got, err := svc.GetUser("missing-user")
+	testhelpers.AssertError(t, err)
+	if !errors.Is(err, ErrUserNotFound) {
+		t.Fatalf("expected ErrUserNotFound, got: %v", err)
+	}
+	if got != nil {
+		t.Errorf("expected nil user, got: %+v", got)
+	}
 }
 
 func TestListUsers(t *testing.T) {
@@ -178,6 +212,9 @@ func TestDeleteUserNotFound(t *testing.T) {
 	// Try to delete non-existent user
 	err := svc.DeleteUser("nonexistent")
 	testhelpers.AssertError(t, err)
+	if !errors.Is(err, ErrUserNotFound) {
+		t.Fatalf("expected ErrUserNotFound, got: %v", err)
+	}
 }
 
 func TestDeleteAdminUser(t *testing.T) {
@@ -251,6 +288,9 @@ func TestUpdateUserNotFound(t *testing.T) {
 	}
 	updatedUser, err := svc.UpdateUser(updateInput)
 	testhelpers.AssertError(t, err)
+	if !errors.Is(err, ErrUserNotFound) {
+		t.Fatalf("expected ErrUserNotFound, got: %v", err)
+	}
 	if updatedUser != nil {
 		t.Error("Expected update to fail for non-existent user")
 	}
