@@ -103,6 +103,7 @@ func drain(r *http.Response) { r.Body.Close() }
 // decodeJSON decodes the JSON response body into target.
 func decodeJSON(t *testing.T, r *http.Response, target any) {
 	t.Helper()
+	defer drain(r)
 	require.NoError(t, json.NewDecoder(r.Body).Decode(target))
 }
 
