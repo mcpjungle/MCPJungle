@@ -145,14 +145,15 @@ func TestE2E_EnterpriseMode_McpProxy_AllowList_ListAndInvoke(t *testing.T) {
 	})
 
 	t.Run("invoke restricted tool returns error", func(t *testing.T) {
-		result, err := c.CallTool(context.Background(), mcp.CallToolRequest{
+		// The ACL check returns a Go error (not an MCP IsError result), so the
+		// mcp-go framework surfaces it as a protocol-level error on the client.
+		_, err := c.CallTool(context.Background(), mcp.CallToolRequest{
 			Params: mcp.CallToolParams{
 				Name:      "svc-b__echo",
 				Arguments: map[string]any{"message": "should be blocked"},
 			},
 		})
-		require.NoError(t, err, "MCP protocol must not error; ACL is signalled via IsError")
-		assert.True(t, result.IsError)
+		assert.Error(t, err, "calling a tool from a restricted server must return an error")
 	})
 
 	// --- Prompts ---
