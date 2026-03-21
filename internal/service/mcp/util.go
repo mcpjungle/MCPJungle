@@ -31,6 +31,10 @@ const (
 	// serverPromptNameSep is the separator used to combine server name and prompt name.
 	// This combination produces the canonical name that uniquely identifies a prompt across MCPJungle.
 	serverPromptNameSep = "__"
+
+	// serverResourceNameSep is the separator used to combine server name and resource name.
+	// This combination produces a canonical display name for resources across MCPJungle.
+	serverResourceNameSep = "__"
 )
 
 // Only allow letters, numbers, hyphens, and underscores
@@ -88,6 +92,12 @@ func mergeServerPromptNames(s, p string) string {
 // splitServerPromptName splits the unique prompt name into server name and prompt name.
 func splitServerPromptName(name string) (string, string, bool) {
 	return strings.Cut(name, serverPromptNameSep)
+}
+
+// mergeServerResourceNames combines the server name and resource name into a single
+// display name unique across the registry.
+func mergeServerResourceNames(s, r string) string {
+	return s + serverResourceNameSep + r
 }
 
 // isLoopbackURL returns true if rawURL resolves to a loopback address.
@@ -159,6 +169,36 @@ func convertPromptModelToMcpObject(p *model.Prompt) (mcp.Prompt, error) {
 	mcpPrompt.Arguments = arguments
 
 	return mcpPrompt, nil
+}
+
+// convertResourceModelToMcpObject converts a resource model from the database to a mcp.Resource object.
+func convertResourceModelToMcpObject(r *model.Resource) (mcp.Resource, error) {
+	mcpResource := mcp.Resource{
+		URI:         r.URI,
+		Name:        r.Name,
+		Description: r.Description,
+		MIMEType:    r.MIMEType,
+	}
+
+	if len(r.Annotations) > 0 {
+		var annotations mcp.Annotations
+		if err := json.Unmarshal(r.Annotations, &annotations); err != nil {
+			log.Printf("[WARN] failed to unmarshal annotations for resource %s: %v", r.URI, err)
+		} else {
+			mcpResource.Annotations = &annotations
+		}
+	}
+
+	if len(r.Meta) > 0 {
+		var meta mcp.Meta
+		if err := json.Unmarshal(r.Meta, &meta); err != nil {
+			log.Printf("[WARN] failed to unmarshal meta for resource %s: %v", r.URI, err)
+		} else {
+			mcpResource.Meta = &meta
+		}
+	}
+
+	return mcpResource, nil
 }
 
 // prepareSHTTPClientOptions prepares the options (specifically, http headers) for creating a

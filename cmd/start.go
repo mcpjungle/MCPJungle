@@ -377,6 +377,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 	mcpProxyServer := server.NewMCPServer(
 		"MCPJungle Proxy MCP Server",
 		"0.0.1",
+		server.WithResourceCapabilities(false, false),
 		server.WithToolCapabilities(true),
 		server.WithPromptCapabilities(true),
 		server.WithToolFilter(mcp.ProxyToolFilter),
@@ -384,6 +385,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 	sseMcpProxyServer := server.NewMCPServer(
 		"MCPJungle Proxy MCP Server for SSE transport",
 		"0.0.1",
+		server.WithResourceCapabilities(false, false),
 		server.WithToolCapabilities(true),
 		server.WithPromptCapabilities(true),
 		server.WithToolFilter(mcp.ProxyToolFilter),

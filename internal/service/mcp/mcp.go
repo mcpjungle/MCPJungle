@@ -55,8 +55,18 @@ type MCPService struct {
 }
 
 // NewMCPService creates a new instance of MCPService.
-// It initializes the MCP proxy server by loading all registered tools from the database.
+// It initializes the MCP proxy server by loading all registered tools, prompts and resources from the database.
 func NewMCPService(c *ServiceConfig) (*MCPService, error) {
+	if c == nil {
+		return nil, fmt.Errorf("service config is nil")
+	}
+	if c.DB == nil {
+		return nil, fmt.Errorf("database connection is nil")
+	}
+	if c.McpProxyServer == nil || c.SseMcpProxyServer == nil {
+		return nil, fmt.Errorf("mcp proxy servers must not be nil")
+	}
+
 	// Use the provided session manager, or create a default one if not provided
 	sessionManager := c.SessionManager
 	if sessionManager == nil {

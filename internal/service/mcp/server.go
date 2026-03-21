@@ -12,9 +12,9 @@ import (
 )
 
 // RegisterMcpServer registers a new MCP server in the database.
-// It also registers all the Tools and Prompts provided by the server.
-// Tool and prompt registration is on best-effort basis and does not fail the server registration.
-// Registered tools and prompts are also added to the MCP proxy server.
+// It also registers all the Tools, Prompts and Resources provided by the server.
+// Tool registration is required, while prompt/resource registration is on best-effort basis.
+// Registered tools, prompts and resources are also added to the MCP proxy server.
 func (m *MCPService) RegisterMcpServer(ctx context.Context, s *model.McpServer) error {
 	if err := validateServerName(s.Name); err != nil {
 		return err
@@ -41,14 +41,19 @@ func (m *MCPService) RegisterMcpServer(ctx context.Context, s *model.McpServer) 
 			log.Printf("[WARN] failed to register prompts for MCP server %s: %v", s.Name, err)
 		}
 	}
+	if mcpClient.GetServerCapabilities().Resources != nil {
+		if err = m.registerServerResources(ctx, s, mcpClient); err != nil {
+			log.Printf("[WARN] failed to register resources for MCP server %s: %v", s.Name, err)
+		}
+	}
 
 	return nil
 }
 
 // DeregisterMcpServer deregisters an MCP server from the database.
-// It also deregisters all the tools and prompts registered by the server.
-// If even a single tool or prompt fails to deregister, the server deregistration fails.
-// Deregistered tools and prompts are also removed from the MCP proxy server.
+// It also deregisters all the tools, prompts and resources registered by the server.
+// If even a single tool, prompt or resource fails to deregister, the server deregistration fails.
+// Deregistered tools, prompts and resources are also removed from the MCP proxy server.
 // Any stateful sessions associated with this server are also closed.
 func (m *MCPService) DeregisterMcpServer(name string) error {
 	s, err := m.GetMcpServer(name)
@@ -65,6 +70,13 @@ func (m *MCPService) DeregisterMcpServer(name string) error {
 	if err := m.deregisterServerPrompts(s); err != nil {
 		return fmt.Errorf(
 			"failed to deregister prompts for server %s, cannot proceed with server deregistration: %w",
+			name,
+			err,
+		)
+	}
+	if err := m.deregisterServerResources(s); err != nil {
+		return fmt.Errorf(
+			"failed to deregister resources for server %s, cannot proceed with server deregistration: %w",
 			name,
 			err,
 		)
@@ -100,9 +112,18 @@ func (m *MCPService) GetMcpServer(name string) (*model.McpServer, error) {
 	return &serverModel, nil
 }
 
-// EnableMcpServer enables all tools and prompts registered by the given MCP server.
+// GetServerByID fetches a server from the database by ID.
+func (m *MCPService) GetServerByID(id uint) (*model.McpServer, error) {
+	var serverModel model.McpServer
+	if err := m.db.First(&serverModel, "id = ?", id).Error; err != nil {
+		return nil, err
+	}
+	return &serverModel, nil
+}
+
+// EnableMcpServer enables all tools, prompts and resources registered by the given MCP server.
 // It returns the names of the enabled tools and prompts.
-// If even a single tool or prompt fails to enable, the operation fails.
+// If even a single tool, prompt or resource fails to enable, the operation fails.
 func (m *MCPService) EnableMcpServer(name string) ([]string, []string, error) {
 	if err := validateServerName(name); err != nil {
 		return nil, nil, err
@@ -115,12 +136,15 @@ func (m *MCPService) EnableMcpServer(name string) ([]string, []string, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to enable prompts for server %s: %w", name, err)
 	}
+	if _, err := m.EnableResources(name); err != nil {
+		return nil, nil, fmt.Errorf("failed to enable resources for server %s: %w", name, err)
+	}
 	return toolsEnabled, promptsEnabled, nil
 }
 
-// DisableMcpServer disables all tools and prompts registered by the given MCP server.
+// DisableMcpServer disables all tools, prompts and resources registered by the given MCP server.
 // It returns the names of the disabled tools and prompts.
-// If even a single tool or prompt fails to disable, the operation fails.
+// If even a single tool, prompt or resource fails to disable, the operation fails.
 func (m *MCPService) DisableMcpServer(name string) ([]string, []string, error) {
 	if err := validateServerName(name); err != nil {
 		return nil, nil, err
@@ -132,6 +156,9 @@ func (m *MCPService) DisableMcpServer(name string) ([]string, []string, error) {
 	promptsDisabled, err := m.DisablePrompts(name)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to disable prompts for server %s: %w", name, err)
+	}
+	if _, err := m.DisableResources(name); err != nil {
+		return nil, nil, fmt.Errorf("failed to disable resources for server %s: %w", name, err)
 	}
 	return toolsDisabled, promptsDisabled, nil
 }

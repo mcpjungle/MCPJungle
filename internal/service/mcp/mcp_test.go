@@ -33,6 +33,8 @@ func TestNewMCPService(t *testing.T) {
 				var err error
 				db, err = testhelpers.CreateTestDB()
 				testhelpers.AssertNoError(t, err)
+				err = db.AutoMigrate(&model.McpServer{}, &model.Tool{}, &model.Prompt{}, &model.Resource{})
+				testhelpers.AssertNoError(t, err)
 			} else {
 				db = tt.db
 			}
@@ -108,7 +110,7 @@ func TestMCPServiceCallbacks(t *testing.T) {
 	testhelpers.AssertNoError(t, err)
 
 	// Auto-migrate the required models
-	err = db.AutoMigrate(&model.McpServer{}, &model.Tool{}, &model.Prompt{})
+	err = db.AutoMigrate(&model.McpServer{}, &model.Tool{}, &model.Prompt{}, &model.Resource{})
 	testhelpers.AssertNoError(t, err)
 
 	proxyServer := &server.MCPServer{}
@@ -143,7 +145,7 @@ func TestMCPServiceConcurrency(t *testing.T) {
 	testhelpers.AssertNoError(t, err)
 
 	// Auto-migrate the required models
-	err = db.AutoMigrate(&model.McpServer{}, &model.Tool{}, &model.Prompt{})
+	err = db.AutoMigrate(&model.McpServer{}, &model.Tool{}, &model.Prompt{}, &model.Resource{})
 	testhelpers.AssertNoError(t, err)
 
 	proxyServer := &server.MCPServer{}
@@ -186,7 +188,7 @@ func TestMCPServiceToolInstances(t *testing.T) {
 	testhelpers.AssertNoError(t, err)
 
 	// Auto-migrate the required models
-	err = db.AutoMigrate(&model.McpServer{}, &model.Tool{}, &model.Prompt{})
+	err = db.AutoMigrate(&model.McpServer{}, &model.Tool{}, &model.Prompt{}, &model.Resource{})
 	testhelpers.AssertNoError(t, err)
 
 	proxyServer := &server.MCPServer{}
@@ -228,7 +230,7 @@ func TestMCPServiceErrorHandling(t *testing.T) {
 	testhelpers.AssertNoError(t, err)
 
 	// Auto-migrate the required models
-	err = db.AutoMigrate(&model.McpServer{}, &model.Tool{}, &model.Prompt{})
+	err = db.AutoMigrate(&model.McpServer{}, &model.Tool{}, &model.Prompt{}, &model.Resource{})
 	testhelpers.AssertNoError(t, err)
 
 	proxyServer := &server.MCPServer{}

@@ -1,9 +1,11 @@
 package internal
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
+	mcpclient "github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/migrations"
@@ -115,6 +117,93 @@ func TestPromptsIntegration(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, serverPrompts, 1)
 	assert.Equal(t, "github__code-review", serverPrompts[0].Name)
+}
+
+func TestResourcesIntegration(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+
+	err = migrations.Migrate(db)
+	require.NoError(t, err)
+
+	mcpProxyServer := server.NewMCPServer(
+		"Test MCPJungle Proxy",
+		"0.0.1",
+		server.WithToolCapabilities(true),
+		server.WithPromptCapabilities(true),
+	)
+	sseMcpProxyServer := server.NewMCPServer(
+		"MCPJungle Proxy MCP Server for SSE transport",
+		"0.0.1",
+		server.WithToolCapabilities(true),
+		server.WithPromptCapabilities(true),
+	)
+	testServer, err := model.NewStdioServer(
+		"github",
+		"GitHub MCP server",
+		"npx",
+		[]string{"-y", "@modelcontextprotocol/server-github"},
+		map[string]string{},
+		"",
+	)
+	require.NoError(t, err)
+	err = db.Create(testServer).Error
+	require.NoError(t, err)
+
+	testResource := &model.Resource{
+		ServerID:     testServer.ID,
+		URI:          "github://repo/status",
+		Name:         "repo-status",
+		Description:  "Current repository status",
+		MIMEType:     "application/json",
+		Annotations:  []byte(`{"audience":["assistant"],"priority":0.8}`),
+		Meta:         []byte(`{"test":"value"}`),
+		Enabled:      true,
+	}
+	err = db.Create(testResource).Error
+	require.NoError(t, err)
+
+	mcpMetrics := telemetry.NewNoopCustomMetrics()
+
+	conf := &mcpService.ServiceConfig{
+		DB:                      db,
+		McpProxyServer:          mcpProxyServer,
+		SseMcpProxyServer:       sseMcpProxyServer,
+		Metrics:                 mcpMetrics,
+		McpServerInitReqTimeout: 10,
+	}
+	service, err := mcpService.NewMCPService(conf)
+	require.NoError(t, err)
+
+	resources, err := service.ListResources()
+	require.NoError(t, err)
+	require.Len(t, resources, 1)
+	assert.Equal(t, "github__repo-status", resources[0].Name)
+	assert.Equal(t, "github://repo/status", resources[0].URI)
+
+	proxyClient, err := mcpclient.NewInProcessClient(mcpProxyServer)
+	require.NoError(t, err)
+	defer proxyClient.Close()
+
+	err = proxyClient.Start(context.Background())
+	require.NoError(t, err)
+
+	initRequest := mcp.InitializeRequest{}
+	initRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
+	initRequest.Params.ClientInfo = mcp.Implementation{
+		Name:    "test-client",
+		Version: "1.0.0",
+	}
+
+	initResult, err := proxyClient.Initialize(context.Background(), initRequest)
+	require.NoError(t, err)
+	require.NotNil(t, initResult.Capabilities.Resources)
+
+	listResult, err := proxyClient.ListResources(context.Background(), mcp.ListResourcesRequest{})
+	require.NoError(t, err)
+	require.Len(t, listResult.Resources, 1)
+	assert.Equal(t, "github__repo-status", listResult.Resources[0].Name)
+	assert.Equal(t, "github://repo/status", listResult.Resources[0].URI)
 }
 
 // Note: Naming convention utilities are tested in the service package tests

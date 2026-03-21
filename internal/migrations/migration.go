@@ -31,5 +31,8 @@ func Migrate(db *gorm.DB) error {
 	if err := db.AutoMigrate(&model.Prompt{}); err != nil {
 		return fmt.Errorf("auto‑migration failed for Prompt model: %v", err)
 	}
+	if err := db.AutoMigrate(&model.Resource{}); err != nil {
+		return fmt.Errorf("auto‑migration failed for Resource model: %v", err)
+	}
 	return nil
 }

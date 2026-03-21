@@ -1,0 +1,256 @@
+package mcp
+
+import (
+	"context"
+	"testing"
+
+	mcpclient "github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
+	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/internal/telemetry"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+)
+
+func setupTestDBWithResources(t *testing.T) *gorm.DB {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+
+	err = db.AutoMigrate(&model.McpServer{}, &model.Tool{}, &model.Prompt{}, &model.Resource{})
+	require.NoError(t, err)
+
+	return db
+}
+
+func createTestResource(t *testing.T, db *gorm.DB, server *model.McpServer, uri, name string) *model.Resource {
+	resource := &model.Resource{
+		URI:         uri,
+		Name:        name,
+		Description: "Test resource",
+		MIMEType:    "text/plain",
+		Enabled:     true,
+		ServerID:    server.ID,
+	}
+	err := db.Create(resource).Error
+	require.NoError(t, err)
+	return resource
+}
+
+func TestListResources(t *testing.T) {
+	db := setupTestDBWithResources(t)
+	service := &MCPService{db: db}
+
+	srv := createTestServer(t, db)
+	createTestResource(t, db, srv, "resource://test/code-review", "code-review")
+	createTestResource(t, db, srv, "resource://test/security-audit", "security-audit")
+
+	resources, err := service.ListResources()
+	require.NoError(t, err)
+	assert.Len(t, resources, 2)
+
+	expectedNames := []string{
+		"test-server__code-review",
+		"test-server__security-audit",
+	}
+	actualNames := []string{resources[0].Name, resources[1].Name}
+	assert.ElementsMatch(t, expectedNames, actualNames)
+	assert.Equal(t, "resource://test/code-review", resources[0].URI)
+}
+
+func TestListResourcesByServer(t *testing.T) {
+	db := setupTestDBWithResources(t)
+	service := &MCPService{db: db}
+
+	srv := createTestServer(t, db)
+	createTestResource(t, db, srv, "resource://test/code-review", "code-review")
+
+	resources, err := service.ListResourcesByServer("test-server")
+	require.NoError(t, err)
+	assert.Len(t, resources, 1)
+	assert.Equal(t, "test-server__code-review", resources[0].Name)
+	assert.Equal(t, "resource://test/code-review", resources[0].URI)
+}
+
+func TestEnableDisableResources(t *testing.T) {
+	db := setupTestDBWithResources(t)
+
+	mcpProxyServer := server.NewMCPServer("Test Proxy", "0.1.0")
+	service := &MCPService{
+		db:             db,
+		mcpProxyServer: mcpProxyServer,
+	}
+
+	srv := createTestServer(t, db)
+	resource := createTestResource(t, db, srv, "resource://test/code-review", "code-review")
+
+	disabledResources, err := service.DisableResources(resource.URI)
+	require.NoError(t, err)
+	assert.Len(t, disabledResources, 1)
+	assert.Equal(t, resource.URI, disabledResources[0])
+
+	var updatedResource model.Resource
+	err = db.First(&updatedResource, resource.ID).Error
+	require.NoError(t, err)
+	assert.False(t, updatedResource.Enabled)
+
+	enabledResources, err := service.EnableResources(resource.URI)
+	require.NoError(t, err)
+	assert.Len(t, enabledResources, 1)
+	assert.Equal(t, resource.URI, enabledResources[0])
+
+	err = db.First(&updatedResource, resource.ID).Error
+	require.NoError(t, err)
+	assert.True(t, updatedResource.Enabled)
+}
+
+func TestEnableDisableServerResources(t *testing.T) {
+	db := setupTestDBWithResources(t)
+
+	mcpProxyServer := server.NewMCPServer("Test Proxy", "0.1.0")
+	service := &MCPService{
+		db:             db,
+		mcpProxyServer: mcpProxyServer,
+	}
+
+	srv := createTestServer(t, db)
+	createTestResource(t, db, srv, "resource://test/code-review", "code-review")
+	createTestResource(t, db, srv, "resource://test/security-audit", "security-audit")
+
+	disabledResources, err := service.DisableResources("test-server")
+	require.NoError(t, err)
+	assert.Len(t, disabledResources, 2)
+
+	var resources []model.Resource
+	err = db.Where("server_id = ?", srv.ID).Find(&resources).Error
+	require.NoError(t, err)
+	for _, resource := range resources {
+		assert.False(t, resource.Enabled)
+	}
+
+	enabledResources, err := service.EnableResources("test-server")
+	require.NoError(t, err)
+	assert.Len(t, enabledResources, 2)
+
+	err = db.Where("server_id = ?", srv.ID).Find(&resources).Error
+	require.NoError(t, err)
+	for _, resource := range resources {
+		assert.True(t, resource.Enabled)
+	}
+}
+
+func TestDisableResourcesAmbiguousURI(t *testing.T) {
+	db := setupTestDBWithResources(t)
+	service := &MCPService{db: db}
+
+	srv1 := createTestServer(t, db)
+	srv2, err := model.NewStdioServer("test-server-2", "Test MCP server 2", "echo", []string{"hello"}, nil, "")
+	require.NoError(t, err)
+	err = db.Create(srv2).Error
+	require.NoError(t, err)
+
+	createTestResource(t, db, srv1, "resource://shared/status", "status")
+	createTestResource(t, db, srv2, "resource://shared/status", "status")
+
+	_, err = service.DisableResources("resource://shared/status")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ambiguous")
+}
+
+func TestMCPProxyResourceHandlerRoutesReadByURI(t *testing.T) {
+	db := setupTestDBWithResources(t)
+	srv := createTestServer(t, db)
+	srv.SessionMode = "stateful"
+	err := db.Save(srv).Error
+	require.NoError(t, err)
+	createTestResource(t, db, srv, "resource://test/status", "status")
+
+	proxyServer := server.NewMCPServer("Test Proxy", "0.1.0")
+	upstreamServer := server.NewMCPServer("Upstream", "0.1.0")
+	upstreamServer.AddResource(
+		mcp.Resource{
+			URI:         "resource://test/status",
+			Name:        "status",
+			Description: "Current status",
+			MIMEType:    "text/plain",
+		},
+		func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+			return []mcp.ResourceContents{
+				mcp.TextResourceContents{
+					URI:      request.Params.URI,
+					MIMEType: "text/plain",
+					Text:     "ok",
+				},
+			}, nil
+		},
+	)
+
+	sessionManager := NewSessionManager(&SessionManagerConfig{
+		IdleTimeoutSec:    0,
+		InitReqTimeoutSec: 10,
+	})
+	sessionManager.createSessionFunc = func(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*mcpclient.Client, error) {
+		client, err := mcpclient.NewInProcessClient(upstreamServer)
+		if err != nil {
+			return nil, err
+		}
+		if err := client.Start(ctx); err != nil {
+			return nil, err
+		}
+		initReq := mcp.InitializeRequest{}
+		initReq.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
+		initReq.Params.ClientInfo = mcp.Implementation{Name: "test-client", Version: "1.0.0"}
+		if _, err := client.Initialize(ctx, initReq); err != nil {
+			return nil, err
+		}
+		return client, nil
+	}
+
+	service, err := NewMCPService(&ServiceConfig{
+		DB:                      db,
+		McpProxyServer:          proxyServer,
+		SseMcpProxyServer:       proxyServer,
+		Metrics:                 telemetry.NewNoopCustomMetrics(),
+		McpServerInitReqTimeout: 10,
+		SessionManager:          sessionManager,
+	})
+	require.NoError(t, err)
+
+	req := mcp.ReadResourceRequest{}
+	req.Params.URI = "resource://test/status"
+	ctx := context.WithValue(context.Background(), "mode", model.ModeDev)
+
+	contents, err := service.mcpProxyResourceHandler(ctx, req)
+	require.NoError(t, err)
+	require.Len(t, contents, 1)
+
+	textContent, ok := contents[0].(mcp.TextResourceContents)
+	require.True(t, ok)
+	assert.Equal(t, "ok", textContent.Text)
+}
+
+func TestMCPProxyResourceHandlerRejectsAmbiguousURI(t *testing.T) {
+	db := setupTestDBWithResources(t)
+	service := &MCPService{db: db}
+
+	srv1 := createTestServer(t, db)
+	srv2, err := model.NewStdioServer("test-server-2", "Test MCP server 2", "echo", []string{"hello"}, nil, "")
+	require.NoError(t, err)
+	err = db.Create(srv2).Error
+	require.NoError(t, err)
+
+	createTestResource(t, db, srv1, "resource://shared/status", "status")
+	createTestResource(t, db, srv2, "resource://shared/status", "status")
+
+	req := mcp.ReadResourceRequest{}
+	req.Params.URI = "resource://shared/status"
+	ctx := context.WithValue(context.Background(), "mode", model.ModeDev)
+
+	_, err = service.mcpProxyResourceHandler(ctx, req)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ambiguous")
+	assert.Contains(t, err.Error(), "test-server")
+	assert.Contains(t, err.Error(), "test-server-2")
+}
