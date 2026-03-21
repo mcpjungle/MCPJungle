@@ -3,7 +3,6 @@ package mcp
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -79,60 +78,10 @@ func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request mcp.Ca
 // by forwarding the request to the appropriate upstream MCP server and
 // relaying the response back.
 func (m *MCPService) mcpProxyResourceHandler(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-	resourceURI := request.Params.URI
-
-	resources, err := m.GetResourcesByURI(resourceURI)
+	match, err := m.resolveResourceMatch(ctx, request.Params.URI, "")
 	if err != nil {
 		return nil, err
 	}
-	if len(resources) == 0 {
-		return nil, fmt.Errorf("resource %s not found", resourceURI)
-	}
-
-	type resourceMatch struct {
-		server   *model.McpServer
-	}
-
-	matches := make([]resourceMatch, 0, len(resources))
-	for _, resource := range resources {
-		serverModel, err := m.GetServerByID(resource.ServerID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get MCP server for resource %s from DB: %w", resourceURI, err)
-		}
-		matches = append(matches, resourceMatch{
-			server: serverModel,
-		})
-	}
-
-	serverMode := ctx.Value("mode").(model.ServerMode)
-	if model.IsEnterpriseMode(serverMode) {
-		c := ctx.Value("client").(*model.McpClient)
-
-		authorized := matches[:0]
-		for _, match := range matches {
-			if c.CheckHasServerAccess(match.server.Name) {
-				authorized = append(authorized, match)
-			}
-		}
-		if len(authorized) == 0 {
-			return nil, fmt.Errorf("client %s is not authorized to access resource %s", c.Name, resourceURI)
-		}
-		matches = authorized
-	}
-
-	if len(matches) > 1 {
-		serverNames := make([]string, len(matches))
-		for i, match := range matches {
-			serverNames[i] = match.server.Name
-		}
-		return nil, fmt.Errorf(
-			"resource URI %s is ambiguous across multiple servers: %s",
-			resourceURI,
-			strings.Join(serverNames, ", "),
-		)
-	}
-
-	match := matches[0]
 	session, err := m.getSession(ctx, match.server)
 	if err != nil {
 		return nil, err

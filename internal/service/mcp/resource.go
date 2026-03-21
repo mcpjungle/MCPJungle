@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -68,6 +69,147 @@ func (m *MCPService) GetResourcesByURI(uri string) ([]model.Resource, error) {
 		return nil, fmt.Errorf("failed to get resources for URI %s from DB: %w", uri, err)
 	}
 	return resources, nil
+}
+
+// GetResource fetches resource metadata by URI, optionally scoped to a specific server.
+func (m *MCPService) GetResource(uri string, serverName string) (*model.Resource, error) {
+	if uri == "" {
+		return nil, fmt.Errorf("resource URI must not be empty")
+	}
+
+	var resources []model.Resource
+	if serverName != "" {
+		if err := validateServerName(serverName); err != nil {
+			return nil, err
+		}
+		s, err := m.GetMcpServer(serverName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get MCP server %s from DB: %w", serverName, err)
+		}
+		if err := m.db.Where("server_id = ? AND uri = ?", s.ID, uri).Find(&resources).Error; err != nil {
+			return nil, fmt.Errorf("failed to get resource %s from DB: %w", uri, err)
+		}
+	} else {
+		if err := m.db.Where("uri = ?", uri).Find(&resources).Error; err != nil {
+			return nil, fmt.Errorf("failed to get resource %s from DB: %w", uri, err)
+		}
+	}
+
+	if len(resources) == 0 {
+		return nil, fmt.Errorf("resource %s not found", uri)
+	}
+	if len(resources) > 1 {
+		return nil, fmt.Errorf("resource URI %s is ambiguous across multiple servers", uri)
+	}
+
+	resource := resources[0]
+	server, err := m.GetServerByID(resource.ServerID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get server for resource %s: %w", uri, err)
+	}
+	resource.Name = mergeServerResourceNames(server.Name, resource.Name)
+	return &resource, nil
+}
+
+type resourceMatch struct {
+	resource model.Resource
+	server   *model.McpServer
+}
+
+func (m *MCPService) resolveResourceMatch(ctx context.Context, uri string, serverName string) (*resourceMatch, error) {
+	var resources []model.Resource
+	var err error
+	if serverName != "" {
+		resource, err := m.GetResource(uri, serverName)
+		if err != nil {
+			return nil, err
+		}
+		resources = []model.Resource{*resource}
+	} else {
+		resources, err = m.GetResourcesByURI(uri)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if len(resources) == 0 {
+		return nil, fmt.Errorf("resource %s not found", uri)
+	}
+
+	matches := make([]resourceMatch, 0, len(resources))
+	for _, resource := range resources {
+		serverModel, err := m.GetServerByID(resource.ServerID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get MCP server for resource %s from DB: %w", uri, err)
+		}
+		matches = append(matches, resourceMatch{
+			resource: resource,
+			server:   serverModel,
+		})
+	}
+
+	if modeValue := ctx.Value("mode"); modeValue != nil {
+		if serverMode, ok := modeValue.(model.ServerMode); ok && model.IsEnterpriseMode(serverMode) {
+			c := ctx.Value("client").(*model.McpClient)
+			authorized := matches[:0]
+			for _, match := range matches {
+				if c.CheckHasServerAccess(match.server.Name) {
+					authorized = append(authorized, match)
+				}
+			}
+			if len(authorized) == 0 {
+				return nil, fmt.Errorf("client %s is not authorized to access resource %s", c.Name, uri)
+			}
+			matches = authorized
+		}
+	}
+
+	if len(matches) > 1 {
+		serverNames := make([]string, len(matches))
+		for i, match := range matches {
+			serverNames[i] = match.server.Name
+		}
+		return nil, fmt.Errorf("resource URI %s is ambiguous across multiple servers: %s", uri, strings.Join(serverNames, ", "))
+	}
+
+	return &matches[0], nil
+}
+
+// ReadResource reads live resource content by URI, optionally scoped to a specific server.
+func (m *MCPService) ReadResource(ctx context.Context, uri string, serverName string) (*types.ResourceReadResult, error) {
+	match, err := m.resolveResourceMatch(ctx, uri, serverName)
+	if err != nil {
+		return nil, err
+	}
+
+	session, err := m.getSession(ctx, match.server)
+	if err != nil {
+		return nil, err
+	}
+	defer session.closeIfApplicable()
+
+	req := mcp.ReadResourceRequest{}
+	req.Params.URI = uri
+	res, err := session.client.ReadResource(ctx, req)
+	if err != nil {
+		session.invalidateOnError(err)
+		return nil, err
+	}
+
+	contents := make([]map[string]any, 0, len(res.Contents))
+	for _, item := range res.Contents {
+		raw, err := json.Marshal(item)
+		if err != nil {
+			return nil, fmt.Errorf("failed to serialize resource content: %w", err)
+		}
+		var content map[string]any
+		if err := json.Unmarshal(raw, &content); err != nil {
+			return nil, fmt.Errorf("failed to deserialize resource content: %w", err)
+		}
+		contents = append(contents, content)
+	}
+
+	return &types.ResourceReadResult{Contents: contents}, nil
 }
 
 // EnableResources enables one or more resources.

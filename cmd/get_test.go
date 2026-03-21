@@ -48,3 +48,15 @@ func TestGetGroupSubcommand(t *testing.T) {
 		}
 	})
 }
+
+func TestGetResourceSubcommand(t *testing.T) {
+	testhelpers.AssertEqual(t, "resource [uri]", getResourceCmd.Use)
+	testhelpers.AssertEqual(t, "Get resource metadata", getResourceCmd.Short)
+	testhelpers.AssertNotNil(t, getResourceCmd.Long)
+	testhelpers.AssertNotNil(t, getResourceCmd.RunE)
+	testhelpers.AssertNotNil(t, getResourceCmd.Args)
+
+	serverFlag := getResourceCmd.Flags().Lookup("server")
+	testhelpers.AssertNotNil(t, serverFlag)
+	testhelpers.AssertTrue(t, len(serverFlag.Usage) > 0, "Server flag should have usage description")
+}

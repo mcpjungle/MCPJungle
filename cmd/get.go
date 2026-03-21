@@ -18,6 +18,7 @@ var getCmd = &cobra.Command{
 }
 
 var getPromptArgs map[string]string
+var getResourceCmdServerName string
 
 var getGroupCmd = &cobra.Command{
 	Use:   "group [name]",
@@ -42,6 +43,15 @@ var getPromptCmd = &cobra.Command{
 	RunE: runGetPrompt,
 }
 
+var getResourceCmd = &cobra.Command{
+	Use:   "resource [uri]",
+	Args:  cobra.ExactArgs(1),
+	Short: "Get resource metadata",
+	Long: "Retrieve resource metadata from MCPJungle by URI.\n" +
+		"If multiple servers expose the same URI, use --server to disambiguate.",
+	RunE: runGetResource,
+}
+
 func init() {
 	getPromptCmd.Flags().StringToStringVar(
 		&getPromptArgs,
@@ -49,9 +59,16 @@ func init() {
 		nil,
 		"Arguments to pass to the prompt in the form of 'key=value' (this flag can be specified multiple times)",
 	)
+	getResourceCmd.Flags().StringVar(
+		&getResourceCmdServerName,
+		"server",
+		"",
+		"Scope the resource lookup to a specific server",
+	)
 
 	getCmd.AddCommand(getGroupCmd)
 	getCmd.AddCommand(getPromptCmd)
+	getCmd.AddCommand(getResourceCmd)
 	rootCmd.AddCommand(getCmd)
 }
 
@@ -150,6 +167,29 @@ func runGetPrompt(cmd *cobra.Command, args []string) error {
 		} else {
 			cmd.Printf("Content: %s\n", string(contentBytes))
 		}
+	}
+
+	return nil
+}
+
+func runGetResource(cmd *cobra.Command, args []string) error {
+	resource, err := apiClient.GetResource(args[0], getResourceCmdServerName)
+	if err != nil {
+		return fmt.Errorf("failed to get resource: %w", err)
+	}
+
+	cmd.Printf("Resource: %s\n", resource.Name)
+	cmd.Printf("URI: %s\n", resource.URI)
+	if resource.MIMEType != "" {
+		cmd.Printf("MIME Type: %s\n", resource.MIMEType)
+	}
+	if resource.Description != "" {
+		cmd.Printf("Description: %s\n", resource.Description)
+	}
+	if resource.Enabled {
+		cmd.Println("Status: ENABLED")
+	} else {
+		cmd.Println("Status: DISABLED")
 	}
 
 	return nil
