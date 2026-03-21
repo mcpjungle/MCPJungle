@@ -23,6 +23,7 @@ var (
 )
 
 var listPromptsCmdServerName string
+var listResourcesCmdServerName string
 
 var listToolsCmd = &cobra.Command{
 	Use:   "tools",
@@ -41,6 +42,13 @@ var listPromptsCmd = &cobra.Command{
 	Short: "List available prompts",
 	Long:  "List prompt templates available either from a specific MCP server or across all MCP servers in mcpjungle.",
 	RunE:  runListPrompts,
+}
+
+var listResourcesCmd = &cobra.Command{
+	Use:   "resources",
+	Short: "List available resources",
+	Long:  "List resources available either from a specific MCP server or across all MCP servers in mcpjungle.",
+	RunE:  runListResources,
 }
 
 var listServersCmd = &cobra.Command{
@@ -91,8 +99,16 @@ func init() {
 		"Filter prompts by server name",
 	)
 
+	listResourcesCmd.Flags().StringVar(
+		&listResourcesCmdServerName,
+		"server",
+		"",
+		"Filter resources by server name",
+	)
+
 	listCmd.AddCommand(listToolsCmd)
 	listCmd.AddCommand(listPromptsCmd)
+	listCmd.AddCommand(listResourcesCmd)
 	listCmd.AddCommand(listServersCmd)
 	listCmd.AddCommand(listMcpClientsCmd)
 	listCmd.AddCommand(listUsersCmd)
@@ -337,6 +353,35 @@ func runListPrompts(cmd *cobra.Command, args []string) error {
 	}
 
 	cmd.Println("Run 'get prompt <prompt name>' to retrieve a prompt template")
+
+	return nil
+}
+
+func runListResources(cmd *cobra.Command, args []string) error {
+	resources, err := apiClient.ListResources(listResourcesCmdServerName)
+	if err != nil {
+		return fmt.Errorf("failed to list resources: %w", err)
+	}
+
+	if len(resources) == 0 {
+		cmd.Println("No resources found")
+		return nil
+	}
+	for i, r := range resources {
+		ed := "ENABLED"
+		if !r.Enabled {
+			ed = "DISABLED"
+		}
+		cmd.Printf("%d. %s  [%s]\n", i+1, r.Name, ed)
+		cmd.Printf("URI: %s\n", r.URI)
+		if r.MIMEType != "" {
+			cmd.Printf("MIME Type: %s\n", r.MIMEType)
+		}
+		if r.Description != "" {
+			cmd.Println(r.Description)
+		}
+		cmd.Println()
+	}
 
 	return nil
 }
