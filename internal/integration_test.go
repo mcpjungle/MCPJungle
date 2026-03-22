@@ -4,12 +4,11 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/migrations"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	mcpService "github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
@@ -25,17 +24,19 @@ func TestPromptsIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create MCP proxy server with prompt capabilities
-	mcpProxyServer := server.NewMCPServer(
-		"Test MCPJungle Proxy",
-		"0.0.1",
-		server.WithToolCapabilities(true),
-		server.WithPromptCapabilities(true),
+	mcpProxyServer := mcp.NewServer(
+		&mcp.Implementation{Name: "Test MCPJungle Proxy", Version: "0.0.1"},
+		&mcp.ServerOptions{Capabilities: &mcp.ServerCapabilities{
+			Tools:   &mcp.ToolCapabilities{ListChanged: true},
+			Prompts: &mcp.PromptCapabilities{ListChanged: true},
+		}},
 	)
-	sseMcpProxyServer := server.NewMCPServer(
-		"MCPJungle Proxy MCP Server for SSE transport",
-		"0.0.1",
-		server.WithToolCapabilities(true),
-		server.WithPromptCapabilities(true),
+	sseMcpProxyServer := mcp.NewServer(
+		&mcp.Implementation{Name: "MCPJungle Proxy MCP Server for SSE transport", Version: "0.0.1"},
+		&mcp.ServerOptions{Capabilities: &mcp.ServerCapabilities{
+			Tools:   &mcp.ToolCapabilities{ListChanged: true},
+			Prompts: &mcp.PromptCapabilities{ListChanged: true},
+		}},
 	)
 	mcpMetrics := telemetry.NewNoopCustomMetrics()
 

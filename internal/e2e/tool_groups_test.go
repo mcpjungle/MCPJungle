@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -79,7 +79,7 @@ func TestE2E_DevMode_ToolGroup_ViaGroupEndpoint_ListTools(t *testing.T) {
 	drain(resp)
 
 	c := newGroupMCPClient(t, env, "scoped-tools-group", "")
-	result, err := c.ListTools(context.Background(), mcp.ListToolsRequest{})
+	result, err := c.ListTools(context.Background(), &mcp.ListToolsParams{})
 	require.NoError(t, err)
 
 	names := make([]string, 0, len(result.Tools))
@@ -106,14 +106,14 @@ func TestE2E_DevMode_ToolGroup_ViaGroupEndpoint_GetTool(t *testing.T) {
 	drain(resp)
 
 	c := newGroupMCPClient(t, env, "get-tool-group", "")
-	result, err := c.ListTools(context.Background(), mcp.ListToolsRequest{})
+	result, err := c.ListTools(context.Background(), &mcp.ListToolsParams{})
 	require.NoError(t, err)
 	require.NotEmpty(t, result.Tools, "group must expose at least one tool")
 
 	var echoTool *mcp.Tool
-	for i := range result.Tools {
-		if result.Tools[i].Name == "everything__echo" {
-			echoTool = &result.Tools[i]
+	for _, tool := range result.Tools {
+		if tool.Name == "everything__echo" {
+			echoTool = tool
 			break
 		}
 	}
@@ -137,17 +137,15 @@ func TestE2E_DevMode_ToolGroup_ViaGroupEndpoint_InvokeTool(t *testing.T) {
 	drain(resp)
 
 	c := newGroupMCPClient(t, env, "invoke-tool-group", "")
-	result, err := c.CallTool(context.Background(), mcp.CallToolRequest{
-		Params: mcp.CallToolParams{
-			Name:      "everything__echo",
-			Arguments: map[string]any{"message": "hello from group endpoint"},
-		},
+	result, err := c.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "everything__echo",
+		Arguments: map[string]any{"message": "hello from group endpoint"},
 	})
 	require.NoError(t, err)
 	require.False(t, result.IsError, "tool call must not return an error")
 	require.NotEmpty(t, result.Content, "echo response must have content")
 
-	first, ok := result.Content[0].(mcp.TextContent)
+	first, ok := result.Content[0].(*mcp.TextContent)
 	require.True(t, ok, "first content item must be TextContent")
 	assert.Contains(t, first.Text, "hello from group endpoint")
 }

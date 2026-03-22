@@ -7,30 +7,24 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mark3labs/mcp-go/client"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// mockClient is a minimal mock that satisfies the client.Client interface for testing
-type mockClient struct {
+// mockClientSession is a minimal mock that satisfies the *mcp.ClientSession interface for testing
+type mockClientSession struct {
 	closed bool
 	mu     sync.Mutex
 }
 
-func (m *mockClient) Close() error {
+func (m *mockClientSession) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.closed = true
 	return nil
-}
-
-func (m *mockClient) IsClosed() bool {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.closed
 }
 
 func TestNewSessionManager(t *testing.T) {
@@ -78,14 +72,13 @@ func TestSessionManager_GetOrCreateSession(t *testing.T) {
 	defer sm.Shutdown()
 
 	callCount := 0
-	mockClientInstance := &mockClient{}
+	_ = &mockClientSession{} // ensure mockClientSession is used
 
 	// Override the createSessionFunc with a mock
-	sm.createSessionFunc = func(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*client.Client, error) {
+	sm.createSessionFunc = func(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*mcp.ClientSession, error) {
 		callCount++
-		// Return a nil client for testing purposes - we're testing the session management logic
-		// In real tests, we'd need a proper mock client
-		return (*client.Client)(nil), nil
+		// Return a nil session for testing purposes - we're testing the session management logic
+		return (*mcp.ClientSession)(nil), nil
 	}
 
 	server := &model.McpServer{
@@ -113,7 +106,7 @@ func TestSessionManager_GetOrCreateSession(t *testing.T) {
 	assert.False(t, sm.HasSession("nonexistent-server"))
 
 	// Clean up
-	_ = mockClientInstance // prevent unused variable warning
+	_ = 0 // padding to prevent test structure issues
 }
 
 func TestSessionManager_CloseSession(t *testing.T) {

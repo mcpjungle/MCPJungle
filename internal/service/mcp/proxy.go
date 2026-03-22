@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // MCPProxyToolCallHandler handles tool calls for the MCP proxy server
 // by forwarding the request to the appropriate upstream MCP server and
 // relaying the response back.
-func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	started := time.Now()
 	outcome := telemetry.ToolCallOutcomeSuccess
 
@@ -60,23 +60,24 @@ func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request mcp.Ca
 	}
 	defer session.closeIfApplicable()
 
-	// Ensure the tool name is set correctly, ie, without the server name prefix
-	request.Params.Name = toolName
-
-	res, err := session.client.CallTool(ctx, request)
+	// Forward to the upstream MCP server, using only the bare tool name (no server prefix)
+	res, err := session.client.CallTool(ctx, &mcp.CallToolParams{
+		Name:      toolName,
+		Arguments: request.Params.Arguments,
+	})
 	if err != nil {
 		outcome = telemetry.ToolCallOutcomeError
 		session.invalidateOnError(err) // Invalidate unhealthy stateful sessions
+		return nil, err
 	}
 
-	// forward the request to the upstream MCP server and relay the response back
-	return res, err
+	return res, nil
 }
 
 // mcpProxyPromptHandler handles prompt requests for the MCP proxy server
 // by forwarding the request to the appropriate upstream MCP server and
 // relaying the response back.
-func (m *MCPService) mcpProxyPromptHandler(ctx context.Context, request mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+func (m *MCPService) mcpProxyPromptHandler(ctx context.Context, request *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
 	started := time.Now()
 	outcome := telemetry.PromptCallOutcomeSuccess
 
@@ -122,17 +123,18 @@ func (m *MCPService) mcpProxyPromptHandler(ctx context.Context, request mcp.GetP
 	}
 	defer session.closeIfApplicable()
 
-	// Ensure the prompt name is set correctly, ie, without the server name prefix
-	request.Params.Name = promptName
-
-	// forward the request to the upstream MCP server and relay the response back
-	res, err := session.client.GetPrompt(ctx, request)
+	// Forward to the upstream MCP server, using only the bare prompt name (no server prefix)
+	res, err := session.client.GetPrompt(ctx, &mcp.GetPromptParams{
+		Name:      promptName,
+		Arguments: request.Params.Arguments,
+	})
 	if err != nil {
 		outcome = telemetry.PromptCallOutcomeError
 		session.invalidateOnError(err) // Invalidate unhealthy stateful sessions
+		return nil, err
 	}
 
-	return res, err
+	return res, nil
 }
 
 // initMCPProxyServer initializes the MCP proxy server.
@@ -177,9 +179,9 @@ func (m *MCPService) initMCPProxyServer() error {
 		}
 
 		if server.Transport == types.TransportSSE {
-			m.sseMcpProxyServer.AddTool(tool, m.MCPProxyToolCallHandler)
+			m.sseMcpProxyServer.AddTool(&tool, m.MCPProxyToolCallHandler)
 		} else {
-			m.mcpProxyServer.AddTool(tool, m.MCPProxyToolCallHandler)
+			m.mcpProxyServer.AddTool(&tool, m.MCPProxyToolCallHandler)
 		}
 
 		m.addToolInstance(tool)
@@ -219,9 +221,9 @@ func (m *MCPService) initMCPProxyServer() error {
 		}
 
 		if server.Transport == types.TransportSSE {
-			m.sseMcpProxyServer.AddPrompt(prompt, m.mcpProxyPromptHandler)
+			m.sseMcpProxyServer.AddPrompt(&prompt, m.mcpProxyPromptHandler)
 		} else {
-			m.mcpProxyServer.AddPrompt(prompt, m.mcpProxyPromptHandler)
+			m.mcpProxyServer.AddPrompt(&prompt, m.mcpProxyPromptHandler)
 		}
 	}
 

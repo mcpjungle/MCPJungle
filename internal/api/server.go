@@ -7,16 +7,16 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
-	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
+	mcpService "github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/mcpjungle/mcpjungle/pkg/version"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
@@ -29,15 +29,15 @@ const (
 type ServerOptions struct {
 	// MCPProxyServer is the MCP proxy server instance that contains tools for all MCP servers
 	// using the stdio or streamable http transport.
-	MCPProxyServer *server.MCPServer
+	MCPProxyServer *mcp.Server
 	// SseMcpProxyServer is the MCP proxy server instance that contains tools for all MCP servers
 	// using the SSE transport.
 	// sse tools are kept separate because SSE is supported for backward compatibility reasons, and
 	// we don't want it to interfere with the usual mcp proxy server.
 	// Both sse & streamable http use http, and we don't want to mix them up either.
-	SseMcpProxyServer *server.MCPServer
+	SseMcpProxyServer *mcp.Server
 
-	MCPService       *mcp.MCPService
+	MCPService       *mcpService.MCPService
 	MCPClientService *mcpclient.McpClientService
 	ConfigService    *config.ServerConfigService
 	UserService      *user.UserService
@@ -51,10 +51,10 @@ type ServerOptions struct {
 type Server struct {
 	router *gin.Engine
 
-	mcpProxyServer    *server.MCPServer
-	sseMcpProxyServer *server.MCPServer
+	mcpProxyServer    *mcp.Server
+	sseMcpProxyServer *mcp.Server
 
-	mcpService       *mcp.MCPService
+	mcpService       *mcpService.MCPService
 	mcpClientService *mcpclient.McpClientService
 
 	configService    *config.ServerConfigService
@@ -64,10 +64,14 @@ type Server struct {
 	otelProviders *telemetry.Providers
 	metrics       telemetry.CustomMetrics
 
-	// groupMcpServers keeps track of mcp-go's server.SSEServer instances created for each tool group.
-	// These instances serve the requests made to tool groups' SSE tools.
-	// We need to maintain one instance for each group for sse to work correctly.
-	groupSseServers sync.Map
+	// groupSseHandlers keeps track of SSE handler instances created for each tool group.
+	// We need to maintain one instance per group for SSE sessions to work correctly.
+	groupSseHandlers sync.Map
+
+	// groupStreamableHandlers keeps track of StreamableHTTPHandler instances per tool group.
+	// Sessions are stored in the handler (not the mcp.Server), so we must reuse the same
+	// handler instance across requests for a given group.
+	groupStreamableHandlers sync.Map
 }
 
 // NewServer initializes a new Gin server for MCPJungle registry and MCP proxy
@@ -171,12 +175,14 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 	requireEnterpriseMode := s.requireServerMode(model.ModeEnterprise)
 
 	// Set up the MCP proxy server on /mcp
-	streamableHTTPServer := server.NewStreamableHTTPServer(s.mcpProxyServer)
+	streamableHTTPHandler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
+		return s.mcpProxyServer
+	}, nil)
 	r.Any(
 		"/mcp",
 		s.requireInitialized(),
 		s.checkAuthForMcpProxyAccess(),
-		gin.WrapH(streamableHTTPServer),
+		gin.WrapH(streamableHTTPHandler),
 	)
 
 	r.Any(
@@ -186,19 +192,16 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		s.toolGroupMCPServerCallHandler(),
 	)
 
-	// Set up the SSE transport-based MCP proxy server for the global /sse endpoint
-	sseServer := server.NewSSEServer(s.sseMcpProxyServer)
+	// Set up the SSE transport-based MCP proxy server for the global /sse endpoint.
+	// The SSEHandler handles both SSE connections (GET) and message POSTs on the same route.
+	sseHandler := mcp.NewSSEHandler(func(r *http.Request) *mcp.Server {
+		return s.sseMcpProxyServer
+	}, nil)
 	r.Any(
 		"/sse",
 		s.requireInitialized(),
 		s.checkAuthForMcpProxyAccess(),
-		gin.WrapH(sseServer.SSEHandler()),
-	)
-	r.Any(
-		"/message",
-		s.requireInitialized(),
-		s.checkAuthForMcpProxyAccess(),
-		gin.WrapH(sseServer.MessageHandler()),
+		gin.WrapH(sseHandler),
 	)
 
 	r.Any(
@@ -206,12 +209,6 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		s.requireInitialized(),
 		s.checkAuthForMcpProxyAccess(),
 		s.toolGroupSseMCPServerCallHandler(),
-	)
-	r.Any(
-		V0PathPrefix+"/groups/:name/message",
-		s.requireInitialized(),
-		s.checkAuthForMcpProxyAccess(),
-		s.toolGroupSseMCPServerCallMessageHandler(),
 	)
 
 	// Setup /v0 API endpoints

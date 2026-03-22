@@ -5,11 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 )
 
@@ -156,9 +154,13 @@ func TestConvertToolModelToMcpObject_Success(t *testing.T) {
 		t.Errorf("Description = %q, want %q", got.Description, in.Description)
 	}
 
-	// Expect an unmarshalled (zero) ToolInputSchema when provided "{}"
-	if !reflect.DeepEqual(got.InputSchema, mcp.ToolInputSchema{}) {
-		t.Errorf("InputSchema = %+v, want zero value %+v", got.InputSchema, mcp.ToolInputSchema{})
+	// Expect the InputSchema to be the raw JSON "{}" that was provided
+	schemaBytes, err := json.Marshal(got.InputSchema)
+	if err != nil {
+		t.Fatalf("failed to marshal InputSchema: %v", err)
+	}
+	if string(schemaBytes) != "{}" {
+		t.Errorf("InputSchema = %s, want %q", schemaBytes, "{}")
 	}
 }
 
@@ -175,9 +177,9 @@ func TestConvertToolModelToMcpObject_AnnotationsSuccess(t *testing.T) {
 		t.Fatalf("convertToolModelToMcpObject() error = %v, want nil", err)
 	}
 
-	// Expect annotations to be set (not the zero value)
-	if reflect.DeepEqual(got.Annotations, mcp.ToolAnnotation{}) {
-		t.Fatalf("Annotations = %+v, want non-zero value when annotations are valid", got.Annotations)
+	// Expect annotations to be set (not nil)
+	if got.Annotations == nil {
+		t.Fatalf("Annotations = nil, want non-nil when annotations are valid")
 	}
 
 	// Ensure the annotations contain the expected key/value when marshalled back to JSON
@@ -218,24 +220,24 @@ func TestConvertToolModelToMcpObject_InvalidAnnotationsLoggedButNoError(t *testi
 	}
 
 	// When annotations fail to unmarshal, function should not set them and should not error.
-	if !reflect.DeepEqual(got.Annotations, mcp.ToolAnnotation{}) {
-		t.Errorf("Annotations = %+v, want zero value %+v when annotations are invalid", got.Annotations, mcp.ToolAnnotation{})
+	if got.Annotations != nil {
+		t.Errorf("Annotations = %+v, want nil when annotations are invalid", got.Annotations)
 	}
 }
 
-func TestPrepareSHTTPClientOptions_NoHeadersNoBearer(t *testing.T) {
+func TestPrepareSHTTPClientHeaders_NoHeadersNoBearer(t *testing.T) {
 	conf := &model.StreamableHTTPConfig{
 		URL:         "http://example.com",
 		BearerToken: "",
 		Headers:     nil,
 	}
-	opts := prepareSHTTPClientOptions("srv", conf)
+	opts := prepareSHTTPClientHeaders("srv", conf)
 	if len(opts) != 0 {
 		t.Fatalf("expected no options when no headers and no bearer token, got %d", len(opts))
 	}
 }
 
-func TestPrepareSHTTPClientOptions_HeaderOnly(t *testing.T) {
+func TestPrepareSHTTPClientHeaders_HeaderOnly(t *testing.T) {
 	conf := &model.StreamableHTTPConfig{
 		URL:         "http://example.com",
 		BearerToken: "",
@@ -243,25 +245,25 @@ func TestPrepareSHTTPClientOptions_HeaderOnly(t *testing.T) {
 			"X-Custom": "value",
 		},
 	}
-	opts := prepareSHTTPClientOptions("srv", conf)
+	opts := prepareSHTTPClientHeaders("srv", conf)
 	if len(opts) != 1 {
 		t.Fatalf("expected 1 option when headers present, got %d", len(opts))
 	}
 }
 
-func TestPrepareSHTTPClientOptions_BearerOnly(t *testing.T) {
+func TestPrepareSHTTPClientHeaders_BearerOnly(t *testing.T) {
 	conf := &model.StreamableHTTPConfig{
 		URL:         "http://example.com",
 		BearerToken: "secrettoken",
 		Headers:     nil,
 	}
-	opts := prepareSHTTPClientOptions("srv", conf)
+	opts := prepareSHTTPClientHeaders("srv", conf)
 	if len(opts) != 1 {
 		t.Fatalf("expected 1 option when bearer token present, got %d", len(opts))
 	}
 }
 
-func TestPrepareSHTTPClientOptions_BearerWithCustomAuthorization(t *testing.T) {
+func TestPrepareSHTTPClientHeaders_BearerWithCustomAuthorization(t *testing.T) {
 	conf := &model.StreamableHTTPConfig{
 		URL:         "http://example.com",
 		BearerToken: "should_be_ignored",
@@ -275,7 +277,7 @@ func TestPrepareSHTTPClientOptions_BearerWithCustomAuthorization(t *testing.T) {
 	log.SetOutput(&buf)
 	defer log.SetOutput(old)
 
-	opts := prepareSHTTPClientOptions("my-server", conf)
+	opts := prepareSHTTPClientHeaders("my-server", conf)
 	if len(opts) != 1 {
 		t.Fatalf("expected 1 option when custom Authorization header present, got %d", len(opts))
 	}

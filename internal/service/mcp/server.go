@@ -33,7 +33,8 @@ func (m *MCPService) RegisterMcpServer(ctx context.Context, s *model.McpServer) 
 	}
 
 	// Register prompts (best-effort, don't fail server registration)
-	if mcpClient.GetServerCapabilities().Prompts != nil {
+	initResult := mcpClient.InitializeResult()
+	if initResult != nil && initResult.Capabilities.Prompts != nil {
 		if err = m.registerServerPrompts(ctx, s, mcpClient); err != nil {
 			log.Printf("[WARN] failed to register prompts for MCP server %s: %v", s.Name, err)
 		}

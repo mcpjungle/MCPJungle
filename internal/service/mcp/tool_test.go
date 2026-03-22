@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 func TestConvertMCPResponse(t *testing.T) {
@@ -20,13 +20,11 @@ func TestConvertMCPResponse(t *testing.T) {
 			name: "simple text content",
 			input: &mcp.CallToolResult{
 				Content: []mcp.Content{
-					mcp.TextContent{
-						Type: "text",
+					&mcp.TextContent{
 						Text: "Hello, World!",
 					},
 				},
 				IsError:           false,
-				Result:            mcp.Result{Meta: nil},
 				StructuredContent: map[string]string{"key": "value"},
 			},
 			expectedResult: &types.ToolInvokeResult{
@@ -46,17 +44,14 @@ func TestConvertMCPResponse(t *testing.T) {
 			name: "multiple content items",
 			input: &mcp.CallToolResult{
 				Content: []mcp.Content{
-					mcp.TextContent{
-						Type: "text",
+					&mcp.TextContent{
 						Text: "First item",
 					},
-					mcp.TextContent{
-						Type: "text",
+					&mcp.TextContent{
 						Text: "Second item",
 					},
 				},
 				IsError:           false,
-				Result:            mcp.Result{Meta: nil},
 				StructuredContent: []int{1, 2, 3},
 			},
 			expectedResult: &types.ToolInvokeResult{
@@ -80,13 +75,11 @@ func TestConvertMCPResponse(t *testing.T) {
 			name: "error response",
 			input: &mcp.CallToolResult{
 				Content: []mcp.Content{
-					mcp.TextContent{
-						Type: "text",
+					&mcp.TextContent{
 						Text: "Error occurred",
 					},
 				},
 				IsError:           true,
-				Result:            mcp.Result{Meta: nil},
 				StructuredContent: nil,
 			},
 			expectedResult: &types.ToolInvokeResult{
@@ -107,7 +100,6 @@ func TestConvertMCPResponse(t *testing.T) {
 			input: &mcp.CallToolResult{
 				Content:           []mcp.Content{},
 				IsError:           false,
-				Result:            mcp.Result{Meta: nil},
 				StructuredContent: true,
 			},
 			expectedResult: &types.ToolInvokeResult{
@@ -122,17 +114,12 @@ func TestConvertMCPResponse(t *testing.T) {
 			name: "with meta - progress token only",
 			input: &mcp.CallToolResult{
 				Content: []mcp.Content{
-					mcp.TextContent{
-						Type: "text",
+					&mcp.TextContent{
 						Text: "Content with meta",
 					},
 				},
-				IsError: false,
-				Result: mcp.Result{
-					Meta: &mcp.Meta{
-						ProgressToken: "token123",
-					},
-				},
+				IsError:           false,
+				Meta:              mcp.Meta{"progressToken": "token123"},
 				StructuredContent: "Hello world",
 			},
 			expectedResult: &types.ToolInvokeResult{
@@ -154,19 +141,14 @@ func TestConvertMCPResponse(t *testing.T) {
 			name: "with meta - additional fields",
 			input: &mcp.CallToolResult{
 				Content: []mcp.Content{
-					mcp.TextContent{
-						Type: "text",
+					&mcp.TextContent{
 						Text: "Content with meta fields",
 					},
 				},
 				IsError: false,
-				Result: mcp.Result{
-					Meta: &mcp.Meta{
-						AdditionalFields: map[string]any{
-							"custom_field": "custom_value",
-							"number_field": 42,
-						},
-					},
+				Meta: mcp.Meta{
+					"custom_field": "custom_value",
+					"number_field": 42,
 				},
 			},
 			expectedResult: &types.ToolInvokeResult{
@@ -188,20 +170,15 @@ func TestConvertMCPResponse(t *testing.T) {
 			name: "with meta - both progress token and additional fields",
 			input: &mcp.CallToolResult{
 				Content: []mcp.Content{
-					mcp.TextContent{
-						Type: "text",
+					&mcp.TextContent{
 						Text: "Content with full meta",
 					},
 				},
 				IsError: false,
-				Result: mcp.Result{
-					Meta: &mcp.Meta{
-						ProgressToken: "token456",
-						AdditionalFields: map[string]any{
-							"source":   "test",
-							"priority": 1,
-						},
-					},
+				Meta: mcp.Meta{
+					"progressToken": "token456",
+					"source":        "test",
+					"priority":      1,
 				},
 			},
 			expectedResult: &types.ToolInvokeResult{
@@ -305,8 +282,7 @@ func TestConvertMCPContent(t *testing.T) {
 		{
 			name: "single text content",
 			input: []mcp.Content{
-				mcp.TextContent{
-					Type: "text",
+				&mcp.TextContent{
 					Text: "Test content",
 				},
 			},
@@ -321,13 +297,11 @@ func TestConvertMCPContent(t *testing.T) {
 		{
 			name: "multiple different content types",
 			input: []mcp.Content{
-				mcp.TextContent{
-					Type: "text",
+				&mcp.TextContent{
 					Text: "Text content",
 				},
-				mcp.ImageContent{
-					Type:     "image",
-					Data:     "base64data",
+				&mcp.ImageContent{
+					Data:     []byte("test"),
 					MIMEType: "image/png",
 				},
 			},
@@ -338,7 +312,7 @@ func TestConvertMCPContent(t *testing.T) {
 				},
 				{
 					"type":     "image",
-					"data":     "base64data",
+					"data":     "dGVzdA==",
 					"mimeType": "image/png",
 				},
 			},
@@ -388,7 +362,7 @@ func TestConvertMCPContent(t *testing.T) {
 func TestConvertMCPMeta(t *testing.T) {
 	tests := []struct {
 		name           string
-		input          *mcp.Meta
+		input          mcp.Meta
 		expectedResult map[string]any
 	}{
 		{
@@ -398,13 +372,13 @@ func TestConvertMCPMeta(t *testing.T) {
 		},
 		{
 			name:           "empty meta",
-			input:          &mcp.Meta{},
+			input:          mcp.Meta{},
 			expectedResult: nil,
 		},
 		{
 			name: "progress token only",
-			input: &mcp.Meta{
-				ProgressToken: "test-token",
+			input: mcp.Meta{
+				"progressToken": "test-token",
 			},
 			expectedResult: map[string]any{
 				"progressToken": "test-token",
@@ -412,11 +386,9 @@ func TestConvertMCPMeta(t *testing.T) {
 		},
 		{
 			name: "additional fields only",
-			input: &mcp.Meta{
-				AdditionalFields: map[string]any{
-					"key1": "value1",
-					"key2": 42,
-				},
+			input: mcp.Meta{
+				"key1": "value1",
+				"key2": 42,
 			},
 			expectedResult: map[string]any{
 				"key1": "value1",
@@ -425,27 +397,15 @@ func TestConvertMCPMeta(t *testing.T) {
 		},
 		{
 			name: "both progress token and additional fields",
-			input: &mcp.Meta{
-				ProgressToken: "token123",
-				AdditionalFields: map[string]any{
-					"custom": "data",
-					"count":  10,
-				},
+			input: mcp.Meta{
+				"progressToken": "token123",
+				"custom":        "data",
+				"count":         10,
 			},
 			expectedResult: map[string]any{
 				"progressToken": "token123",
 				"custom":        "data",
 				"count":         10,
-			},
-		},
-		{
-			name: "additional fields with nil map",
-			input: &mcp.Meta{
-				ProgressToken:    "token456",
-				AdditionalFields: nil,
-			},
-			expectedResult: map[string]any{
-				"progressToken": "token456",
 			},
 		},
 	}

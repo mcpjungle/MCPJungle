@@ -7,9 +7,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/mark3labs/mcp-go/client"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // connectionErrorPatterns contains common error substrings that indicate a connection problem.
@@ -34,7 +34,7 @@ var connectionErrorPatterns = []string{
 // sessionResult holds the result of getting an MCP session.
 // It includes the client and whether the caller should close it after use.
 type sessionResult struct {
-	client      *client.Client
+	client      *mcp.ClientSession
 	shouldClose bool // true for stateless sessions, false for stateful sessions
 
 	// For stateful sessions, these are used for reactive invalidation on errors

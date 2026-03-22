@@ -16,17 +16,17 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/api"
 	"github.com/mcpjungle/mcpjungle/internal/db"
 	"github.com/mcpjungle/mcpjungle/internal/migrations"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
-	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
+	mcpsvc "github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
 )
 
@@ -374,20 +374,23 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 	bindPort := getBindPort()
 
 	// create the MCP proxy servers
-	mcpProxyServer := server.NewMCPServer(
-		"MCPJungle Proxy MCP Server",
-		"0.0.1",
-		server.WithToolCapabilities(true),
-		server.WithPromptCapabilities(true),
-		server.WithToolFilter(mcp.ProxyToolFilter),
+	mcpProxyServer := mcp.NewServer(
+		&mcp.Implementation{Name: "MCPJungle Proxy MCP Server", Version: "0.0.1"},
+		&mcp.ServerOptions{Capabilities: &mcp.ServerCapabilities{
+			Tools:   &mcp.ToolCapabilities{ListChanged: true},
+			Prompts: &mcp.PromptCapabilities{ListChanged: true},
+		}},
 	)
-	sseMcpProxyServer := server.NewMCPServer(
-		"MCPJungle Proxy MCP Server for SSE transport",
-		"0.0.1",
-		server.WithToolCapabilities(true),
-		server.WithPromptCapabilities(true),
-		server.WithToolFilter(mcp.ProxyToolFilter),
+	mcpProxyServer.AddReceivingMiddleware(mcpsvc.ProxyToolFilterMiddleware())
+
+	sseMcpProxyServer := mcp.NewServer(
+		&mcp.Implementation{Name: "MCPJungle Proxy MCP Server for SSE transport", Version: "0.0.1"},
+		&mcp.ServerOptions{Capabilities: &mcp.ServerCapabilities{
+			Tools:   &mcp.ToolCapabilities{ListChanged: true},
+			Prompts: &mcp.PromptCapabilities{ListChanged: true},
+		}},
 	)
+	sseMcpProxyServer.AddReceivingMiddleware(mcpsvc.ProxyToolFilterMiddleware())
 
 	timeout, err := getMcpServerInitReqTimeout()
 	if err != nil {
@@ -406,12 +409,12 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create the session manager for stateful MCP connections
-	sessionManager := mcp.NewSessionManager(&mcp.SessionManagerConfig{
+	sessionManager := mcpsvc.NewSessionManager(&mcpsvc.SessionManagerConfig{
 		IdleTimeoutSec:    sessionIdleTimeout,
 		InitReqTimeoutSec: timeout,
 	})
 
-	mcpServiceConfig := &mcp.ServiceConfig{
+	mcpServiceConfig := &mcpsvc.ServiceConfig{
 		DB:                      dbConn,
 		McpProxyServer:          mcpProxyServer,
 		SseMcpProxyServer:       sseMcpProxyServer,
@@ -419,7 +422,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		McpServerInitReqTimeout: timeout,
 		SessionManager:          sessionManager,
 	}
-	mcpService, err := mcp.NewMCPService(mcpServiceConfig)
+	mcpService, err := mcpsvc.NewMCPService(mcpServiceConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create MCP service: %v", err)
 	}
