@@ -175,9 +175,6 @@ func TestLoad(t *testing.T) {
 		os.Setenv("HOME", tempDir)
 
 		cfg := Load()
-		if cfg == nil {
-			t.Fatal("Load returned nil config")
-		}
 		if cfg.AccessToken != "" {
 			t.Errorf("Expected empty AccessToken, got '%s'", cfg.AccessToken)
 		}
@@ -206,9 +203,6 @@ func TestLoad(t *testing.T) {
 
 		// Load the config
 		loadedCfg := Load()
-		if loadedCfg == nil {
-			t.Fatal("Load returned nil config")
-		}
 		if loadedCfg.AccessToken != expectedToken {
 			t.Errorf("Expected AccessToken to be '%s', got '%s'", expectedToken, loadedCfg.AccessToken)
 		}
@@ -239,9 +233,6 @@ func TestLoad(t *testing.T) {
 
 		// Load should not panic and return empty config
 		cfg := Load()
-		if cfg == nil {
-			t.Fatal("Load returned nil config")
-		}
 		if cfg.AccessToken != "" {
 			t.Errorf("Expected empty AccessToken for invalid YAML, got '%s'", cfg.AccessToken)
 		}
@@ -271,9 +262,6 @@ func TestLoad(t *testing.T) {
 
 		// Load should not panic and return empty config
 		cfg := Load()
-		if cfg == nil {
-			t.Fatal("Load returned nil config")
-		}
 		if cfg.AccessToken != "" {
 			t.Errorf("Expected empty AccessToken for empty file, got '%s'", cfg.AccessToken)
 		}
@@ -303,9 +291,6 @@ func TestConfigIntegration(t *testing.T) {
 
 		// Load the config
 		loadedCfg := Load()
-		if loadedCfg == nil {
-			t.Fatal("Load returned nil config")
-		}
 
 		// Verify they match
 		if loadedCfg.AccessToken != originalCfg.AccessToken {
