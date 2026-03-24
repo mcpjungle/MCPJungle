@@ -306,6 +306,7 @@ func (s *Server) toolGroupMCPServerCallHandler() gin.HandlerFunc {
 
 		// Reuse an existing handler if one exists; sessions are stored in the handler,
 		// so we must use the same instance across all requests for this group.
+		// See: TestE2E_DevMode_ToolGroup_StreamableHTTP_SessionPersistence (tool_groups_test.go)
 		if handlerVal, ok := s.groupStreamableHandlers.Load(groupName); ok {
 			handlerVal.(*mcp.StreamableHTTPHandler).ServeHTTP(c.Writer, c.Request)
 			return

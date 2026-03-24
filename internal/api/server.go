@@ -69,8 +69,14 @@ type Server struct {
 	groupSseHandlers sync.Map
 
 	// groupStreamableHandlers keeps track of StreamableHTTPHandler instances per tool group.
-	// Sessions are stored in the handler (not the mcp.Server), so we must reuse the same
-	// handler instance across requests for a given group.
+	//
+	// Migration note (mark3labs → go-sdk): in the mark3labs SDK, session state was stored
+	// inside the MCPServer itself, so creating a new StreamableHTTPServer wrapper per
+	// request was safe — the underlying server (and its sessions) was reused. In the
+	// official go-sdk, sessions are stored inside mcp.StreamableHTTPHandler, not in
+	// mcp.Server. Re-creating the handler on every request therefore drops all established
+	// sessions, causing subsequent tool calls on an already-initialized connection to fail
+	// with an "unknown session" error. Caching one handler per group here fixes that.
 	groupStreamableHandlers sync.Map
 }
 
