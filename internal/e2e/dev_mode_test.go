@@ -18,6 +18,7 @@ func TestE2E_DevMode_ListTools(t *testing.T) {
 	registerEverythingServer(t, env, "")
 
 	resp := env.do(t, http.MethodGet, "/api/v0/tools", nil, "")
+	defer drain(resp)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var tools []map[string]any
@@ -34,6 +35,7 @@ func TestE2E_DevMode_GetTool(t *testing.T) {
 	registerEverythingServer(t, env, "")
 
 	resp := env.do(t, http.MethodGet, "/api/v0/tool?name=everything__echo", nil, "")
+	defer drain(resp)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var tool map[string]any
@@ -50,6 +52,7 @@ func TestE2E_DevMode_InvokeTool(t *testing.T) {
 		"message": "hello from e2e test",
 	}
 	resp := env.do(t, http.MethodPost, "/api/v0/tools/invoke", body, "")
+	defer drain(resp)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var result toolInvokeResult
@@ -68,6 +71,7 @@ func TestE2E_DevMode_ListPrompts(t *testing.T) {
 	registerEverythingServer(t, env, "")
 
 	resp := env.do(t, http.MethodGet, "/api/v0/prompts", nil, "")
+	defer drain(resp)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var prompts []map[string]any
@@ -83,6 +87,7 @@ func TestE2E_DevMode_GetPrompt(t *testing.T) {
 	registerEverythingServer(t, env, "")
 
 	resp := env.do(t, http.MethodGet, "/api/v0/prompt?name=everything__simple-prompt", nil, "")
+	defer drain(resp)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var prompt map[string]any
@@ -99,6 +104,7 @@ func TestE2E_DevMode_RenderPrompt(t *testing.T) {
 		"arguments": map[string]string{},
 	}
 	resp := env.do(t, http.MethodPost, "/api/v0/prompts/render", body, "")
+	defer drain(resp)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var result renderedPromptResult

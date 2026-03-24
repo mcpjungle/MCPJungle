@@ -100,10 +100,9 @@ func (e *e2eEnv) do(t *testing.T, method, path string, body any, token string) *
 // drain closes an HTTP response body without reading it.
 func drain(r *http.Response) { r.Body.Close() }
 
-// decodeJSON decodes the JSON response body into target and closes the body.
+// decodeJSON decodes the JSON response body into target.
 func decodeJSON(t *testing.T, r *http.Response, target any) {
 	t.Helper()
-	defer drain(r)
 	require.NoError(t, json.NewDecoder(r.Body).Decode(target))
 }
 
@@ -235,6 +234,7 @@ func createMcpClient(t *testing.T, env *e2eEnv, name string, allowList []string)
 		"name":       name,
 		"allow_list": allowList,
 	}, env.adminToken)
+	defer drain(resp)
 	require.Equal(t, http.StatusCreated, resp.StatusCode, "create MCP client %q", name)
 	var mcpClient map[string]any
 	decodeJSON(t, resp, &mcpClient)

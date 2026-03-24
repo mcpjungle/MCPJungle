@@ -63,6 +63,7 @@ func TestE2E_EnterpriseMode_AdminManagesClients(t *testing.T) {
 
 	resp := env.do(t, http.MethodPost, "/api/v0/clients",
 		map[string]any{"name": "myapp", "allow_list": []string{"*"}}, env.adminToken)
+	defer drain(resp)
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 	var created map[string]any
 	decodeJSON(t, resp, &created)

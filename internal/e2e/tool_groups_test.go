@@ -25,6 +25,7 @@ func TestE2E_DevMode_ToolGroup_Create_Get_List_Delete(t *testing.T) {
 		"description":    "Only echo tool",
 		"included_tools": []string{"everything__echo"},
 	}, "")
+	defer drain(resp)
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 	var createResp map[string]any
@@ -33,6 +34,7 @@ func TestE2E_DevMode_ToolGroup_Create_Get_List_Delete(t *testing.T) {
 
 	// Get
 	resp = env.do(t, http.MethodGet, "/api/v0/tool-groups/echogroup", nil, "")
+	defer drain(resp)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	var getResp map[string]any
 	decodeJSON(t, resp, &getResp)
@@ -40,6 +42,7 @@ func TestE2E_DevMode_ToolGroup_Create_Get_List_Delete(t *testing.T) {
 
 	// List
 	resp = env.do(t, http.MethodGet, "/api/v0/tool-groups", nil, "")
+	defer drain(resp)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	var groups []map[string]any
 	decodeJSON(t, resp, &groups)
@@ -165,6 +168,7 @@ func TestE2E_DevMode_ToolGroup_ViaGroupEndpoint_ListPrompts(t *testing.T) {
 	drain(resp)
 
 	resp = env.do(t, http.MethodGet, "/api/v0/prompts", nil, "")
+	defer drain(resp)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	var prompts []map[string]any
 	decodeJSON(t, resp, &prompts)
@@ -188,6 +192,7 @@ func TestE2E_DevMode_ToolGroup_ViaGroupEndpoint_GetPrompt(t *testing.T) {
 	drain(resp)
 
 	resp = env.do(t, http.MethodGet, "/api/v0/prompt?name=everything__simple-prompt", nil, "")
+	defer drain(resp)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	var prompt map[string]any
 	decodeJSON(t, resp, &prompt)
@@ -212,6 +217,7 @@ func TestE2E_DevMode_ToolGroup_ViaGroupEndpoint_RenderPrompt(t *testing.T) {
 		"name":      "everything__simple-prompt",
 		"arguments": map[string]string{},
 	}, "")
+	defer drain(resp)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	var rendered renderedPromptResult
 	decodeJSON(t, resp, &rendered)
