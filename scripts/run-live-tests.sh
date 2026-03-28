@@ -29,6 +29,12 @@ done
 
 log() { printf "\n[LIVE] %s\n" "$*"; }
 
+# Free ports that may be left over from a previous interrupted run
+for port in 8080 8081 3001 3002; do
+  lsof -ti :"$port" | xargs kill -9 2>/dev/null || true
+done
+rm -f "$ROOT_DIR/mcpjungle.db" "$ROOT_DIR/mcp.db"
+
 # Cleanup all background processes on exit
 PIDS=()
 cleanup() {

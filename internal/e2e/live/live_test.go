@@ -26,7 +26,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -230,7 +230,7 @@ func TestLive_REST_RenderPrompt(t *testing.T) {
 func TestLive_MCP_ListTools_StdioAndHTTP(t *testing.T) {
 	skipIfDown(t)
 	cs := liveMCPClient(t, liveDevBase()+"/mcp")
-	result, err := cs.ListTools(context.Background(), &mcp.ListToolsParams{})
+	result, err := cs.ListTools(context.Background(), mcp.ListToolsRequest{})
 	require.NoError(t, err)
 	names := make([]string, 0, len(result.Tools))
 	for _, tl := range result.Tools {
@@ -245,46 +245,49 @@ func TestLive_MCP_ListTools_StdioAndHTTP(t *testing.T) {
 func TestLive_MCP_CallTool_Stdio(t *testing.T) {
 	skipIfDown(t)
 	cs := liveMCPClient(t, liveDevBase()+"/mcp")
-	result, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "everything__get-sum", Arguments: map[string]any{"a": 5, "b": 5},
+	result, err := cs.CallTool(context.Background(), mcp.CallToolRequest{
+		Params: mcp.CallToolParams{Name: "everything__get-sum", Arguments: map[string]any{"a": 5, "b": 5}},
 	})
 	require.NoError(t, err)
 	require.False(t, result.IsError)
-	text := result.Content[0].(*mcp.TextContent).Text
-	t.Logf("stdio CallTool: %s", text)
-	assert.Contains(t, text, "10")
+	tc, ok := mcp.AsTextContent(result.Content[0])
+	require.True(t, ok)
+	t.Logf("stdio CallTool: %s", tc.Text)
+	assert.Contains(t, tc.Text, "10")
 }
 
 func TestLive_MCP_CallTool_StreamableHTTP(t *testing.T) {
 	skipIfDown(t)
 	cs := liveMCPClient(t, liveDevBase()+"/mcp")
-	result, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "everything-http__get-sum", Arguments: map[string]any{"a": 20, "b": 80},
+	result, err := cs.CallTool(context.Background(), mcp.CallToolRequest{
+		Params: mcp.CallToolParams{Name: "everything-http__get-sum", Arguments: map[string]any{"a": 20, "b": 80}},
 	})
 	require.NoError(t, err)
 	require.False(t, result.IsError)
-	text := result.Content[0].(*mcp.TextContent).Text
-	t.Logf("streamable_http CallTool: %s", text)
-	assert.Contains(t, text, "100")
+	tc, ok := mcp.AsTextContent(result.Content[0])
+	require.True(t, ok)
+	t.Logf("streamable_http CallTool: %s", tc.Text)
+	assert.Contains(t, tc.Text, "100")
 }
 
 func TestLive_MCP_CallTool_Echo(t *testing.T) {
 	skipIfDown(t)
 	cs := liveMCPClient(t, liveDevBase()+"/mcp")
-	result, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "everything__echo", Arguments: map[string]any{"message": "migration works"},
+	result, err := cs.CallTool(context.Background(), mcp.CallToolRequest{
+		Params: mcp.CallToolParams{Name: "everything__echo", Arguments: map[string]any{"message": "migration works"}},
 	})
 	require.NoError(t, err)
 	require.False(t, result.IsError)
-	text := result.Content[0].(*mcp.TextContent).Text
-	t.Logf("echo: %s", text)
-	assert.Contains(t, text, "migration works")
+	tc, ok := mcp.AsTextContent(result.Content[0])
+	require.True(t, ok)
+	t.Logf("echo: %s", tc.Text)
+	assert.Contains(t, tc.Text, "migration works")
 }
 
 func TestLive_MCP_ListPrompts(t *testing.T) {
 	skipIfDown(t)
 	cs := liveMCPClient(t, liveDevBase()+"/mcp")
-	result, err := cs.ListPrompts(context.Background(), &mcp.ListPromptsParams{})
+	result, err := cs.ListPrompts(context.Background(), mcp.ListPromptsRequest{})
 	require.NoError(t, err)
 	names := make([]string, 0, len(result.Prompts))
 	for _, p := range result.Prompts {
@@ -298,14 +301,15 @@ func TestLive_MCP_ListPrompts(t *testing.T) {
 func TestLive_MCP_GetPrompt(t *testing.T) {
 	skipIfDown(t)
 	cs := liveMCPClient(t, liveDevBase()+"/mcp")
-	result, err := cs.GetPrompt(context.Background(), &mcp.GetPromptParams{
-		Name: "everything__simple-prompt",
+	result, err := cs.GetPrompt(context.Background(), mcp.GetPromptRequest{
+		Params: mcp.GetPromptParams{Name: "everything__simple-prompt"},
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, result.Messages)
-	text := result.Messages[0].Content.(*mcp.TextContent).Text
-	t.Logf("prompt: %s", text)
-	assert.Equal(t, "This is a simple prompt without arguments.", text)
+	tc, ok := mcp.AsTextContent(result.Messages[0].Content)
+	require.True(t, ok)
+	t.Logf("prompt: %s", tc.Text)
+	assert.Equal(t, "This is a simple prompt without arguments.", tc.Text)
 }
 
 // -----------------------------------------------------------------------
@@ -315,7 +319,7 @@ func TestLive_MCP_GetPrompt(t *testing.T) {
 func TestLive_SSE_ListTools(t *testing.T) {
 	skipIfDown(t)
 	cs := liveMCPClient(t, liveDevBase()+"/sse")
-	result, err := cs.ListTools(context.Background(), &mcp.ListToolsParams{})
+	result, err := cs.ListTools(context.Background(), mcp.ListToolsRequest{})
 	require.NoError(t, err)
 	names := make([]string, 0, len(result.Tools))
 	for _, tl := range result.Tools {
@@ -330,14 +334,15 @@ func TestLive_SSE_ListTools(t *testing.T) {
 func TestLive_SSE_CallTool(t *testing.T) {
 	skipIfDown(t)
 	cs := liveMCPClient(t, liveDevBase()+"/sse")
-	result, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "everything-sse__get-sum", Arguments: map[string]any{"a": 7, "b": 3},
+	result, err := cs.CallTool(context.Background(), mcp.CallToolRequest{
+		Params: mcp.CallToolParams{Name: "everything-sse__get-sum", Arguments: map[string]any{"a": 7, "b": 3}},
 	})
 	require.NoError(t, err)
 	require.False(t, result.IsError)
-	text := result.Content[0].(*mcp.TextContent).Text
-	t.Logf("SSE CallTool: %s", text)
-	assert.Contains(t, text, "10")
+	tc, ok := mcp.AsTextContent(result.Content[0])
+	require.True(t, ok)
+	t.Logf("SSE CallTool: %s", tc.Text)
+	assert.Contains(t, tc.Text, "10")
 }
 
 // -----------------------------------------------------------------------
@@ -370,7 +375,7 @@ func TestLive_ToolGroup_CRUD_And_MCP(t *testing.T) {
 
 	cs := liveMCPClient(t, fmt.Sprintf("%s/v0/groups/%s/mcp", liveDevBase(), groupName))
 
-	listResult, err := cs.ListTools(context.Background(), &mcp.ListToolsParams{})
+	listResult, err := cs.ListTools(context.Background(), mcp.ListToolsRequest{})
 	require.NoError(t, err)
 	names := make([]string, 0, len(listResult.Tools))
 	for _, tl := range listResult.Tools {
@@ -381,14 +386,15 @@ func TestLive_ToolGroup_CRUD_And_MCP(t *testing.T) {
 	assert.Contains(t, names, "everything-http__echo")
 	assert.NotContains(t, names, "everything__echo", "non-included tool must be absent")
 
-	callResult, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "everything__get-sum", Arguments: map[string]any{"a": 25, "b": 75},
+	callResult, err := cs.CallTool(context.Background(), mcp.CallToolRequest{
+		Params: mcp.CallToolParams{Name: "everything__get-sum", Arguments: map[string]any{"a": 25, "b": 75}},
 	})
 	require.NoError(t, err)
 	require.False(t, callResult.IsError)
-	text := callResult.Content[0].(*mcp.TextContent).Text
-	t.Logf("group CallTool: %s", text)
-	assert.Contains(t, text, "100")
+	tc, ok := mcp.AsTextContent(callResult.Content[0])
+	require.True(t, ok)
+	t.Logf("group CallTool: %s", tc.Text)
+	assert.Contains(t, tc.Text, "100")
 }
 
 func TestLive_ToolGroup_SSE_Endpoint(t *testing.T) {
@@ -407,7 +413,7 @@ func TestLive_ToolGroup_SSE_Endpoint(t *testing.T) {
 
 	cs := liveMCPClient(t, fmt.Sprintf("%s/v0/groups/%s/sse", liveDevBase(), groupName))
 
-	listResult, err := cs.ListTools(context.Background(), &mcp.ListToolsParams{})
+	listResult, err := cs.ListTools(context.Background(), mcp.ListToolsRequest{})
 	require.NoError(t, err)
 	names := make([]string, 0, len(listResult.Tools))
 	for _, tl := range listResult.Tools {
@@ -416,14 +422,15 @@ func TestLive_ToolGroup_SSE_Endpoint(t *testing.T) {
 	t.Logf("group SSE tools: %v", names)
 	assert.Contains(t, names, "everything-sse__get-sum")
 
-	callResult, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "everything-sse__get-sum", Arguments: map[string]any{"a": 11, "b": 89},
+	callResult, err := cs.CallTool(context.Background(), mcp.CallToolRequest{
+		Params: mcp.CallToolParams{Name: "everything-sse__get-sum", Arguments: map[string]any{"a": 11, "b": 89}},
 	})
 	require.NoError(t, err)
 	require.False(t, callResult.IsError)
-	text := callResult.Content[0].(*mcp.TextContent).Text
-	t.Logf("group SSE CallTool: %s", text)
-	assert.Contains(t, text, "100")
+	tc, ok := mcp.AsTextContent(callResult.Content[0])
+	require.True(t, ok)
+	t.Logf("group SSE CallTool: %s", tc.Text)
+	assert.Contains(t, tc.Text, "100")
 }
 
 // -----------------------------------------------------------------------
@@ -462,7 +469,7 @@ func TestLive_Enterprise_ACL_AllowedClient_SeesTools(t *testing.T) {
 		t.Skip("MCPJUNGLE_ENT_CLIENT_TOKEN not set")
 	}
 	cs := liveMCPClientWithToken(t, liveEntBase()+"/mcp", clientToken)
-	result, err := cs.ListTools(context.Background(), &mcp.ListToolsParams{})
+	result, err := cs.ListTools(context.Background(), mcp.ListToolsRequest{})
 	require.NoError(t, err)
 	names := make([]string, 0, len(result.Tools))
 	for _, tl := range result.Tools {
@@ -479,7 +486,7 @@ func TestLive_Enterprise_ACL_BlockedClient_SeesNoTools(t *testing.T) {
 		t.Skip("MCPJUNGLE_ENT_BLOCKED_TOKEN not set")
 	}
 	cs := liveMCPClientWithToken(t, liveEntBase()+"/mcp", blockedToken)
-	result, err := cs.ListTools(context.Background(), &mcp.ListToolsParams{})
+	result, err := cs.ListTools(context.Background(), mcp.ListToolsRequest{})
 	require.NoError(t, err)
 	t.Logf("blocked client sees %d tools", len(result.Tools))
 	assert.Empty(t, result.Tools, "blocked client must see no tools")
@@ -492,8 +499,8 @@ func TestLive_Enterprise_ACL_BlockedClient_CallToolReturnsError(t *testing.T) {
 		t.Skip("MCPJUNGLE_ENT_BLOCKED_TOKEN not set")
 	}
 	cs := liveMCPClientWithToken(t, liveEntBase()+"/mcp", blockedToken)
-	_, err := cs.CallTool(context.Background(), &mcp.CallToolParams{
-		Name: "everything__echo", Arguments: map[string]any{"message": "should be blocked"},
+	_, err := cs.CallTool(context.Background(), mcp.CallToolRequest{
+		Params: mcp.CallToolParams{Name: "everything__echo", Arguments: map[string]any{"message": "should be blocked"}},
 	})
 	assert.Error(t, err, "blocked client calling restricted tool must return error")
 	t.Logf("blocked call error (expected): %v", err)

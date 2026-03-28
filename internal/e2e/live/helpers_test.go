@@ -8,7 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/client/transport"
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -94,42 +96,49 @@ func (a *authRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	return a.base.RoundTrip(r)
 }
 
-func liveMCPClient(t *testing.T, endpoint string) *mcp.ClientSession {
+func liveMCPClient(t *testing.T, endpoint string) *client.Client {
 	t.Helper()
 	return liveMCPClientWithToken(t, endpoint, "")
 }
 
-func liveMCPClientWithToken(t *testing.T, endpoint string, token string) *mcp.ClientSession {
+func liveMCPClientWithToken(t *testing.T, endpoint string, token string) *client.Client {
 	t.Helper()
-	c := mcp.NewClient(&mcp.Implementation{Name: "live-test", Version: "1.0"}, nil)
 
 	var httpClient *http.Client
 	if token != "" {
 		httpClient = &http.Client{Transport: &authRoundTripper{token: token, base: http.DefaultTransport}}
 	}
 
-	// SSE endpoints (/sse, /v0/groups/:name/sse) need SSEClientTransport.
-	// Streamable HTTP endpoints (/mcp, /v0/groups/:name/mcp) need StreamableClientTransport.
-	var transport mcp.Transport
-	if strings.Contains(endpoint, "/sse") {
-		tr := &mcp.SSEClientTransport{Endpoint: endpoint}
-		if httpClient != nil {
-			tr.HTTPClient = httpClient
-		}
-		transport = tr
-	} else {
-		tr := &mcp.StreamableClientTransport{
-			Endpoint:             endpoint,
-			DisableStandaloneSSE: true,
-		}
-		if httpClient != nil {
-			tr.HTTPClient = httpClient
-		}
-		transport = tr
-	}
+	var c *client.Client
+	var err error
 
-	cs, err := c.Connect(context.Background(), transport, nil)
-	require.NoError(t, err, "connect to %s", endpoint)
-	t.Cleanup(func() { cs.Close() })
-	return cs
+	// SSE endpoints (/sse, /v0/groups/:name/sse) need SSEClientTransport.
+	// Streamable HTTP endpoints (/mcp, /v0/groups/:name/mcp) need StreamableHttpClient.
+	if strings.Contains(endpoint, "/sse") {
+		opts := []transport.ClientOption{}
+		if httpClient != nil {
+			opts = append(opts, transport.WithHTTPClient(httpClient))
+		}
+		c, err = client.NewSSEMCPClient(endpoint, opts...)
+	} else {
+		opts := []transport.StreamableHTTPCOption{}
+		if httpClient != nil {
+			opts = append(opts, transport.WithHTTPBasicClient(httpClient))
+		}
+		c, err = client.NewStreamableHttpClient(endpoint, opts...)
+	}
+	require.NoError(t, err, "create client for %s", endpoint)
+
+	ctx := context.Background()
+	require.NoError(t, c.Start(ctx), "start client for %s", endpoint)
+
+	_, err = c.Initialize(ctx, mcp.InitializeRequest{
+		Params: mcp.InitializeParams{
+			ClientInfo: mcp.Implementation{Name: "live-test", Version: "1.0"},
+		},
+	})
+	require.NoError(t, err, "initialize client for %s", endpoint)
+
+	t.Cleanup(func() { c.Close() })
+	return c
 }
