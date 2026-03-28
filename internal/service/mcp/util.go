@@ -8,18 +8,18 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/mark3labs/mcp-go/client"
-	"github.com/mark3labs/mcp-go/client/transport"
-	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
@@ -102,29 +102,30 @@ func isLoopbackURL(rawURL string) bool {
 	return false
 }
 
-// convertToolModelToMcpObject converts a tool model from the database to a mcp.Tool object
+// convertToolModelToMcpObject converts a tool model from the database to a mcp.Tool object.
+// The returned tool always has a valid InputSchema (defaults to {"type":"object"} if missing).
 func convertToolModelToMcpObject(t *model.Tool) (mcp.Tool, error) {
+	inputSchema := json.RawMessage(t.InputSchema)
+	if len(inputSchema) == 0 {
+		inputSchema = json.RawMessage(`{"type":"object"}`)
+	} else if !json.Valid(inputSchema) {
+		return mcp.Tool{}, fmt.Errorf("invalid InputSchema for tool %s: not valid JSON", t.Name)
+	}
+
 	mcpTool := mcp.Tool{
 		Name:        t.Name,
 		Description: t.Description,
+		InputSchema: inputSchema,
 	}
-
-	var inputSchema mcp.ToolInputSchema
-	if err := json.Unmarshal(t.InputSchema, &inputSchema); err != nil {
-		return mcp.Tool{}, fmt.Errorf(
-			"failed to unmarshal input schema %s for tool %s: %w", t.InputSchema, t.Name, err,
-		)
-	}
-	mcpTool.InputSchema = inputSchema
 
 	// Restore annotations if present
 	if len(t.Annotations) > 0 {
-		var annotations mcp.ToolAnnotation
+		var annotations mcp.ToolAnnotations
 		if err := json.Unmarshal(t.Annotations, &annotations); err != nil {
 			// Log the error but don't fail - annotations are optional
 			log.Printf("[WARN] failed to unmarshal annotations for tool %s: %v", t.Name, err)
 		} else {
-			mcpTool.Annotations = annotations
+			mcpTool.Annotations = &annotations
 		}
 	}
 
@@ -133,31 +134,50 @@ func convertToolModelToMcpObject(t *model.Tool) (mcp.Tool, error) {
 	return mcpTool, nil
 }
 
-// convertPromptModelToMcpObject converts a prompt model from the database to a mcp.Prompt object
+// convertPromptModelToMcpObject converts a prompt model from the database to a mcp.Prompt object.
 func convertPromptModelToMcpObject(p *model.Prompt) (mcp.Prompt, error) {
 	mcpPrompt := mcp.Prompt{
 		Name:        p.Name,
 		Description: p.Description,
 	}
 
-	var arguments []mcp.PromptArgument
-	if err := json.Unmarshal(p.Arguments, &arguments); err != nil {
-		return mcp.Prompt{}, fmt.Errorf(
-			"failed to unmarshal arguments %s for prompt %s: %w", p.Arguments, p.Name, err,
-		)
+	if len(p.Arguments) > 0 {
+		var arguments []*mcp.PromptArgument
+		if err := json.Unmarshal(p.Arguments, &arguments); err != nil {
+			return mcp.Prompt{}, fmt.Errorf(
+				"failed to unmarshal arguments %s for prompt %s: %w", p.Arguments, p.Name, err,
+			)
+		}
+		mcpPrompt.Arguments = arguments
 	}
-	mcpPrompt.Arguments = arguments
 
 	return mcpPrompt, nil
 }
 
-// prepareSHTTPClientOptions prepares the options (specifically, http headers) for creating a
-// streamable HTTP client based on the MCP server's configuration.
-// If a bearer token is provided in the config and a custom Authorization header is set, the custom header
-// takes precedence and the bearer token is ignored.
-func prepareSHTTPClientOptions(serverName string, conf *model.StreamableHTTPConfig) []transport.StreamableHTTPCOption {
-	var opts []transport.StreamableHTTPCOption
+// headerRoundTripper is a custom http.RoundTripper that injects HTTP headers
+// into every request. It wraps an existing RoundTripper (or http.DefaultTransport).
+type headerRoundTripper struct {
+	base    http.RoundTripper
+	headers map[string]string
+}
 
+func (h *headerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = req.Clone(req.Context())
+	for k, v := range h.headers {
+		req.Header.Set(k, v)
+	}
+	base := h.base
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	return base.RoundTrip(req)
+}
+
+// prepareSHTTPClientHeaders prepares the HTTP headers for a streamable HTTP
+// MCP server connection based on the server's configuration.
+// If a bearer token is provided and a custom Authorization header is set, the custom header
+// takes precedence and the bearer token is ignored.
+func prepareSHTTPClientHeaders(serverName string, conf *model.StreamableHTTPConfig) map[string]string {
 	headers := map[string]string{}
 	for key, value := range conf.Headers {
 		headers[key] = value
@@ -171,40 +191,41 @@ func prepareSHTTPClientOptions(serverName string, conf *model.StreamableHTTPConf
 		}
 	}
 
-	if len(headers) > 0 {
-		o := transport.WithHTTPHeaders(headers)
-		opts = append(opts, o)
+	if len(headers) == 0 {
+		return nil
 	}
 
-	return opts
+	return headers
 }
 
-// createHTTPMcpServerConn creates a new connection with a streamable http MCP server and returns the client.
-func createHTTPMcpServerConn(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*client.Client, error) {
+// createHTTPMcpServerConn creates a new connection with a streamable http MCP server and returns the session.
+func createHTTPMcpServerConn(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*mcp.ClientSession, error) {
 	conf, err := s.GetStreamableHTTPConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get streamable HTTP config for MCP server %s: %w", s.Name, err)
 	}
 
-	opts := prepareSHTTPClientOptions(s.Name, conf)
+	headers := prepareSHTTPClientHeaders(s.Name, conf)
 
-	c, err := client.NewStreamableHttpClient(conf.URL, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create streamable HTTP client for MCP server: %w", err)
+	var httpClient *http.Client
+	if len(headers) > 0 {
+		httpClient = &http.Client{Transport: &headerRoundTripper{headers: headers}}
 	}
 
-	initRequest := mcp.InitializeRequest{}
-	initRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
-	initRequest.Params.ClientInfo = mcp.Implementation{
+	transport := &mcp.StreamableClientTransport{
+		Endpoint:   conf.URL,
+		HTTPClient: httpClient,
+	}
+
+	c := mcp.NewClient(&mcp.Implementation{
 		Name:    "mcpjungle mcp client for " + conf.URL,
 		Version: "0.1",
-	}
-	initRequest.Params.Capabilities = mcp.ClientCapabilities{}
+	}, nil)
 
 	initCtx, cancel := context.WithTimeout(ctx, time.Duration(initReqTimeoutSec)*time.Second)
 	defer cancel()
 
-	_, err = c.Initialize(initCtx, initRequest)
+	session, err := c.Connect(initCtx, transport, nil)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, fmt.Errorf("initialization request to MCP server timed out after %d seconds", initReqTimeoutSec)
@@ -219,19 +240,17 @@ func createHTTPMcpServerConn(ctx context.Context, s *model.McpServer, initReqTim
 		return nil, fmt.Errorf("failed to initialize connection with MCP server: %w", err)
 	}
 
-	return c, nil
+	return session, nil
 }
 
 // captureStdioServerStderr captures the stderr output of a stdio MCP server in the background
 // and writes it to mcpjungle server logs.
 // This is useful for troubleshooting and visibility into the stdio server's behaviour.
-func captureStdioServerStderr(name string, c *client.Client) {
-	stdioTransport := c.GetTransport().(*transport.Stdio)
-
+func captureStdioServerStderr(name string, stderr io.Reader) {
 	go func() {
 		buf := make([]byte, 4096) // 4KB buffer for reading stderr
 		for {
-			n, err := stdioTransport.Stderr().Read(buf)
+			n, err := stderr.Read(buf)
 			if err != nil {
 				if err == io.EOF || errors.Is(err, os.ErrClosed) {
 					log.Printf("['%s' MCP Server] [DEBUG] server process has exited gracefully", name)
@@ -248,42 +267,43 @@ func captureStdioServerStderr(name string, c *client.Client) {
 	}()
 }
 
-// runStdioServer runs a stdio MCP server and returns the client.
-func runStdioServer(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*client.Client, error) {
+// runStdioServer runs a stdio MCP server and returns the session.
+func runStdioServer(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*mcp.ClientSession, error) {
 	conf, err := s.GetStdioConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stdio config for MCP server %s: %w", s.Name, err)
 	}
 
-	// Convert the environment map to a slice of strings in the format "KEY=VALUE"
-	envVars := make([]string, 0)
-	if conf.Env != nil {
-		for k, v := range conf.Env {
-			envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
-		}
+	// Build environment: inherit current process env plus config-specific vars
+	envVars := os.Environ()
+	for k, v := range conf.Env {
+		envVars = append(envVars, fmt.Sprintf("%s=%s", k, v))
 	}
 
-	c, err := client.NewStdioMCPClient(conf.Command, envVars, conf.Args...)
+	cmd := exec.Command(conf.Command, conf.Args...)
+	cmd.Env = envVars
+
+	// Set up stderr pipe BEFORE Connect() calls cmd.Start() internally
+	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create stdio client for MCP server: %w", err)
+		return nil, fmt.Errorf("failed to create stderr pipe for MCP server: %w", err)
 	}
+
+	transport := &mcp.CommandTransport{Command: cmd}
+
+	c := mcp.NewClient(&mcp.Implementation{
+		Name:    "mcpjungle mcp client for stdio",
+		Version: "0.1",
+	}, nil)
 
 	// currently, we only capture the stderr output in the mcpjungle server logs.
 	// TODO: Propagate the stderr output to the client as well to provide them quicker feedback on errors.
-	captureStdioServerStderr(s.Name, c)
-
-	initRequest := mcp.InitializeRequest{}
-	initRequest.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
-	initRequest.Params.ClientInfo = mcp.Implementation{
-		Name:    "mcpjungle mcp client for stdio",
-		Version: "0.1",
-	}
-	initRequest.Params.Capabilities = mcp.ClientCapabilities{}
+	captureStdioServerStderr(s.Name, stderr)
 
 	initCtx, cancel := context.WithTimeout(ctx, time.Duration(initReqTimeoutSec)*time.Second)
 	defer cancel()
 
-	_, err = c.Initialize(initCtx, initRequest)
+	session, err := c.Connect(initCtx, transport, nil)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, fmt.Errorf(
@@ -295,50 +315,44 @@ func runStdioServer(ctx context.Context, s *model.McpServer, initReqTimeoutSec i
 		return nil, fmt.Errorf("failed to initialize connection with MCP server: %w", err)
 	}
 
-	return c, nil
+	return session, nil
 }
 
-// createSSEMcpServerConn creates a new connection with an SSE transport-based MCP server and returns the client.
-func createSSEMcpServerConn(ctx context.Context, s *model.McpServer) (*client.Client, error) {
+// createSSEMcpServerConn creates a new connection with an SSE transport-based MCP server and returns the session.
+func createSSEMcpServerConn(ctx context.Context, s *model.McpServer) (*mcp.ClientSession, error) {
 	conf, err := s.GetSSEConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get SSE transport config for MCP server %s: %w", s.Name, err)
 	}
 
-	var opts []transport.ClientOption
+	var httpClient *http.Client
 	if conf.BearerToken != "" {
-		// If bearer token is provided, set the Authorization header
-		o := transport.WithHeaders(map[string]string{
-			"Authorization": "Bearer " + conf.BearerToken,
-		})
-		opts = append(opts, o)
+		httpClient = &http.Client{
+			Transport: &headerRoundTripper{
+				headers: map[string]string{"Authorization": "Bearer " + conf.BearerToken},
+			},
+		}
 	}
 
-	c, err := client.NewSSEMCPClient(conf.URL, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create SSE client for MCP server: %w", err)
+	transport := &mcp.SSEClientTransport{
+		Endpoint:   conf.URL,
+		HTTPClient: httpClient,
 	}
 
-	if err = c.Start(ctx); err != nil {
-		return nil, fmt.Errorf("failed to start SSE transport for MCP server: %w", err)
-	}
+	c := mcp.NewClient(&mcp.Implementation{
+		Name:    "mcpjungle-sse-proxy-client",
+		Version: "0.1.0",
+	}, nil)
 
-	initReq := mcp.InitializeRequest{
-		Params: mcp.InitializeParams{
-			ProtocolVersion: "2024-11-05",
-			Capabilities:    mcp.ClientCapabilities{},
-			ClientInfo:      mcp.Implementation{Name: "mcpjungle-sse-proxy-client", Version: "0.1.0"},
-		},
-	}
-	_, err = c.Initialize(ctx, initReq)
+	session, err := c.Connect(ctx, transport, nil)
 	if err != nil {
 		return nil, fmt.Errorf("client failed to initialize connection with SSE MCP server: %w", err)
 	}
 
-	return c, nil
+	return session, nil
 }
 
-func newMcpServerSession(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*client.Client, error) {
+func newMcpServerSession(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*mcp.ClientSession, error) {
 	if s.Transport == types.TransportStreamableHTTP {
 		mcpClient, err := createHTTPMcpServerConn(ctx, s, initReqTimeoutSec)
 		if err != nil {

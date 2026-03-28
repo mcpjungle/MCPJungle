@@ -4,9 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
@@ -123,11 +122,11 @@ func TestEnableDisablePrompts(t *testing.T) {
 	db := setupTestDBWithPrompts(t)
 
 	// Create a mock MCP proxy server for testing
-	mcpProxyServer := server.NewMCPServer(
-		"Test Proxy",
-		"0.1.0",
-		server.WithPromptCapabilities(true),
-		server.WithPromptCapabilities(true),
+	mcpProxyServer := mcp.NewServer(
+		&mcp.Implementation{Name: "Test Proxy", Version: "0.1.0"},
+		&mcp.ServerOptions{Capabilities: &mcp.ServerCapabilities{
+			Prompts: &mcp.PromptCapabilities{ListChanged: true},
+		}},
 	)
 
 	service := &MCPService{
@@ -166,11 +165,11 @@ func TestEnableDisableServerPrompts(t *testing.T) {
 	db := setupTestDBWithPrompts(t)
 
 	// Create a mock MCP proxy server for testing
-	mcpProxyServer := server.NewMCPServer(
-		"Test Proxy",
-		"0.1.0",
-		server.WithPromptCapabilities(true),
-		server.WithPromptCapabilities(true),
+	mcpProxyServer := mcp.NewServer(
+		&mcp.Implementation{Name: "Test Proxy", Version: "0.1.0"},
+		&mcp.ServerOptions{Capabilities: &mcp.ServerCapabilities{
+			Prompts: &mcp.PromptCapabilities{ListChanged: true},
+		}},
 	)
 
 	service := &MCPService{

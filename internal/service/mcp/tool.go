@@ -7,11 +7,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/mark3labs/mcp-go/client"
-	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // ToolDeletionCallback is a function type that can be registered to be called
@@ -137,9 +136,10 @@ func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[strin
 	}
 	defer session.closeIfApplicable()
 
-	callToolReq := mcp.CallToolRequest{}
-	callToolReq.Params.Name = toolName
-	callToolReq.Params.Arguments = args
+	callToolReq := &mcp.CallToolParams{
+		Name:      toolName,
+		Arguments: args,
+	}
 
 	callToolResp, err := session.client.CallTool(ctx, callToolReq)
 	if err != nil {
@@ -235,9 +235,9 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 			mcpTool.Name = entity
 
 			if s.Transport == types.TransportSSE {
-				m.sseMcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
+				m.sseMcpProxyServer.AddTool(&mcpTool, m.MCPProxyToolCallHandler)
 			} else {
-				m.mcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
+				m.mcpProxyServer.AddTool(&mcpTool, m.MCPProxyToolCallHandler)
 			}
 
 			// also add the tool to the in-memory tool instance tracker
@@ -247,9 +247,9 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 		} else {
 			// if the tool was disabled, remove it from the appropriate MCP proxy server
 			if s.Transport == types.TransportSSE {
-				m.sseMcpProxyServer.DeleteTools(entity)
+				m.sseMcpProxyServer.RemoveTools(entity)
 			} else {
-				m.mcpProxyServer.DeleteTools(entity)
+				m.mcpProxyServer.RemoveTools(entity)
 			}
 
 			// also remove the tool from the in-memory tool instance tracker
@@ -293,18 +293,18 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 			mcpTool.Name = canonicalToolName
 
 			if s.Transport == types.TransportSSE {
-				m.sseMcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
+				m.sseMcpProxyServer.AddTool(&mcpTool, m.MCPProxyToolCallHandler)
 			} else {
-				m.mcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
+				m.mcpProxyServer.AddTool(&mcpTool, m.MCPProxyToolCallHandler)
 			}
 
 			m.addToolInstance(mcpTool)
 			m.notifyToolAddition(mcpTool.Name)
 		} else {
 			if s.Transport == types.TransportSSE {
-				m.sseMcpProxyServer.DeleteTools(canonicalToolName)
+				m.sseMcpProxyServer.RemoveTools(canonicalToolName)
 			} else {
-				m.mcpProxyServer.DeleteTools(canonicalToolName)
+				m.mcpProxyServer.RemoveTools(canonicalToolName)
 			}
 
 			m.deleteToolInstances(canonicalToolName)
@@ -318,14 +318,14 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 }
 
 // registerServerTools fetches all tools from an MCP server and registers them in the DB.
-func (m *MCPService) registerServerTools(ctx context.Context, s *model.McpServer, c *client.Client) error {
+func (m *MCPService) registerServerTools(ctx context.Context, s *model.McpServer, c *mcp.ClientSession) error {
 	// fetch all tools from the server so they can be added to the DB
-	resp, err := c.ListTools(ctx, mcp.ListToolsRequest{})
+	resp, err := c.ListTools(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to fetch tools from MCP server %s: %w", s.Name, err)
 	}
 	for _, tool := range resp.Tools {
-		canonicalToolName := mergeServerToolNames(s.Name, tool.GetName())
+		canonicalToolName := mergeServerToolNames(s.Name, tool.Name)
 
 		// extracting json schema is currently on best-effort basis
 		// if it fails, we log the error and continue with the next tool
@@ -336,7 +336,7 @@ func (m *MCPService) registerServerTools(ctx context.Context, s *model.McpServer
 
 		t := &model.Tool{
 			ServerID:    s.ID,
-			Name:        tool.GetName(),
+			Name:        tool.Name,
 			Description: tool.Description,
 			InputSchema: jsonSchema,
 			Annotations: annotationsJSON,
@@ -348,20 +348,25 @@ func (m *MCPService) registerServerTools(ctx context.Context, s *model.McpServer
 			continue
 		}
 
-		// Set tool name to include the server name prefix to make it recognizable by MCPJungle
-		// then add the tool to the appropriate MCP proxy server
-		tool.Name = canonicalToolName
+		// Convert the DB model to a mcp.Tool for the proxy server,
+		// then set its canonical name (server__tool) for MCPJungle routing.
+		mcpTool, err := convertToolModelToMcpObject(t)
+		if err != nil {
+			log.Printf("[ERROR] failed to convert tool %s to MCP object: %v", canonicalToolName, err)
+			continue
+		}
+		mcpTool.Name = canonicalToolName
 
 		if s.Transport == types.TransportSSE {
-			m.sseMcpProxyServer.AddTool(tool, m.MCPProxyToolCallHandler)
+			m.sseMcpProxyServer.AddTool(&mcpTool, m.MCPProxyToolCallHandler)
 		} else {
-			m.mcpProxyServer.AddTool(tool, m.MCPProxyToolCallHandler)
+			m.mcpProxyServer.AddTool(&mcpTool, m.MCPProxyToolCallHandler)
 		}
 
 		// also add the tool to the in-memory tool instance tracker
-		m.addToolInstance(tool)
+		m.addToolInstance(mcpTool)
 		// notify any registered callbacks about the tool addition
-		m.notifyToolAddition(tool.Name)
+		m.notifyToolAddition(mcpTool.Name)
 	}
 	return nil
 }
@@ -388,9 +393,9 @@ func (m *MCPService) deregisterServerTools(s *model.McpServer) error {
 	}
 
 	if s.Transport == types.TransportSSE {
-		m.sseMcpProxyServer.DeleteTools(toolNames...)
+		m.sseMcpProxyServer.RemoveTools(toolNames...)
 	} else {
-		m.mcpProxyServer.DeleteTools(toolNames...)
+		m.mcpProxyServer.RemoveTools(toolNames...)
 	}
 
 	// delete tools from Tool instance tracker
@@ -408,7 +413,7 @@ func (m *MCPService) deregisterServerTools(s *model.McpServer) error {
 func (m *MCPService) addToolInstance(tool mcp.Tool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.toolInstances[tool.GetName()] = tool
+	m.toolInstances[tool.Name] = tool
 }
 
 // deleteToolInstances deletes one or more tool instances from the in-memory tool instance tracker.
@@ -482,30 +487,10 @@ func (m *MCPService) convertToolCallRespContent(content []mcp.Content) ([]map[st
 	return contentList, nil
 }
 
-// convertMCPMetaToMap converts *mcp.Meta to map[string]any with proper nil handling.
-func (m *MCPService) convertMCPMetaToMap(meta *mcp.Meta) map[string]any {
-	if meta == nil {
+// convertMCPMetaToMap converts mcp.Meta (map[string]any) to map[string]any with proper nil handling.
+func (m *MCPService) convertMCPMetaToMap(meta mcp.Meta) map[string]any {
+	if len(meta) == 0 {
 		return nil
 	}
-
-	// Start with additional fields if they exist
-	metaMap := make(map[string]any)
-	if meta.AdditionalFields != nil {
-		// Copy all additional fields
-		for k, v := range meta.AdditionalFields {
-			metaMap[k] = v
-		}
-	}
-
-	// Add progress token if present
-	if meta.ProgressToken != nil {
-		metaMap["progressToken"] = meta.ProgressToken
-	}
-
-	// Return nil if map is empty to maintain consistency
-	if len(metaMap) == 0 {
-		return nil
-	}
-
-	return metaMap
+	return meta
 }

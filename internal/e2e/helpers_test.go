@@ -22,10 +22,6 @@ import (
 	"os/exec"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/client"
-	"github.com/mark3labs/mcp-go/client/transport"
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/api"
 	"github.com/mcpjungle/mcpjungle/internal/migrations"
 	"github.com/mcpjungle/mcpjungle/internal/model"
@@ -35,6 +31,7 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	userSvc "github.com/mcpjungle/mcpjungle/internal/service/user"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -103,6 +100,7 @@ func drain(r *http.Response) { r.Body.Close() }
 // decodeJSON decodes the JSON response body into target.
 func decodeJSON(t *testing.T, r *http.Response, target any) {
 	t.Helper()
+	defer drain(r)
 	require.NoError(t, json.NewDecoder(r.Body).Decode(target))
 }
 
@@ -120,16 +118,23 @@ func setupE2EServer(t *testing.T, mode model.ServerMode) *e2eEnv {
 	require.NoError(t, err)
 	require.NoError(t, migrations.Migrate(db))
 
-	mcpProxy := server.NewMCPServer("MCPJungle", "0.0.1",
-		server.WithToolCapabilities(true),
-		server.WithPromptCapabilities(true),
-		server.WithToolFilter(mcpSvc.ProxyToolFilter),
+	mcpProxy := mcp.NewServer(
+		&mcp.Implementation{Name: "MCPJungle", Version: "0.0.1"},
+		&mcp.ServerOptions{Capabilities: &mcp.ServerCapabilities{
+			Tools:   &mcp.ToolCapabilities{ListChanged: true},
+			Prompts: &mcp.PromptCapabilities{ListChanged: true},
+		}},
 	)
-	sseMcpProxy := server.NewMCPServer("MCPJungle SSE", "0.0.1",
-		server.WithToolCapabilities(true),
-		server.WithPromptCapabilities(true),
-		server.WithToolFilter(mcpSvc.ProxyToolFilter),
+	mcpProxy.AddReceivingMiddleware(mcpSvc.ProxyToolFilterMiddleware())
+
+	sseMcpProxy := mcp.NewServer(
+		&mcp.Implementation{Name: "MCPJungle SSE", Version: "0.0.1"},
+		&mcp.ServerOptions{Capabilities: &mcp.ServerCapabilities{
+			Tools:   &mcp.ToolCapabilities{ListChanged: true},
+			Prompts: &mcp.PromptCapabilities{ListChanged: true},
+		}},
 	)
+	sseMcpProxy.AddReceivingMiddleware(mcpSvc.ProxyToolFilterMiddleware())
 
 	mcpService, err := mcpSvc.NewMCPService(&mcpSvc.ServiceConfig{
 		DB:                      db,
@@ -244,56 +249,57 @@ func createMcpClient(t *testing.T, env *e2eEnv, name string, allowList []string)
 	return token
 }
 
+// authRoundTripper is an http.RoundTripper that adds a Bearer token to requests.
+type authRoundTripper struct {
+	token string
+	base  http.RoundTripper
+}
+
+func (a *authRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	r = r.Clone(r.Context())
+	r.Header.Set("Authorization", "Bearer "+a.token)
+	return a.base.RoundTrip(r)
+}
+
 // newMCPProxyClient creates an initialized StreamableHTTP MCP client that
 // connects to the global /mcp endpoint using the provided client token.
-func newMCPProxyClient(t *testing.T, env *e2eEnv, clientToken string) *client.Client {
+func newMCPProxyClient(t *testing.T, env *e2eEnv, clientToken string) *mcp.ClientSession {
 	t.Helper()
-	opts := []transport.StreamableHTTPCOption{}
-	if clientToken != "" {
-		opts = append(opts, transport.WithHTTPHeaders(map[string]string{
-			"Authorization": "Bearer " + clientToken,
-		}))
-	}
-	c, err := client.NewStreamableHttpClient(env.ts.URL+"/mcp", opts...)
-	require.NoError(t, err)
-	_, err = c.Initialize(context.Background(), mcp.InitializeRequest{
-		Params: mcp.InitializeParams{
-			ProtocolVersion: mcp.LATEST_PROTOCOL_VERSION,
-			ClientInfo: mcp.Implementation{
-				Name:    "e2e-test-client",
-				Version: "1.0.0",
-			},
-		},
-	})
-	require.NoError(t, err)
-	return c
+	return connectMCPClient(t, env.ts.URL+"/mcp", clientToken)
 }
 
 // newGroupMCPClient creates an initialized StreamableHTTP MCP client that
 // connects directly to a tool group's own MCP endpoint at /v0/groups/:name/mcp.
 // This endpoint exposes ONLY the tools registered for that group.
-func newGroupMCPClient(t *testing.T, env *e2eEnv, groupName string, token string) *client.Client {
+func newGroupMCPClient(t *testing.T, env *e2eEnv, groupName string, token string) *mcp.ClientSession {
 	t.Helper()
-	opts := []transport.StreamableHTTPCOption{}
+	return connectMCPClient(t, env.ts.URL+"/v0/groups/"+groupName+"/mcp", token)
+}
+
+// connectMCPClient creates and initializes a StreamableHTTP MCP client session.
+func connectMCPClient(t *testing.T, endpoint string, token string) *mcp.ClientSession {
+	t.Helper()
+
+	httpClient := &http.Client{}
 	if token != "" {
-		opts = append(opts, transport.WithHTTPHeaders(map[string]string{
-			"Authorization": "Bearer " + token,
-		}))
+		httpClient.Transport = &authRoundTripper{
+			token: token,
+			base:  http.DefaultTransport,
+		}
 	}
-	c, err := client.NewStreamableHttpClient(
-		env.ts.URL+"/v0/groups/"+groupName+"/mcp",
-		opts...,
+
+	transport := &mcp.StreamableClientTransport{
+		Endpoint:             endpoint,
+		HTTPClient:           httpClient,
+		DisableStandaloneSSE: true,
+	}
+
+	c := mcp.NewClient(
+		&mcp.Implementation{Name: "e2e-test-client", Version: "1.0.0"},
+		nil,
 	)
+	session, err := c.Connect(context.Background(), transport, nil)
 	require.NoError(t, err)
-	_, err = c.Initialize(context.Background(), mcp.InitializeRequest{
-		Params: mcp.InitializeParams{
-			ProtocolVersion: mcp.LATEST_PROTOCOL_VERSION,
-			ClientInfo: mcp.Implementation{
-				Name:    "e2e-test-client",
-				Version: "1.0.0",
-			},
-		},
-	})
-	require.NoError(t, err)
-	return c
+	t.Cleanup(func() { session.Close() })
+	return session
 }

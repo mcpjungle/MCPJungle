@@ -8,12 +8,11 @@ import (
 	"sort"
 	"sync"
 
-	mcpgo "github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
-	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
+	mcpsvc "github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/mcpjungle/mcpjungle/pkg/util"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gorm.io/gorm"
 )
 
@@ -29,30 +28,30 @@ var ValidGroupName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
 type ToolGroupService struct {
 	db *gorm.DB
 
-	mcpService *mcp.MCPService
+	mcpService *mcpsvc.MCPService
 
 	// mcpServers manages the MCP proxy servers for all the tool groups
 	// key: tool group name, value: MCP proxy server
-	mcpServers map[string]*server.MCPServer
+	mcpServers map[string]*mcp.Server
 	// mcpServersMu protects access to the mcpServers map
 	mcpServersMu sync.RWMutex
 
 	// sseMcpServers manages the SSE MCP proxy servers for all the tool groups
 	// key: tool group name, value: MCP proxy server
-	sseMcpServers map[string]*server.MCPServer
+	sseMcpServers map[string]*mcp.Server
 	// sseMcpServerMu protects access to the sseMcpServers map
 	sseMcpServerMu sync.RWMutex
 }
 
-func NewToolGroupService(db *gorm.DB, mcpService *mcp.MCPService) (*ToolGroupService, error) {
+func NewToolGroupService(db *gorm.DB, mcpService *mcpsvc.MCPService) (*ToolGroupService, error) {
 	s := &ToolGroupService{
 		db:         db,
 		mcpService: mcpService,
 
-		mcpServers:   make(map[string]*server.MCPServer),
+		mcpServers:   make(map[string]*mcp.Server),
 		mcpServersMu: sync.RWMutex{},
 
-		sseMcpServers:  make(map[string]*server.MCPServer),
+		sseMcpServers:  make(map[string]*mcp.Server),
 		sseMcpServerMu: sync.RWMutex{},
 	}
 
@@ -107,9 +106,9 @@ func (s *ToolGroupService) CreateToolGroup(group *model.ToolGroup) error {
 		}
 
 		if parentServer.Transport == types.TransportSSE {
-			sseMcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+			sseMcpServer.AddTool(&tool, s.mcpService.MCPProxyToolCallHandler)
 		} else {
-			mcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+			mcpServer.AddTool(&tool, s.mcpService.MCPProxyToolCallHandler)
 		}
 	}
 
@@ -167,7 +166,7 @@ func (s *ToolGroupService) UpdateToolGroup(name string, updatedGroup *model.Tool
 	}
 
 	// tools added to the group must be added to its MCP server instances
-	var sseToolsToAdd, normalToolsToAdd []mcpgo.Tool
+	var sseToolsToAdd, normalToolsToAdd []mcp.Tool
 	for _, toolName := range toolsAdded {
 		tool, exists := s.mcpService.GetToolInstance(toolName)
 		if !exists {
@@ -202,14 +201,14 @@ func (s *ToolGroupService) UpdateToolGroup(name string, updatedGroup *model.Tool
 	}
 
 	// make all the changes together to avoid inconsistent state in case of errors
-	mcpServer.DeleteTools(normalToolsToRemove...)
-	sseMcpServer.DeleteTools(sseToolsToRemove...)
+	mcpServer.RemoveTools(normalToolsToRemove...)
+	sseMcpServer.RemoveTools(sseToolsToRemove...)
 
 	for _, tool := range normalToolsToAdd {
-		mcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+		mcpServer.AddTool(&tool, s.mcpService.MCPProxyToolCallHandler)
 	}
 	for _, tool := range sseToolsToAdd {
-		sseMcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+		sseMcpServer.AddTool(&tool, s.mcpService.MCPProxyToolCallHandler)
 	}
 
 	// as a final step, update the tool group record in the database
@@ -273,7 +272,7 @@ func (s *ToolGroupService) DeleteToolGroup(name string) error {
 }
 
 // GetToolGroupMCPServer retrieves the MCP proxy server for a given tool group name.
-func (s *ToolGroupService) GetToolGroupMCPServer(name string) (*server.MCPServer, bool) {
+func (s *ToolGroupService) GetToolGroupMCPServer(name string) (*mcp.Server, bool) {
 	s.mcpServersMu.RLock()
 	defer s.mcpServersMu.RUnlock()
 	mcpServer, exists := s.mcpServers[name]
@@ -281,7 +280,7 @@ func (s *ToolGroupService) GetToolGroupMCPServer(name string) (*server.MCPServer
 }
 
 // GetToolGroupSseMCPServer retrieves the SSE MCP proxy server for a given tool group name.
-func (s *ToolGroupService) GetToolGroupSseMCPServer(name string) (*server.MCPServer, bool) {
+func (s *ToolGroupService) GetToolGroupSseMCPServer(name string) (*mcp.Server, bool) {
 	s.sseMcpServerMu.RLock()
 	defer s.sseMcpServerMu.RUnlock()
 	mcpServer, exists := s.sseMcpServers[name]
@@ -289,31 +288,41 @@ func (s *ToolGroupService) GetToolGroupSseMCPServer(name string) (*server.MCPSer
 }
 
 // newMCPServer creates a new MCP proxy server for a given tool group name.
-func (s *ToolGroupService) newMCPServer(groupName string) *server.MCPServer {
-	return server.NewMCPServer(
-		fmt.Sprintf("MCPJungle proxy MCP server for tool group: %s", groupName),
-		"0.1.0",
-		server.WithToolCapabilities(true),
-		server.WithPromptCapabilities(true),
-		server.WithToolFilter(mcp.ProxyToolFilter),
+func (s *ToolGroupService) newMCPServer(groupName string) *mcp.Server {
+	srv := mcp.NewServer(
+		&mcp.Implementation{
+			Name:    fmt.Sprintf("MCPJungle proxy MCP server for tool group: %s", groupName),
+			Version: "0.1.0",
+		},
+		&mcp.ServerOptions{Capabilities: &mcp.ServerCapabilities{
+			Tools:   &mcp.ToolCapabilities{ListChanged: true},
+			Prompts: &mcp.PromptCapabilities{ListChanged: true},
+		}},
 	)
+	srv.AddReceivingMiddleware(mcpsvc.ProxyToolFilterMiddleware())
+	return srv
 }
 
 // newSseMCPServer creates a new SSE MCP proxy server for a given tool group name.
-func (s *ToolGroupService) newSseMCPServer(groupName string) *server.MCPServer {
-	return server.NewMCPServer(
-		fmt.Sprintf("MCPJungle proxy MCP server for SSE transport for tool group: %s", groupName),
-		"0.1.0",
-		server.WithToolCapabilities(true),
-		server.WithPromptCapabilities(true),
-		server.WithToolFilter(mcp.ProxyToolFilter),
+func (s *ToolGroupService) newSseMCPServer(groupName string) *mcp.Server {
+	srv := mcp.NewServer(
+		&mcp.Implementation{
+			Name:    fmt.Sprintf("MCPJungle proxy MCP server for SSE transport for tool group: %s", groupName),
+			Version: "0.1.0",
+		},
+		&mcp.ServerOptions{Capabilities: &mcp.ServerCapabilities{
+			Tools:   &mcp.ToolCapabilities{ListChanged: true},
+			Prompts: &mcp.PromptCapabilities{ListChanged: true},
+		}},
 	)
+	srv.AddReceivingMiddleware(mcpsvc.ProxyToolFilterMiddleware())
+	return srv
 }
 
 // addToolGroupMCPServer adds or updates the MCP proxy server for a given tool group name.
 // If a group with the same name already exists, it will be replaced.
 // This method is safe to call concurrently.
-func (s *ToolGroupService) addToolGroupMCPServer(name string, mcpServer *server.MCPServer) {
+func (s *ToolGroupService) addToolGroupMCPServer(name string, mcpServer *mcp.Server) {
 	s.mcpServersMu.Lock()
 	defer s.mcpServersMu.Unlock()
 	s.mcpServers[name] = mcpServer
@@ -322,7 +331,7 @@ func (s *ToolGroupService) addToolGroupMCPServer(name string, mcpServer *server.
 // addToolGroupSseMCPServer adds or updates the SSE MCP proxy server for a given tool group name.
 // If a group with the same name already exists, it will be replaced.
 // This method is safe to call concurrently.
-func (s *ToolGroupService) addToolGroupSseMCPServer(name string, mcpServer *server.MCPServer) {
+func (s *ToolGroupService) addToolGroupSseMCPServer(name string, mcpServer *mcp.Server) {
 	s.sseMcpServerMu.Lock()
 	defer s.sseMcpServerMu.Unlock()
 	s.sseMcpServers[name] = mcpServer
@@ -375,9 +384,9 @@ func (s *ToolGroupService) initToolGroupMCPServers() error {
 			}
 
 			if parentServer.Transport == types.TransportSSE {
-				sseMcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+				sseMcpServer.AddTool(&tool, s.mcpService.MCPProxyToolCallHandler)
 			} else {
-				mcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+				mcpServer.AddTool(&tool, s.mcpService.MCPProxyToolCallHandler)
 			}
 		}
 
@@ -398,11 +407,11 @@ func (s *ToolGroupService) handleToolDeletion(tools ...string) {
 	defer s.sseMcpServerMu.Unlock()
 
 	for _, mcpServer := range s.mcpServers {
-		mcpServer.DeleteTools(tools...)
+		mcpServer.RemoveTools(tools...)
 	}
 
 	for _, sseMcpServer := range s.sseMcpServers {
-		sseMcpServer.DeleteTools(tools...)
+		sseMcpServer.RemoveTools(tools...)
 	}
 }
 
@@ -456,14 +465,14 @@ func (s *ToolGroupService) handleToolAddition(newTool string) error {
 		if parentServer.Transport == types.TransportSSE {
 			sseMcpServer, exists := s.sseMcpServers[name]
 			if exists {
-				sseMcpServer.AddTool(newToolInstance, s.mcpService.MCPProxyToolCallHandler)
+				sseMcpServer.AddTool(&newToolInstance, s.mcpService.MCPProxyToolCallHandler)
 			}
 			continue
 		}
 
 		mcpServer, exists := s.mcpServers[name]
 		if exists {
-			mcpServer.AddTool(newToolInstance, s.mcpService.MCPProxyToolCallHandler)
+			mcpServer.AddTool(&newToolInstance, s.mcpService.MCPProxyToolCallHandler)
 		}
 	}
 

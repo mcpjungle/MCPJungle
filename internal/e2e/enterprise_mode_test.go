@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -120,7 +120,7 @@ func TestE2E_EnterpriseMode_McpProxy_AllowList_ListAndInvoke(t *testing.T) {
 	// --- Tools ---
 
 	t.Run("list tools: only allowed server's tools visible", func(t *testing.T) {
-		result, err := c.ListTools(context.Background(), mcp.ListToolsRequest{})
+		result, err := c.ListTools(context.Background(), &mcp.ListToolsParams{})
 		require.NoError(t, err)
 
 		names := make([]string, 0, len(result.Tools))
@@ -132,15 +132,13 @@ func TestE2E_EnterpriseMode_McpProxy_AllowList_ListAndInvoke(t *testing.T) {
 	})
 
 	t.Run("invoke allowed tool succeeds", func(t *testing.T) {
-		result, err := c.CallTool(context.Background(), mcp.CallToolRequest{
-			Params: mcp.CallToolParams{
-				Name:      "svc-a__echo",
-				Arguments: map[string]any{"message": "hello from svc-a"},
-			},
+		result, err := c.CallTool(context.Background(), &mcp.CallToolParams{
+			Name:      "svc-a__echo",
+			Arguments: map[string]any{"message": "hello from svc-a"},
 		})
 		require.NoError(t, err)
 		require.False(t, result.IsError)
-		first, ok := result.Content[0].(mcp.TextContent)
+		first, ok := result.Content[0].(*mcp.TextContent)
 		require.True(t, ok)
 		assert.Contains(t, first.Text, "hello from svc-a")
 	})
@@ -148,11 +146,9 @@ func TestE2E_EnterpriseMode_McpProxy_AllowList_ListAndInvoke(t *testing.T) {
 	t.Run("invoke restricted tool returns error", func(t *testing.T) {
 		// The ACL check returns a Go error (not an MCP IsError result), so the
 		// mcp-go framework surfaces it as a protocol-level error on the client.
-		_, err := c.CallTool(context.Background(), mcp.CallToolRequest{
-			Params: mcp.CallToolParams{
-				Name:      "svc-b__echo",
-				Arguments: map[string]any{"message": "should be blocked"},
-			},
+		_, err := c.CallTool(context.Background(), &mcp.CallToolParams{
+			Name:      "svc-b__echo",
+			Arguments: map[string]any{"message": "should be blocked"},
 		})
 		assert.Error(t, err, "calling a tool from a restricted server must return an error")
 	})
@@ -160,7 +156,7 @@ func TestE2E_EnterpriseMode_McpProxy_AllowList_ListAndInvoke(t *testing.T) {
 	// --- Prompts ---
 
 	t.Run("list prompts: not filtered by allow list (ACL for prompt listing not implemented)", func(t *testing.T) {
-		result, err := c.ListPrompts(context.Background(), mcp.ListPromptsRequest{})
+		result, err := c.ListPrompts(context.Background(), &mcp.ListPromptsParams{})
 		require.NoError(t, err)
 
 		names := make([]string, 0, len(result.Prompts))
@@ -173,17 +169,13 @@ func TestE2E_EnterpriseMode_McpProxy_AllowList_ListAndInvoke(t *testing.T) {
 	})
 
 	t.Run("get allowed prompt succeeds", func(t *testing.T) {
-		result, err := c.GetPrompt(context.Background(), mcp.GetPromptRequest{
-			Params: mcp.GetPromptParams{Name: "svc-a__simple-prompt"},
-		})
+		result, err := c.GetPrompt(context.Background(), &mcp.GetPromptParams{Name: "svc-a__simple-prompt"})
 		require.NoError(t, err)
 		require.NotEmpty(t, result.Messages)
 	})
 
 	t.Run("get restricted prompt returns error", func(t *testing.T) {
-		_, err := c.GetPrompt(context.Background(), mcp.GetPromptRequest{
-			Params: mcp.GetPromptParams{Name: "svc-b__simple-prompt"},
-		})
+		_, err := c.GetPrompt(context.Background(), &mcp.GetPromptParams{Name: "svc-b__simple-prompt"})
 		assert.Error(t, err, "fetching a prompt from a restricted server must return an error")
 	})
 }

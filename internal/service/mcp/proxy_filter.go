@@ -3,12 +3,31 @@ package mcp
 import (
 	"context"
 
-	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// ProxyToolFilter filters tools exposed by MCP proxy for enterprise mode based on client allow-list.
-func ProxyToolFilter(ctx context.Context, tools []mcp.Tool) []mcp.Tool {
+// ProxyToolFilterMiddleware returns a mcp.Middleware that filters the tools/list response
+// based on the request context (enterprise mode + client ACL).
+func ProxyToolFilterMiddleware() mcp.Middleware {
+	return func(next mcp.MethodHandler) mcp.MethodHandler {
+		return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
+			result, err := next(ctx, method, req)
+			if method != "tools/list" || err != nil {
+				return result, err
+			}
+			listResult, ok := result.(*mcp.ListToolsResult)
+			if !ok {
+				return result, nil
+			}
+			listResult.Tools = proxyFilterTools(ctx, listResult.Tools)
+			return listResult, nil
+		}
+	}
+}
+
+// proxyFilterTools filters tools based on enterprise mode and client allow-list from context.
+func proxyFilterTools(ctx context.Context, tools []*mcp.Tool) []*mcp.Tool {
 	serverMode, ok := ctx.Value("mode").(model.ServerMode)
 	if !ok {
 		// Missing/invalid mode in context: fail closed.
@@ -25,7 +44,7 @@ func ProxyToolFilter(ctx context.Context, tools []mcp.Tool) []mcp.Tool {
 		return nil
 	}
 
-	var filteredTools []mcp.Tool
+	var filteredTools []*mcp.Tool
 	allowedServers := make(map[string]bool)
 
 	for _, tool := range tools {

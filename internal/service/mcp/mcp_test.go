@@ -3,18 +3,22 @@ package mcp
 import (
 	"testing"
 
-	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gorm.io/gorm"
 )
+
+func newTestServer() *mcp.Server {
+	return mcp.NewServer(&mcp.Implementation{Name: "test", Version: "0.1"}, nil)
+}
 
 func TestNewMCPService(t *testing.T) {
 	tests := []struct {
 		name           string
 		db             *gorm.DB
-		mcpProxyServer *server.MCPServer
+		mcpProxyServer *mcp.Server
 		expectError    bool
 	}{
 		{
@@ -72,7 +76,7 @@ func TestMCPServiceInitialization(t *testing.T) {
 	setup := testhelpers.SetupMCPTest(t)
 	defer setup.Cleanup()
 
-	proxyServer := &server.MCPServer{}
+	proxyServer := newTestServer()
 
 	conf := &ServiceConfig{
 		DB:                      setup.DB,
@@ -111,7 +115,7 @@ func TestMCPServiceCallbacks(t *testing.T) {
 	err = db.AutoMigrate(&model.McpServer{}, &model.Tool{}, &model.Prompt{})
 	testhelpers.AssertNoError(t, err)
 
-	proxyServer := &server.MCPServer{}
+	proxyServer := newTestServer()
 
 	conf := &ServiceConfig{
 		DB:                      db,
@@ -146,7 +150,7 @@ func TestMCPServiceConcurrency(t *testing.T) {
 	err = db.AutoMigrate(&model.McpServer{}, &model.Tool{}, &model.Prompt{})
 	testhelpers.AssertNoError(t, err)
 
-	proxyServer := &server.MCPServer{}
+	proxyServer := newTestServer()
 
 	conf := &ServiceConfig{
 		DB:                      db,
@@ -189,7 +193,7 @@ func TestMCPServiceToolInstances(t *testing.T) {
 	err = db.AutoMigrate(&model.McpServer{}, &model.Tool{}, &model.Prompt{})
 	testhelpers.AssertNoError(t, err)
 
-	proxyServer := &server.MCPServer{}
+	proxyServer := newTestServer()
 
 	conf := &ServiceConfig{
 		DB:                      db,
@@ -231,7 +235,7 @@ func TestMCPServiceErrorHandling(t *testing.T) {
 	err = db.AutoMigrate(&model.McpServer{}, &model.Tool{}, &model.Prompt{})
 	testhelpers.AssertNoError(t, err)
 
-	proxyServer := &server.MCPServer{}
+	proxyServer := newTestServer()
 
 	conf := &ServiceConfig{
 		DB:                      db,

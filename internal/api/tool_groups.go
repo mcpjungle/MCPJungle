@@ -7,10 +7,10 @@ import (
 	"net/url"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 func (s *Server) createToolGroupHandler() gin.HandlerFunc {
@@ -302,30 +302,37 @@ func (s *Server) updateToolGroupHandler() gin.HandlerFunc {
 // toolGroupMCPServerCallHandler handles incoming MCP requests from for a specific tool group.
 func (s *Server) toolGroupMCPServerCallHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// get the Proxy MCP server for the specified tool group
 		groupName := c.Param("name")
+
+		// Reuse an existing handler if one exists; sessions are stored in the handler,
+		// so we must use the same instance across all requests for this group.
+		// See: TestE2E_DevMode_ToolGroup_StreamableHTTP_SessionPersistence (tool_groups_test.go)
+		if handlerVal, ok := s.groupStreamableHandlers.Load(groupName); ok {
+			handlerVal.(*mcp.StreamableHTTPHandler).ServeHTTP(c.Writer, c.Request)
+			return
+		}
+
+		// get the Proxy MCP server for the specified tool group
 		groupMcpServer, exists := s.toolGroupService.GetToolGroupMCPServer(groupName)
 		if !exists {
 			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("tool group not found: %s", groupName)})
 			return
 		}
 
-		// serve the MCP request using the MCP server
-		// TODO: Make this API more efficient
-		// This api sits in the hot path because we expect high traffic on MCP tool calling.
-		// It is inefficient to create a new StreamableHTTPServer for each request.
-		// Maybe pre-create a StreamableHTTPServer for each tool group and store it in the ToolGroupMCPServer struct?
-		streamableServer := server.NewStreamableHTTPServer(groupMcpServer)
-		streamableServer.ServeHTTP(c.Writer, c.Request)
+		streamableHandler := mcp.NewStreamableHTTPHandler(func(r *http.Request) *mcp.Server {
+			return groupMcpServer
+		}, nil)
+		s.groupStreamableHandlers.Store(groupName, streamableHandler)
+		streamableHandler.ServeHTTP(c.Writer, c.Request)
 	}
 }
 
-// getGroupSseServer returns a server.SSEServer for a specific group, creating one if it doesn't already exist.
-// It ensures that each tool group has its own SSE server with the correct dynamic base path.
-func (s *Server) getGroupSseServer(groupName string) (*server.SSEServer, error) {
-	// Try to get existing server first
-	if serverVal, ok := s.groupSseServers.Load(groupName); ok {
-		return serverVal.(*server.SSEServer), nil
+// getGroupSseServer returns a mcp.SSEHandler for a specific group, creating one if it doesn't already exist.
+// It ensures that each tool group has its own SSE handler with the correct dynamic base path.
+func (s *Server) getGroupSseServer(groupName string) (*mcp.SSEHandler, error) {
+	// Try to get existing handler first
+	if serverVal, ok := s.groupSseHandlers.Load(groupName); ok {
+		return serverVal.(*mcp.SSEHandler), nil
 	}
 
 	// Get the sse MCP proxy server for the group
@@ -334,27 +341,24 @@ func (s *Server) getGroupSseServer(groupName string) (*server.SSEServer, error) 
 		return nil, fmt.Errorf("tool group not found: %s", groupName)
 	}
 
-	// Create new server with the correct dynamic base path
-	sseServer := server.NewSSEServer(
-		groupSseMcpServer,
-		server.WithDynamicBasePath(func(r *http.Request, sessionID string) string {
-			// Return the group-specific base path
-			return fmt.Sprintf("%s/groups/%s", V0PathPrefix, groupName)
-		}),
-	)
+	// Create new SSE handler; the SSEHandler routes both GET (new session) and POST (messages) itself.
+	sseHandler := mcp.NewSSEHandler(func(r *http.Request) *mcp.Server {
+		return groupSseMcpServer
+	}, nil)
 
 	// Store for future use
-	s.groupSseServers.Store(groupName, sseServer)
+	s.groupSseHandlers.Store(groupName, sseHandler)
 
-	return sseServer, nil
+	return sseHandler, nil
 }
 
 // toolGroupSseMCPServerCallHandler handles SSE connection requests (/sse) for a specific tool group.
+// The SSEHandler handles both GET (new SSE session) and POST (messages) on the same route.
 func (s *Server) toolGroupSseMCPServerCallHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		groupName := c.Param("name")
 
-		groupSseMcpServer, err := s.getGroupSseServer(groupName)
+		groupSseHandler, err := s.getGroupSseServer(groupName)
 		if err != nil {
 			c.JSON(
 				http.StatusNotFound,
@@ -363,25 +367,7 @@ func (s *Server) toolGroupSseMCPServerCallHandler() gin.HandlerFunc {
 			return
 		}
 
-		groupSseMcpServer.SSEHandler().ServeHTTP(c.Writer, c.Request)
-	}
-}
-
-// toolGroupSseMCPServerCallHandler handles SSE connection requests (/message) for a specific tool group.
-func (s *Server) toolGroupSseMCPServerCallMessageHandler() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		groupName := c.Param("name")
-
-		groupSseMcpServer, err := s.getGroupSseServer(groupName)
-		if err != nil {
-			c.JSON(
-				http.StatusNotFound,
-				gin.H{"error": fmt.Sprintf("failed to get sse server for group: %s", groupName)},
-			)
-			return
-		}
-
-		groupSseMcpServer.MessageHandler().ServeHTTP(c.Writer, c.Request)
+		groupSseHandler.ServeHTTP(c.Writer, c.Request)
 	}
 }
 

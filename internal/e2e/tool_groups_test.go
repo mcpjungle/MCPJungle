@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -79,7 +79,7 @@ func TestE2E_DevMode_ToolGroup_ViaGroupEndpoint_ListTools(t *testing.T) {
 	drain(resp)
 
 	c := newGroupMCPClient(t, env, "scoped-tools-group", "")
-	result, err := c.ListTools(context.Background(), mcp.ListToolsRequest{})
+	result, err := c.ListTools(context.Background(), &mcp.ListToolsParams{})
 	require.NoError(t, err)
 
 	names := make([]string, 0, len(result.Tools))
@@ -106,14 +106,14 @@ func TestE2E_DevMode_ToolGroup_ViaGroupEndpoint_GetTool(t *testing.T) {
 	drain(resp)
 
 	c := newGroupMCPClient(t, env, "get-tool-group", "")
-	result, err := c.ListTools(context.Background(), mcp.ListToolsRequest{})
+	result, err := c.ListTools(context.Background(), &mcp.ListToolsParams{})
 	require.NoError(t, err)
 	require.NotEmpty(t, result.Tools, "group must expose at least one tool")
 
 	var echoTool *mcp.Tool
-	for i := range result.Tools {
-		if result.Tools[i].Name == "everything__echo" {
-			echoTool = &result.Tools[i]
+	for _, tool := range result.Tools {
+		if tool.Name == "everything__echo" {
+			echoTool = tool
 			break
 		}
 	}
@@ -137,17 +137,15 @@ func TestE2E_DevMode_ToolGroup_ViaGroupEndpoint_InvokeTool(t *testing.T) {
 	drain(resp)
 
 	c := newGroupMCPClient(t, env, "invoke-tool-group", "")
-	result, err := c.CallTool(context.Background(), mcp.CallToolRequest{
-		Params: mcp.CallToolParams{
-			Name:      "everything__echo",
-			Arguments: map[string]any{"message": "hello from group endpoint"},
-		},
+	result, err := c.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "everything__echo",
+		Arguments: map[string]any{"message": "hello from group endpoint"},
 	})
 	require.NoError(t, err)
 	require.False(t, result.IsError, "tool call must not return an error")
 	require.NotEmpty(t, result.Content, "echo response must have content")
 
-	first, ok := result.Content[0].(mcp.TextContent)
+	first, ok := result.Content[0].(*mcp.TextContent)
 	require.True(t, ok, "first content item must be TextContent")
 	assert.Contains(t, first.Text, "hello from group endpoint")
 }
@@ -225,4 +223,74 @@ func TestE2E_DevMode_ToolGroup_ViaGroupEndpoint_RenderPrompt(t *testing.T) {
 	require.Equal(t, "user", rendered.Messages[0].Role)
 	require.Equal(t, "text", rendered.Messages[0].Content.Type)
 	require.Equal(t, "This is a simple prompt without arguments.", rendered.Messages[0].Content.Text)
+}
+
+// -----------------------------------------------------------------------
+// Dev mode – tool groups: Streamable HTTP session persistence
+// -----------------------------------------------------------------------
+
+// TestE2E_DevMode_ToolGroup_StreamableHTTP_SessionPersistence is a regression
+// test for the go-sdk migration bug where toolGroupMCPServerCallHandler was
+// creating a new mcp.StreamableHTTPHandler on every HTTP request.
+//
+// In the official go-sdk, session state lives inside mcp.StreamableHTTPHandler
+// (not in mcp.Server). Re-creating the handler per request meant that the
+// session map was always empty when the second request arrived, causing any
+// call after initialize (e.g. tools/call) to fail with "unknown session".
+//
+// In the original mark3labs SDK this was not a problem because session state
+// was stored inside the MCPServer struct itself; the per-request HTTP wrapper
+// was stateless, so discarding it was safe.
+//
+// Reproduction pattern:
+//  1. Client A POSTs initialize  → fresh handler H1 is created and cached,
+//     session S_A is stored in H1.
+//  2. Client B POSTs initialize  → H1 is reused (fix) or H2 is created (bug),
+//     session S_B is stored in H1/H2.
+//  3. Client A POSTs tools/call  → with the bug H3 is created (no S_A) → error;
+//     with the fix H1 is reused (S_A present) → success.
+//  4. Same for Client B.
+//
+// The test connects two independent MCP clients and verifies that both can
+// invoke a tool after initialization, proving session state is preserved.
+func TestE2E_DevMode_ToolGroup_StreamableHTTP_SessionPersistence(t *testing.T) {
+	env := setupE2EServer(t, model.ModeDev)
+	registerEverythingServer(t, env, "")
+
+	resp := env.do(t, http.MethodPost, "/api/v0/tool-groups", map[string]any{
+		"name":           "session-test-group",
+		"included_tools": []string{"everything__echo"},
+	}, "")
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	drain(resp)
+
+	// Connect two independent clients.  Each Connect() call performs the MCP
+	// initialize handshake (one HTTP round-trip) and stores the returned session
+	// ID in the client's transport.  The subsequent CallTool sends a second
+	// request carrying that session ID — which must be recognised by the same
+	// handler instance.
+	c1 := newGroupMCPClient(t, env, "session-test-group", "")
+	c2 := newGroupMCPClient(t, env, "session-test-group", "")
+
+	result1, err := c1.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "everything__echo",
+		Arguments: map[string]any{"message": "session-one"},
+	})
+	require.NoError(t, err, "client 1: tool call must succeed — handler must be reused so session S1 is still known")
+	require.False(t, result1.IsError)
+
+	result2, err := c2.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "everything__echo",
+		Arguments: map[string]any{"message": "session-two"},
+	})
+	require.NoError(t, err, "client 2: tool call must succeed — handler must be reused so session S2 is still known")
+	require.False(t, result2.IsError)
+
+	first1, ok := result1.Content[0].(*mcp.TextContent)
+	require.True(t, ok)
+	assert.Contains(t, first1.Text, "session-one", "response must echo client 1's message")
+
+	first2, ok := result2.Content[0].(*mcp.TextContent)
+	require.True(t, ok)
+	assert.Contains(t, first2.Text, "session-two", "response must echo client 2's message")
 }

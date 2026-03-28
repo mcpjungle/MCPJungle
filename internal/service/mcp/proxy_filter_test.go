@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/datatypes"
 )
@@ -17,13 +17,13 @@ func TestMcpProxyToolFilter(t *testing.T) {
 		name      string
 		mode      model.ServerMode
 		client    *model.McpClient
-		tools     []mcp.Tool
+		tools     []*mcp.Tool
 		wantNames []string
 	}{
 		{
 			name: "development mode returns all tools",
 			mode: model.ModeDev,
-			tools: []mcp.Tool{
+			tools: []*mcp.Tool{
 				{Name: "time__get_current_time"},
 				{Name: "deepwiki__search_wiki"},
 			},
@@ -36,7 +36,7 @@ func TestMcpProxyToolFilter(t *testing.T) {
 				Name:      "claude",
 				AllowList: datatypes.JSON(`["time"]`),
 			},
-			tools: []mcp.Tool{
+			tools: []*mcp.Tool{
 				{Name: "time__get_current_time"},
 				{Name: "deepwiki__search_wiki"},
 			},
@@ -49,7 +49,7 @@ func TestMcpProxyToolFilter(t *testing.T) {
 				Name:      "cursor",
 				AllowList: datatypes.JSON(`["*"]`),
 			},
-			tools: []mcp.Tool{
+			tools: []*mcp.Tool{
 				{Name: "time__get_current_time"},
 				{Name: "deepwiki__search_wiki"},
 			},
@@ -67,7 +67,7 @@ func TestMcpProxyToolFilter(t *testing.T) {
 				ctx = context.WithValue(ctx, "client", tt.client)
 			}
 
-			got := ProxyToolFilter(ctx, tt.tools)
+			got := proxyFilterTools(ctx, tt.tools)
 			assert.Equal(t, tt.wantNames, toolNames(got))
 		})
 	}
@@ -76,7 +76,7 @@ func TestMcpProxyToolFilter(t *testing.T) {
 func TestMcpProxyToolFilter_MissingModeInContext(t *testing.T) {
 	t.Parallel()
 
-	got := ProxyToolFilter(context.Background(), []mcp.Tool{
+	got := proxyFilterTools(context.Background(), []*mcp.Tool{
 		{Name: "time__get_current_time"},
 	})
 
@@ -87,7 +87,7 @@ func TestMcpProxyToolFilter_InvalidModeTypeInContext(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.WithValue(context.Background(), "mode", "enterprise")
-	got := ProxyToolFilter(ctx, []mcp.Tool{
+	got := proxyFilterTools(ctx, []*mcp.Tool{
 		{Name: "time__get_current_time"},
 	})
 
@@ -98,7 +98,7 @@ func TestMcpProxyToolFilter_EnterpriseMissingClientInContext(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.WithValue(context.Background(), "mode", model.ModeEnterprise)
-	got := ProxyToolFilter(ctx, []mcp.Tool{
+	got := proxyFilterTools(ctx, []*mcp.Tool{
 		{Name: "time__get_current_time"},
 	})
 
@@ -110,7 +110,7 @@ func TestMcpProxyToolFilter_EnterpriseInvalidClientTypeInContext(t *testing.T) {
 
 	ctx := context.WithValue(context.Background(), "mode", model.ModeEnterprise)
 	ctx = context.WithValue(ctx, "client", "not-a-client")
-	got := ProxyToolFilter(ctx, []mcp.Tool{
+	got := proxyFilterTools(ctx, []*mcp.Tool{
 		{Name: "time__get_current_time"},
 	})
 
@@ -123,7 +123,7 @@ func TestMcpProxyToolFilter_EnterpriseNilClientInContext(t *testing.T) {
 	ctx := context.WithValue(context.Background(), "mode", model.ModeEnterprise)
 	var client *model.McpClient
 	ctx = context.WithValue(ctx, "client", client)
-	got := ProxyToolFilter(ctx, []mcp.Tool{
+	got := proxyFilterTools(ctx, []*mcp.Tool{
 		{Name: "time__get_current_time"},
 	})
 
@@ -139,7 +139,7 @@ func TestMcpProxyToolFilter_EnterpriseMalformedToolNamesAreDenied(t *testing.T) 
 		AllowList: datatypes.JSON(`["time"]`),
 	})
 
-	got := ProxyToolFilter(ctx, []mcp.Tool{
+	got := proxyFilterTools(ctx, []*mcp.Tool{
 		{Name: "missing_separator"},
 		{Name: "time__get_current_time"},
 	})
@@ -147,7 +147,7 @@ func TestMcpProxyToolFilter_EnterpriseMalformedToolNamesAreDenied(t *testing.T) 
 	assert.Equal(t, []string{"time__get_current_time"}, toolNames(got))
 }
 
-func toolNames(tools []mcp.Tool) []string {
+func toolNames(tools []*mcp.Tool) []string {
 	names := make([]string, len(tools))
 	for i, tool := range tools {
 		names[i] = tool.Name

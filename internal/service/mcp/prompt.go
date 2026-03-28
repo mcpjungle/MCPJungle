@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/mark3labs/mcp-go/client"
-	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // ListPrompts returns all prompts registered in the registry.
@@ -96,9 +95,6 @@ func (m *MCPService) GetPromptWithArgs(ctx context.Context, name string, args ma
 	}
 	defer session.closeIfApplicable()
 
-	getPromptReq := mcp.GetPromptRequest{}
-	getPromptReq.Params.Name = promptName
-
 	// Convert map[string]any to map[string]string for MCP API
 	stringArgs := make(map[string]string)
 	for k, v := range args {
@@ -111,7 +107,11 @@ func (m *MCPService) GetPromptWithArgs(ctx context.Context, name string, args ma
 			}
 		}
 	}
-	getPromptReq.Params.Arguments = stringArgs
+
+	getPromptReq := &mcp.GetPromptParams{
+		Name:      promptName,
+		Arguments: stringArgs,
+	}
 
 	getPromptResp, err := session.client.GetPrompt(ctx, getPromptReq)
 	if err != nil {
@@ -198,16 +198,16 @@ func (m *MCPService) setPromptsEnabled(entity string, enabled bool) ([]string, e
 			mcpPrompt.Name = entity
 
 			if s.Transport == types.TransportSSE {
-				m.sseMcpProxyServer.AddPrompt(mcpPrompt, m.mcpProxyPromptHandler)
+				m.sseMcpProxyServer.AddPrompt(&mcpPrompt, m.mcpProxyPromptHandler)
 			} else {
-				m.mcpProxyServer.AddPrompt(mcpPrompt, m.mcpProxyPromptHandler)
+				m.mcpProxyServer.AddPrompt(&mcpPrompt, m.mcpProxyPromptHandler)
 			}
 		} else {
 			// if the prompt was disabled, remove it from the MCP proxy server
 			if s.Transport == types.TransportSSE {
-				m.sseMcpProxyServer.DeletePrompts(entity)
+				m.sseMcpProxyServer.RemovePrompts(entity)
 			} else {
-				m.mcpProxyServer.DeletePrompts(entity)
+				m.mcpProxyServer.RemovePrompts(entity)
 			}
 		}
 
@@ -246,15 +246,15 @@ func (m *MCPService) setPromptsEnabled(entity string, enabled bool) ([]string, e
 			mcpPrompt.Name = canonicalPromptName
 
 			if s.Transport == types.TransportSSE {
-				m.sseMcpProxyServer.AddPrompt(mcpPrompt, m.mcpProxyPromptHandler)
+				m.sseMcpProxyServer.AddPrompt(&mcpPrompt, m.mcpProxyPromptHandler)
 			} else {
-				m.mcpProxyServer.AddPrompt(mcpPrompt, m.mcpProxyPromptHandler)
+				m.mcpProxyServer.AddPrompt(&mcpPrompt, m.mcpProxyPromptHandler)
 			}
 		} else {
 			if s.Transport == types.TransportSSE {
-				m.sseMcpProxyServer.DeletePrompts(canonicalPromptName)
+				m.sseMcpProxyServer.RemovePrompts(canonicalPromptName)
 			} else {
-				m.mcpProxyServer.DeletePrompts(canonicalPromptName)
+				m.mcpProxyServer.RemovePrompts(canonicalPromptName)
 			}
 		}
 
@@ -265,14 +265,14 @@ func (m *MCPService) setPromptsEnabled(entity string, enabled bool) ([]string, e
 }
 
 // registerServerPrompts fetches all prompts from an MCP server and registers them in the DB.
-func (m *MCPService) registerServerPrompts(ctx context.Context, s *model.McpServer, c *client.Client) error {
+func (m *MCPService) registerServerPrompts(ctx context.Context, s *model.McpServer, c *mcp.ClientSession) error {
 	// fetch all prompts from the server so they can be added to the DB
-	resp, err := c.ListPrompts(ctx, mcp.ListPromptsRequest{})
+	resp, err := c.ListPrompts(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to fetch prompts from MCP server %s: %w", s.Name, err)
 	}
 	for _, prompt := range resp.Prompts {
-		canonicalPromptName := mergeServerPromptNames(s.Name, prompt.GetName())
+		canonicalPromptName := mergeServerPromptNames(s.Name, prompt.Name)
 
 		// extracting json schema is currently on best-effort basis
 		// if it fails, we log the error and continue with the next prompt
@@ -280,7 +280,7 @@ func (m *MCPService) registerServerPrompts(ctx context.Context, s *model.McpServ
 
 		p := &model.Prompt{
 			ServerID:    s.ID,
-			Name:        prompt.GetName(),
+			Name:        prompt.Name,
 			Description: prompt.Description,
 			Arguments:   jsonArguments,
 		}
@@ -289,14 +289,19 @@ func (m *MCPService) registerServerPrompts(ctx context.Context, s *model.McpServ
 			// Instead, continue with the next prompt.
 			log.Printf("[ERROR] failed to register prompt %s in DB: %v", canonicalPromptName, err)
 		} else {
-			// Set prompt name to include the server name prefix to make it recognizable by MCPJungle
-			// then add the prompt to the MCP proxy server
-			prompt.Name = canonicalPromptName
+			// Convert the DB model to a mcp.Prompt for the proxy server,
+			// then set its canonical name (server__prompt) for MCPJungle routing.
+			mcpPrompt, err := convertPromptModelToMcpObject(p)
+			if err != nil {
+				log.Printf("[ERROR] failed to convert prompt %s to MCP object: %v", canonicalPromptName, err)
+				continue
+			}
+			mcpPrompt.Name = canonicalPromptName
 
 			if s.Transport == types.TransportSSE {
-				m.sseMcpProxyServer.AddPrompt(prompt, m.mcpProxyPromptHandler)
+				m.sseMcpProxyServer.AddPrompt(&mcpPrompt, m.mcpProxyPromptHandler)
 			} else {
-				m.mcpProxyServer.AddPrompt(prompt, m.mcpProxyPromptHandler)
+				m.mcpProxyServer.AddPrompt(&mcpPrompt, m.mcpProxyPromptHandler)
 			}
 		}
 	}
@@ -325,9 +330,9 @@ func (m *MCPService) deregisterServerPrompts(s *model.McpServer) error {
 	}
 
 	if s.Transport == types.TransportSSE {
-		m.sseMcpProxyServer.DeletePrompts(promptNames...)
+		m.sseMcpProxyServer.RemovePrompts(promptNames...)
 	} else {
-		m.mcpProxyServer.DeletePrompts(promptNames...)
+		m.mcpProxyServer.RemovePrompts(promptNames...)
 	}
 
 	return nil

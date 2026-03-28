@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mark3labs/mcp-go/client"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 // ManagedSession represents a persistent connection to an MCP server.
 type ManagedSession struct {
 	ServerName string
-	Client     *client.Client
+	Client     *mcp.ClientSession
 	CreatedAt  time.Time
 	LastUsedAt time.Time
 }
@@ -38,7 +38,7 @@ type SessionManager struct {
 	initReqTimeoutSec int
 	cleanupTicker     *time.Ticker
 	cleanupStopChan   chan struct{}
-	createSessionFunc func(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*client.Client, error)
+	createSessionFunc func(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*mcp.ClientSession, error)
 }
 
 // SessionManagerConfig holds configuration for the SessionManager.
@@ -78,7 +78,7 @@ func NewSessionManager(cfg *SessionManagerConfig) *SessionManager {
 
 // GetOrCreateSession returns an existing session for the server or creates a new one.
 // This method should only be called for servers with SessionMode set to stateful.
-func (sm *SessionManager) GetOrCreateSession(ctx context.Context, server *model.McpServer) (*client.Client, error) {
+func (sm *SessionManager) GetOrCreateSession(ctx context.Context, server *model.McpServer) (*mcp.ClientSession, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
@@ -228,7 +228,7 @@ func (sm *SessionManager) cleanupIdleSessions() {
 
 // createMcpServerConnection creates a new MCP client connection based on the server's transport type.
 // This is a wrapper around the transport-specific connection functions.
-func createMcpServerConnection(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*client.Client, error) {
+func createMcpServerConnection(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*mcp.ClientSession, error) {
 	switch s.Transport {
 	case types.TransportStreamableHTTP:
 		return createHTTPMcpServerConn(ctx, s, initReqTimeoutSec)

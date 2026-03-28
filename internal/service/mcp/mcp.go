@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gorm.io/gorm"
 )
 
@@ -15,8 +14,8 @@ import (
 type ServiceConfig struct {
 	DB *gorm.DB
 
-	McpProxyServer    *server.MCPServer
-	SseMcpProxyServer *server.MCPServer
+	McpProxyServer    *mcp.Server
+	SseMcpProxyServer *mcp.Server
 
 	Metrics telemetry.CustomMetrics
 
@@ -32,8 +31,8 @@ type ServiceConfig struct {
 type MCPService struct {
 	db *gorm.DB
 
-	mcpProxyServer    *server.MCPServer
-	sseMcpProxyServer *server.MCPServer
+	mcpProxyServer    *mcp.Server
+	sseMcpProxyServer *mcp.Server
 
 	// toolInstances keeps track of all the in-memory mcp.Tool instances, keyed by their unique names.
 	toolInstances map[string]mcp.Tool
