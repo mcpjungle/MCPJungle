@@ -952,3 +952,8 @@ We welcome contributions from the community!
 - **For development setup and technical details**, see [DEVELOPMENT.md](./DEVELOPMENT.md)
 
 Join our [Discord community](https://discord.gg/CapV4Z3krk) to connect with other contributors and maintainers.
+
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/duaraghav8-mcpjungle).
+
