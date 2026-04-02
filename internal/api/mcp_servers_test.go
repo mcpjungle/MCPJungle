@@ -1,11 +1,15 @@
 package api
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	mcpSvc "github.com/mcpjungle/mcpjungle/internal/service/mcp"
+	"github.com/mcpjungle/mcpjungle/internal/telemetry"
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
@@ -280,4 +284,34 @@ func TestParseForceQueryParam(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDeregisterServerHandler_NotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setup := testhelpers.SetupTestDB(t)
+	defer setup.Cleanup()
+
+	mcpProxy := mcpserver.NewMCPServer("test", "0.0.1")
+	sseMcpProxy := mcpserver.NewMCPServer("test-sse", "0.0.1")
+	svc, err := mcpSvc.NewMCPService(&mcpSvc.ServiceConfig{
+		DB:                      setup.DB,
+		McpProxyServer:          mcpProxy,
+		SseMcpProxyServer:       sseMcpProxy,
+		Metrics:                 telemetry.NewNoopCustomMetrics(),
+		McpServerInitReqTimeout: 5,
+	})
+	if err != nil {
+		t.Fatalf("failed to create MCP service: %v", err)
+	}
+
+	s := &Server{mcpService: svc}
+	router := gin.New()
+	router.DELETE("/servers/:name", s.deregisterServerHandler())
+
+	req := httptest.NewRequest(http.MethodDelete, "/servers/nonexistent-server", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	testhelpers.AssertEqual(t, http.StatusNotFound, w.Code)
+	testhelpers.AssertStringContains(t, w.Body.String(), "not found")
 }

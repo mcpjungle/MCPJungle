@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 
@@ -113,4 +114,26 @@ func TestE2E_DevMode_RenderPrompt(t *testing.T) {
 	require.Equal(t, "user", result.Messages[0].Role)
 	require.Equal(t, "text", result.Messages[0].Content.Type)
 	require.Equal(t, "This is a simple prompt without arguments.", result.Messages[0].Content.Text)
+}
+
+// -----------------------------------------------------------------------
+// Dev mode – not-found error handling
+// -----------------------------------------------------------------------
+
+// TestE2E_DevMode_NotFound_DeregisterMissingServer verifies the full error propagation path:
+// handler → service → ErrNotFound → handleServiceError → 404.
+// Does not register any upstream server, so npx is not required.
+func TestE2E_DevMode_NotFound_DeregisterMissingServer(t *testing.T) {
+	env := setupE2EServer(t, model.ModeDev)
+
+	resp := env.do(t, http.MethodDelete, "/api/v0/servers/nonexistent-server", nil, "")
+	defer drain(resp)
+
+	require.Equal(t, http.StatusNotFound, resp.StatusCode)
+
+	var body map[string]json.RawMessage
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+	errMsg, ok := body["error"]
+	require.True(t, ok, "response must contain 'error' field")
+	require.Contains(t, string(errMsg), "not found")
 }
