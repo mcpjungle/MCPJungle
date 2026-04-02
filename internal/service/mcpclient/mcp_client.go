@@ -7,6 +7,7 @@ import (
 
 	"github.com/mcpjungle/mcpjungle/internal"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"gorm.io/gorm"
 )
 
@@ -63,7 +64,7 @@ func (m *McpClientService) GetClientByToken(token string) (*model.McpClient, err
 	var client model.McpClient
 	if err := m.db.Where("access_token = ?", token).First(&client).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("client not found")
+			return nil, fmt.Errorf("client not found: %w", apierrors.ErrNotFound)
 		}
 		return nil, err
 	}
@@ -83,7 +84,7 @@ func (m *McpClientService) UpdateClient(updatedClient model.McpClient) (*model.M
 	var client model.McpClient
 	if err := m.db.Where("name = ?", updatedClient.Name).First(&client).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("client not found")
+			return nil, fmt.Errorf("client not found: %w", apierrors.ErrNotFound)
 		}
 		return nil, err
 	}

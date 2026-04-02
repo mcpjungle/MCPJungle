@@ -9,8 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
-	"gorm.io/gorm"
 )
 
 func (s *Server) registerServerHandler() gin.HandlerFunc {
@@ -103,7 +103,7 @@ func (s *Server) registerServerHandler() gin.HandlerFunc {
 					)
 					return
 				}
-			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+			} else if !errors.Is(err, apierrors.ErrNotFound) {
 				c.JSON(
 					http.StatusInternalServerError,
 					gin.H{"error": fmt.Sprintf("Error checking for existing server with name %s: %v", input.Name, err)},
@@ -113,7 +113,7 @@ func (s *Server) registerServerHandler() gin.HandlerFunc {
 		}
 
 		if err := s.mcpService.RegisterMcpServer(c, server); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 
@@ -139,7 +139,7 @@ func (s *Server) deregisterServerHandler() gin.HandlerFunc {
 		name := c.Param("name")
 
 		if err := s.mcpService.DeregisterMcpServer(name); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 
@@ -151,7 +151,7 @@ func (s *Server) listServersHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		records, err := s.mcpService.ListMcpServers()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 
@@ -218,7 +218,7 @@ func (s *Server) enableServerHandler() gin.HandlerFunc {
 
 		tools, prompts, err := s.mcpService.EnableMcpServer(name)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 
@@ -237,7 +237,7 @@ func (s *Server) disableServerHandler() gin.HandlerFunc {
 
 		tools, prompts, err := s.mcpService.DisableMcpServer(name)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 
@@ -258,7 +258,7 @@ func (s *Server) getServerConfigsHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		records, err := s.mcpService.ListMcpServers()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/mcpjungle/mcpjungle/internal"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"gorm.io/gorm"
 )
@@ -43,7 +44,7 @@ func (u *UserService) GetUserByAccessToken(token string) (*model.User, error) {
 	var user model.User
 	if err := u.db.Where("access_token = ?", token).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("user not found")
+			return nil, fmt.Errorf("user not found: %w", apierrors.ErrNotFound)
 		}
 		return nil, fmt.Errorf("failed to verify token: %w", err)
 	}
@@ -84,7 +85,7 @@ func (u *UserService) UpdateUser(input *model.User) (*model.User, error) {
 	err := u.db.Where("username = ?", input.Username).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("user with username %s not found", input.Username)
+			return nil, fmt.Errorf("user with username %s not found: %w", input.Username, apierrors.ErrNotFound)
 		}
 		return nil, fmt.Errorf("failed to find user: %w", err)
 	}
@@ -121,7 +122,7 @@ func (u *UserService) DeleteUser(username string) error {
 	err := u.db.Where("username = ?", username).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return fmt.Errorf("user with username %s not found", username)
+			return fmt.Errorf("user with username %s not found: %w", username, apierrors.ErrNotFound)
 		}
 		return fmt.Errorf("failed to find user: %w", err)
 	}

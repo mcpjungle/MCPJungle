@@ -18,7 +18,7 @@ func (s *Server) createUserHandler() gin.HandlerFunc {
 
 		newUser, err := s.userService.CreateUser(&input)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 
@@ -35,7 +35,7 @@ func (s *Server) listUsersHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		users, err := s.userService.ListUsers()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 
@@ -67,7 +67,7 @@ func (s *Server) updateUserHandler() gin.HandlerFunc {
 
 		updatedUser, err := s.userService.UpdateUser(&input)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 
@@ -90,7 +90,7 @@ func (s *Server) deleteUserHandler() gin.HandlerFunc {
 
 		err := s.userService.DeleteUser(username)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 

@@ -11,7 +11,7 @@ func (s *Server) listMcpClientsHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		clients, err := s.mcpClientService.ListClients()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 		c.JSON(http.StatusOK, clients)
@@ -32,7 +32,7 @@ func (s *Server) createMcpClientHandler() gin.HandlerFunc {
 		// TODO: if allow list in the request is null, convert it to an empty JSON array
 		client, err := s.mcpClientService.CreateClient(req)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 		c.JSON(http.StatusCreated, client)
@@ -47,7 +47,7 @@ func (s *Server) deleteMcpClientHandler() gin.HandlerFunc {
 			return
 		}
 		if err := s.mcpClientService.DeleteClient(name); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 		c.Status(http.StatusNoContent)
@@ -70,7 +70,7 @@ func (s *Server) updateMcpClientHandler() gin.HandlerFunc {
 
 		resp, err := s.mcpClientService.UpdateClient(req)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 		c.JSON(http.StatusOK, resp)

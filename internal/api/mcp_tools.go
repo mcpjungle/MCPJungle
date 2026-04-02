@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -24,7 +25,7 @@ func (s *Server) listToolsHandler() gin.HandlerFunc {
 			tools, err = s.mcpService.ListToolsByServer(server)
 		}
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 		c.JSON(http.StatusOK, tools)
@@ -59,7 +60,7 @@ func (s *Server) invokeToolHandler() gin.HandlerFunc {
 
 		resp, err := s.mcpService.InvokeTool(c, name, args)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to invoke tool: " + err.Error()})
+			handleServiceError(c, fmt.Errorf("failed to invoke tool: %w", err))
 			return
 		}
 
@@ -80,7 +81,7 @@ func (s *Server) getToolHandler() gin.HandlerFunc {
 
 		tool, err := s.mcpService.GetTool(name)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get tool: " + err.Error()})
+			handleServiceError(c, fmt.Errorf("failed to get tool: %w", err))
 			return
 		}
 
@@ -98,7 +99,7 @@ func (s *Server) enableToolsHandler() gin.HandlerFunc {
 		}
 		enabledTools, err := s.mcpService.EnableTools(entity)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to enable tool(s): " + err.Error()})
+			handleServiceError(c, fmt.Errorf("failed to enable tool(s): %w", err))
 			return
 		}
 		c.JSON(http.StatusOK, enabledTools)
@@ -115,7 +116,7 @@ func (s *Server) disableToolsHandler() gin.HandlerFunc {
 		}
 		disabledTools, err := s.mcpService.DisableTools(entity)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to disable tool(s): " + err.Error()})
+			handleServiceError(c, fmt.Errorf("failed to disable tool(s): %w", err))
 			return
 		}
 		c.JSON(http.StatusOK, disabledTools)

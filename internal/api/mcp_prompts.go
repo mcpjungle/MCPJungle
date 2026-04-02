@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -24,7 +25,7 @@ func (s *Server) listPromptsHandler() gin.HandlerFunc {
 			prompts, err = s.mcpService.ListPromptsByServer(server)
 		}
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 		c.JSON(http.StatusOK, prompts)
@@ -43,7 +44,7 @@ func (s *Server) getPromptHandler() gin.HandlerFunc {
 		}
 		prompt, err := s.mcpService.GetPrompt(name)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get prompt: " + err.Error()})
+			handleServiceError(c, fmt.Errorf("failed to get prompt: %w", err))
 			return
 		}
 
@@ -76,7 +77,7 @@ func (s *Server) getPromptWithArgsHandler() gin.HandlerFunc {
 
 		resp, err := s.mcpService.GetPromptWithArgs(c, request.Name, args)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get prompt: " + err.Error()})
+			handleServiceError(c, fmt.Errorf("failed to get prompt: %w", err))
 			return
 		}
 
@@ -94,7 +95,7 @@ func (s *Server) enablePromptsHandler() gin.HandlerFunc {
 		}
 		enabledPrompts, err := s.mcpService.EnablePrompts(entity)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to enable prompt(s): " + err.Error()})
+			handleServiceError(c, fmt.Errorf("failed to enable prompt(s): %w", err))
 			return
 		}
 		c.JSON(http.StatusOK, enabledPrompts)
@@ -111,7 +112,7 @@ func (s *Server) disablePromptsHandler() gin.HandlerFunc {
 		}
 		disabledPrompts, err := s.mcpService.DisablePrompts(entity)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to disable prompt(s): " + err.Error()})
+			handleServiceError(c, fmt.Errorf("failed to disable prompt(s): %w", err))
 			return
 		}
 		c.JSON(http.StatusOK, disabledPrompts)

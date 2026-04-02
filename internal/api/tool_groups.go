@@ -1,7 +1,6 @@
 package api
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -9,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
-	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
@@ -21,7 +19,7 @@ func (s *Server) createToolGroupHandler() gin.HandlerFunc {
 			return
 		}
 		if err := s.toolGroupService.CreateToolGroup(&input); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 		resp := &types.CreateToolGroupResponse{
@@ -37,7 +35,7 @@ func (s *Server) listToolGroupsHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		groups, err := s.toolGroupService.ListToolGroups()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 
@@ -93,11 +91,7 @@ func (s *Server) getToolGroupHandler() gin.HandlerFunc {
 
 		group, err := s.toolGroupService.GetToolGroup(name)
 		if err != nil {
-			if errors.Is(err, toolgroup.ErrToolGroupNotFound) {
-				c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("tool group %s not found", name)})
-				return
-			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 
@@ -159,11 +153,7 @@ func (s *Server) getToolGroupEffectiveToolsHandler() gin.HandlerFunc {
 
 		tools, err := s.toolGroupService.ResolveEffectiveTools(name)
 		if err != nil {
-			if errors.Is(err, toolgroup.ErrToolGroupNotFound) {
-				c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("tool group %s not found", name)})
-				return
-			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 
@@ -181,7 +171,7 @@ func (s *Server) deleteToolGroupHandler() gin.HandlerFunc {
 
 		err := s.toolGroupService.DeleteToolGroup(name)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 
@@ -208,11 +198,7 @@ func (s *Server) updateToolGroupHandler() gin.HandlerFunc {
 
 		originalConf, err := s.toolGroupService.UpdateToolGroup(name, &input)
 		if err != nil {
-			if errors.Is(err, toolgroup.ErrToolGroupNotFound) {
-				c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("tool group %s does not exist", name)})
-				return
-			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 
