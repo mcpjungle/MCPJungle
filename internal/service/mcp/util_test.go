@@ -4,11 +4,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 )
@@ -284,4 +289,69 @@ func TestPrepareSHTTPClientOptions_BearerWithCustomAuthorization(t *testing.T) {
 	if !strings.Contains(logOutput, "custom Authorization header will be used for MCP server my-server; bearer_token ignored") {
 		t.Fatalf("expected log to mention bearer_token ignored when custom Authorization header present, got: %q", logOutput)
 	}
+}
+
+func waitForLogMessage(t *testing.T, buf *bytes.Buffer, want string) {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if strings.Contains(buf.String(), want) {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Fatalf("expected log to contain %q, got %q", want, buf.String())
+}
+
+func newTestStdioClient(t *testing.T) (*client.Client, *os.File, *os.File) {
+	t.Helper()
+
+	stdoutReader, stdoutWriter := io.Pipe()
+	stdinReader, stdinWriter := io.Pipe()
+	stderrReader, stderrWriter, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create stderr pipe: %v", err)
+	}
+
+	t.Cleanup(func() {
+		_ = stdoutReader.Close()
+		_ = stdoutWriter.Close()
+		_ = stdinReader.Close()
+		_ = stdinWriter.Close()
+		_ = stderrReader.Close()
+		_ = stderrWriter.Close()
+	})
+
+	stdio := transport.NewIO(stdoutReader, stdinWriter, stderrReader)
+	return client.NewClient(stdio), stderrReader, stderrWriter
+}
+
+func TestCaptureStdioServerStderr_LogsGracefulExitOnEOF(t *testing.T) {
+	c, _, stderrWriter := newTestStdioClient(t)
+
+	var buf bytes.Buffer
+	old := log.Writer()
+	log.SetOutput(&buf)
+	defer log.SetOutput(old)
+
+	captureStdioServerStderr("demo", c)
+	_ = stderrWriter.Close()
+
+	waitForLogMessage(t, &buf, "['demo' MCP Server] [DEBUG] server process has exited gracefully")
+}
+
+func TestCaptureStdioServerStderr_LogsClientShutdownOnClosedPipe(t *testing.T) {
+	c, stderrReader, _ := newTestStdioClient(t)
+
+	var buf bytes.Buffer
+	old := log.Writer()
+	log.SetOutput(&buf)
+	defer log.SetOutput(old)
+
+	captureStdioServerStderr("demo", c)
+	_ = stderrReader.Close()
+
+	waitForLogMessage(t, &buf, "['demo' MCP Server] [DEBUG] stderr pipe closed during client shutdown")
 }

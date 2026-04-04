@@ -233,8 +233,10 @@ func captureStdioServerStderr(name string, c *client.Client) {
 		for {
 			n, err := stdioTransport.Stderr().Read(buf)
 			if err != nil {
-				if err == io.EOF || errors.Is(err, os.ErrClosed) {
+				if err == io.EOF {
 					log.Printf("['%s' MCP Server] [DEBUG] server process has exited gracefully", name)
+				} else if errors.Is(err, os.ErrClosed) {
+					log.Printf("['%s' MCP Server] [DEBUG] stderr pipe closed during client shutdown", name)
 				} else {
 					log.Printf("['%s' MCP STDERR] Error reading stderr: %v", name, err)
 				}
