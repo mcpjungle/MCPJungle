@@ -23,9 +23,27 @@ func (m *MCPService) RegisterMcpServer(ctx context.Context, s *model.McpServer) 
 	}
 	defer mcpClient.Close()
 
+	// Capture upstream tasks capability before persisting (s.ID not yet set)
+	upstreamTasksCap := mcpClient.GetServerCapabilities().Tasks
+
 	// register the server in the DB
 	if err := m.db.Create(s).Error; err != nil {
 		return fmt.Errorf("failed to register mcp server: %w", err)
+	}
+
+	// Persist tasks capability if the upstream server advertises it (best-effort)
+	if upstreamTasksCap != nil {
+		capability := &model.McpServerTaskCapability{
+			ServerID:      s.ID,
+			List:          upstreamTasksCap.List != nil,
+			Cancel:        upstreamTasksCap.Cancel != nil,
+			ToolCallTasks: upstreamTasksCap.Requests != nil && upstreamTasksCap.Requests.Tools != nil,
+		}
+		if err := m.db.Create(capability).Error; err != nil {
+			log.Printf("[WARN] failed to save task capability for server %s: %v", s.Name, err)
+		} else {
+			m.enableTaskCapabilities()
+		}
 	}
 
 	if err = m.registerServerTools(ctx, s, mcpClient); err != nil {
