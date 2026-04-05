@@ -128,7 +128,11 @@ func convertToolModelToMcpObject(t *model.Tool) (mcp.Tool, error) {
 		}
 	}
 
-	// NOTE: if more fields are added to the tool in DB, they should be set here as well
+	if t.TaskSupport != "" {
+		mcpTool.Execution = &mcp.ToolExecution{
+			TaskSupport: mcp.TaskSupport(t.TaskSupport),
+		}
+	}
 
 	return mcpTool, nil
 }
