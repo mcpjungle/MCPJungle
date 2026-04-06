@@ -207,7 +207,11 @@ func createHTTPMcpServerConn(ctx context.Context, s *model.McpServer, initReqTim
 	_, err = c.Initialize(initCtx, initRequest)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, fmt.Errorf("initialization request to MCP server timed out after %d seconds", initReqTimeoutSec)
+			return nil, fmt.Errorf(
+				"initialization request to MCP server timed out after %d seconds."+
+					" Set the MCP_SERVER_INIT_REQ_TIMEOUT_SEC environment variable to increase this timeout",
+				initReqTimeoutSec,
+			)
 		}
 		if errors.Is(err, syscall.ECONNREFUSED) && isLoopbackURL(conf.URL) {
 			return nil, fmt.Errorf(
@@ -290,7 +294,8 @@ func runStdioServer(ctx context.Context, s *model.McpServer, initReqTimeoutSec i
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, fmt.Errorf(
 				"initialization request to MCP server timed out after %d seconds,"+
-					" check mcpjungle server logs for any errors from this MCP server",
+					" check mcpjungle server logs for any errors from this MCP server."+
+					" Set the MCP_SERVER_INIT_REQ_TIMEOUT_SEC environment variable to increase this timeout",
 				initReqTimeoutSec,
 			)
 		}
