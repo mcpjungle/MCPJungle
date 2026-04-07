@@ -209,7 +209,7 @@ func createHTTPMcpServerConn(ctx context.Context, s *model.McpServer, initReqTim
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, fmt.Errorf(
 				"initialization request to MCP server timed out after %d seconds."+
-					" Set the MCP_SERVER_INIT_REQ_TIMEOUT_SEC environment variable to increase this timeout",
+					" To increase the timeout, use the MCP_SERVER_INIT_REQ_TIMEOUT_SEC environment variable for the mcpjungle server",
 				initReqTimeoutSec,
 			)
 		}
@@ -295,7 +295,7 @@ func runStdioServer(ctx context.Context, s *model.McpServer, initReqTimeoutSec i
 			return nil, fmt.Errorf(
 				"initialization request to MCP server timed out after %d seconds,"+
 					" check mcpjungle server logs for any errors from this MCP server."+
-					" Set the MCP_SERVER_INIT_REQ_TIMEOUT_SEC environment variable to increase this timeout",
+					" To increase the timeout, use the MCP_SERVER_INIT_REQ_TIMEOUT_SEC environment variable for the mcpjungle server",
 				initReqTimeoutSec,
 			)
 		}
