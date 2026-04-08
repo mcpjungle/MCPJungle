@@ -1,9 +1,13 @@
 package e2e_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
+	"github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/client/transport"
+	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,6 +32,16 @@ func TestE2E_DevMode_ListTools(t *testing.T) {
 	assert.Contains(t, names, "everything__echo")
 	assert.Contains(t, names, "everything__get-sum")
 	assert.Contains(t, names, "everything__get-env")
+
+	// Verify task_support is propagated for tools that declare it
+	var taskSupportVal string
+	for _, tool := range tools {
+		if tool["name"] == "everything__simulate-research-query" {
+			taskSupportVal, _ = tool["task_support"].(string)
+			break
+		}
+	}
+	assert.Equal(t, "required", taskSupportVal, "everything__simulate-research-query must have task_support=required")
 }
 
 func TestE2E_DevMode_GetTool(t *testing.T) {
@@ -113,4 +127,34 @@ func TestE2E_DevMode_RenderPrompt(t *testing.T) {
 	require.Equal(t, "user", result.Messages[0].Role)
 	require.Equal(t, "text", result.Messages[0].Content.Type)
 	require.Equal(t, "This is a simple prompt without arguments.", result.Messages[0].Content.Text)
+}
+
+// -----------------------------------------------------------------------
+// Dev mode – tasks capability
+// -----------------------------------------------------------------------
+
+func TestE2E_DevMode_TaskCapabilities(t *testing.T) {
+	env := setupE2EServer(t, model.ModeDev)
+	registerEverythingServer(t, env, "")
+
+	c, err := client.NewStreamableHttpClient(env.ts.URL+"/mcp",
+		transport.WithHTTPHeaders(map[string]string{}),
+	)
+	require.NoError(t, err)
+
+	result, err := c.Initialize(context.Background(), mcp.InitializeRequest{
+		Params: mcp.InitializeParams{
+			ProtocolVersion: mcp.LATEST_PROTOCOL_VERSION,
+			ClientInfo:      mcp.Implementation{Name: "e2e-test-client", Version: "1.0.0"},
+		},
+	})
+	require.NoError(t, err)
+
+	tasks := result.Capabilities.Tasks
+	require.NotNil(t, tasks, "proxy must advertise tasks capability when upstream supports it")
+	assert.NotNil(t, tasks.List, "tasks.list sub-capability must be present")
+	assert.NotNil(t, tasks.Cancel, "tasks.cancel sub-capability must be present")
+	require.NotNil(t, tasks.Requests, "tasks.requests must be present")
+	require.NotNil(t, tasks.Requests.Tools, "tasks.requests.tools must be present")
+	assert.NotNil(t, tasks.Requests.Tools.Call, "tasks.requests.tools.call sub-capability must be present")
 }

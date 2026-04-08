@@ -28,6 +28,10 @@ type Tool struct {
 	// These hints help LLMs understand tool behavior (e.g., read-only vs destructive).
 	Annotations datatypes.JSON `json:"annotations" gorm:"type:jsonb"`
 
+	// TaskSupport stores the task invocation mode advertised by the upstream tool.
+	// Valid values: "" (not set), "forbidden", "optional", "required".
+	TaskSupport string `json:"task_support,omitempty" gorm:"default:''"`
+
 	// ServerID is the ID of the MCP server that provides this tool.
 	ServerID uint      `json:"-" gorm:"not null"`
 	Server   McpServer `json:"-" gorm:"foreignKey:ServerID;references:ID"`

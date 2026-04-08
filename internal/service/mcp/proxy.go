@@ -3,9 +3,11 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
@@ -135,6 +137,30 @@ func (m *MCPService) mcpProxyPromptHandler(ctx context.Context, request mcp.GetP
 	return res, err
 }
 
+// enableTaskCapabilities aggregates task capabilities from all registered upstream servers
+// and enables the corresponding capabilities on both proxy servers.
+// It is safe to call multiple times (idempotent, monotonically enables).
+func (m *MCPService) enableTaskCapabilities() {
+	var caps []model.McpServerTaskCapability
+	if err := m.db.Find(&caps).Error; err != nil {
+		log.Printf("[WARN] failed to query server task capabilities: %v", err)
+		return
+	}
+
+	var list, cancel, toolCallTasks bool
+	for _, c := range caps {
+		list = list || c.List
+		cancel = cancel || c.Cancel
+		toolCallTasks = toolCallTasks || c.ToolCallTasks
+	}
+
+	if list || cancel || toolCallTasks {
+		opt := mcpserver.WithTaskCapabilities(list, cancel, toolCallTasks)
+		opt(m.mcpProxyServer)
+		opt(m.sseMcpProxyServer)
+	}
+}
+
 // initMCPProxyServer initializes the MCP proxy server.
 // It loads all the registered MCP tools and prompts from the database into the proxy server.
 func (m *MCPService) initMCPProxyServer() error {
@@ -224,6 +250,9 @@ func (m *MCPService) initMCPProxyServer() error {
 			m.mcpProxyServer.AddPrompt(prompt, m.mcpProxyPromptHandler)
 		}
 	}
+
+	// Enable tasks on proxy servers if any upstream server supports them
+	m.enableTaskCapabilities()
 
 	return nil
 }
