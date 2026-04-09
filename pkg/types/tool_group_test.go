@@ -79,6 +79,72 @@ func TestToolGroupJSONMarshalingWithNewFields(t *testing.T) {
 	}
 }
 
+func TestToolGroupJSONMarshalingWithPromptFields(t *testing.T) {
+	t.Parallel()
+
+	group := ToolGroup{
+		Name:            "prompt-group",
+		IncludedTools:   []string{"tool1"},
+		IncludedPrompts: []string{"server__prompt1", "server__prompt2"},
+		IncludedServers: []string{"server"},
+		ExcludedTools:   []string{"server__tool-x"},
+		ExcludedPrompts: []string{"server__prompt3"},
+		Description:     "Group with prompt fields",
+	}
+
+	data, err := json.Marshal(group)
+	if err != nil {
+		t.Fatalf("Failed to marshal ToolGroup: %v", err)
+	}
+
+	var unmarshaled ToolGroup
+	err = json.Unmarshal(data, &unmarshaled)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal ToolGroup: %v", err)
+	}
+
+	if len(unmarshaled.IncludedPrompts) != 2 {
+		t.Errorf("Expected 2 IncludedPrompts, got %d", len(unmarshaled.IncludedPrompts))
+	}
+	if unmarshaled.IncludedPrompts[0] != "server__prompt1" || unmarshaled.IncludedPrompts[1] != "server__prompt2" {
+		t.Errorf("Expected IncludedPrompts [server__prompt1, server__prompt2], got %v", unmarshaled.IncludedPrompts)
+	}
+	if len(unmarshaled.ExcludedPrompts) != 1 || unmarshaled.ExcludedPrompts[0] != "server__prompt3" {
+		t.Errorf("Expected ExcludedPrompts [server__prompt3], got %v", unmarshaled.ExcludedPrompts)
+	}
+}
+
+func TestToolGroupJSONOmitsEmptyPromptFields(t *testing.T) {
+	t.Parallel()
+
+	group := ToolGroup{
+		Name:        "minimal-group",
+		Description: "No prompts",
+	}
+
+	data, err := json.Marshal(group)
+	if err != nil {
+		t.Fatalf("Failed to marshal ToolGroup: %v", err)
+	}
+
+	jsonStr := string(data)
+	if contains(jsonStr, "included_prompts") {
+		t.Errorf("Expected included_prompts to be omitted, got %s", jsonStr)
+	}
+	if contains(jsonStr, "excluded_prompts") {
+		t.Errorf("Expected excluded_prompts to be omitted, got %s", jsonStr)
+	}
+}
+
+func contains(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
 func TestCreateToolGroupResponse(t *testing.T) {
 	t.Parallel()
 

@@ -46,6 +46,13 @@ type MCPService struct {
 	// (registered or (re)enabled) in mcpjungle.
 	toolAdditionCallback ToolAdditionCallback
 
+	// promptDeletionCallback is a callback that gets invoked when one or more prompts is removed
+	// (deregistered or disabled) from mcpjungle.
+	promptDeletionCallback PromptDeletionCallback
+	// promptAdditionCallback is a callback that gets invoked when one or more prompts is added
+	// (registered or (re)enabled) in mcpjungle.
+	promptAdditionCallback PromptAdditionCallback
+
 	metrics telemetry.CustomMetrics
 
 	mcpServerInitReqTimeoutSec int
@@ -76,8 +83,10 @@ func NewMCPService(c *ServiceConfig) (*MCPService, error) {
 		mu:            sync.RWMutex{},
 
 		// initialize the callbacks to NOOP functions
-		toolDeletionCallback: func(toolNames ...string) {},
-		toolAdditionCallback: func(toolName string) error { return nil },
+		toolDeletionCallback:   func(toolNames ...string) {},
+		toolAdditionCallback:   func(toolName string) error { return nil },
+		promptDeletionCallback: func(promptNames ...string) {},
+		promptAdditionCallback: func(promptName string) error { return nil },
 
 		metrics: c.Metrics,
 

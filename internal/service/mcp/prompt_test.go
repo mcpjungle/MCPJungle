@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -131,8 +132,10 @@ func TestEnableDisablePrompts(t *testing.T) {
 	)
 
 	service := &MCPService{
-		db:             db,
-		mcpProxyServer: mcpProxyServer,
+		db:                     db,
+		mcpProxyServer:         mcpProxyServer,
+		promptDeletionCallback: func(promptNames ...string) {},
+		promptAdditionCallback: func(promptName string) error { return nil },
 	}
 
 	srv := createTestServer(t, db)
@@ -174,8 +177,10 @@ func TestEnableDisableServerPrompts(t *testing.T) {
 	)
 
 	service := &MCPService{
-		db:             db,
-		mcpProxyServer: mcpProxyServer,
+		db:                     db,
+		mcpProxyServer:         mcpProxyServer,
+		promptDeletionCallback: func(promptNames ...string) {},
+		promptAdditionCallback: func(promptName string) error { return nil },
 	}
 
 	srv := createTestServer(t, db)
@@ -206,6 +211,161 @@ func TestEnableDisableServerPrompts(t *testing.T) {
 	for _, prompt := range prompts {
 		assert.True(t, prompt.Enabled)
 	}
+}
+
+func TestGetPromptInstance(t *testing.T) {
+	db := setupTestDBWithPrompts(t)
+	service := &MCPService{db: db}
+
+	srv := createTestServer(t, db)
+	createTestPrompt(t, db, srv, "code-review")
+
+	t.Run("found_enabled_prompt", func(t *testing.T) {
+		mcpPrompt, found := service.GetPromptInstance("test-server__code-review")
+		assert.True(t, found)
+		assert.Equal(t, "test-server__code-review", mcpPrompt.Name)
+		assert.Equal(t, "Test prompt for code review", mcpPrompt.Description)
+		assert.Len(t, mcpPrompt.Arguments, 1)
+	})
+
+	t.Run("not_found_nonexistent", func(t *testing.T) {
+		_, found := service.GetPromptInstance("test-server__nonexistent")
+		assert.False(t, found)
+	})
+
+	t.Run("not_found_invalid_name", func(t *testing.T) {
+		_, found := service.GetPromptInstance("no-separator")
+		assert.False(t, found)
+	})
+
+	t.Run("not_found_disabled_prompt", func(t *testing.T) {
+		// Disable the prompt directly in DB
+		db.Model(&model.Prompt{}).Where("name = ?", "code-review").Update("enabled", false)
+
+		_, found := service.GetPromptInstance("test-server__code-review")
+		assert.False(t, found)
+
+		// Re-enable for other tests
+		db.Model(&model.Prompt{}).Where("name = ?", "code-review").Update("enabled", true)
+	})
+}
+
+func TestGetPromptParentServer(t *testing.T) {
+	db := setupTestDBWithPrompts(t)
+	service := &MCPService{db: db}
+
+	createTestServer(t, db)
+
+	t.Run("valid_name_returns_server", func(t *testing.T) {
+		srv, err := service.GetPromptParentServer("test-server__code-review")
+		require.NoError(t, err)
+		assert.Equal(t, "test-server", srv.Name)
+	})
+
+	t.Run("invalid_name_no_separator", func(t *testing.T) {
+		_, err := service.GetPromptParentServer("invalid-name")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "does not contain a __ separator")
+	})
+
+	t.Run("nonexistent_server", func(t *testing.T) {
+		_, err := service.GetPromptParentServer("nonexistent__prompt")
+		assert.Error(t, err)
+	})
+}
+
+func TestNotifyPromptAddition_ErrorIsLogged(t *testing.T) {
+	db := setupTestDBWithPrompts(t)
+
+	service := &MCPService{
+		db:                     db,
+		promptDeletionCallback: func(promptNames ...string) {},
+		promptAdditionCallback: func(promptName string) error {
+			return fmt.Errorf("simulated callback error")
+		},
+	}
+
+	// notifyPromptAddition should not panic even when callback returns error
+	assert.NotPanics(t, func() {
+		service.notifyPromptAddition("test-prompt")
+	})
+}
+
+func TestEnableDisablePrompts_CallbacksInvoked(t *testing.T) {
+	db := setupTestDBWithPrompts(t)
+
+	mcpProxyServer := server.NewMCPServer(
+		"Test Proxy",
+		"0.1.0",
+		server.WithPromptCapabilities(true),
+	)
+
+	var addedPrompts []string
+	var deletedPrompts []string
+
+	service := &MCPService{
+		db:             db,
+		mcpProxyServer: mcpProxyServer,
+		promptDeletionCallback: func(promptNames ...string) {
+			deletedPrompts = append(deletedPrompts, promptNames...)
+		},
+		promptAdditionCallback: func(promptName string) error {
+			addedPrompts = append(addedPrompts, promptName)
+			return nil
+		},
+	}
+
+	srv := createTestServer(t, db)
+	createTestPrompt(t, db, srv, "code-review")
+
+	// Disable should trigger deletion callback
+	_, err := service.DisablePrompts("test-server__code-review")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"test-server__code-review"}, deletedPrompts)
+
+	// Enable should trigger addition callback
+	_, err = service.EnablePrompts("test-server__code-review")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"test-server__code-review"}, addedPrompts)
+}
+
+func TestEnableDisableServerPrompts_CallbacksInvoked(t *testing.T) {
+	db := setupTestDBWithPrompts(t)
+
+	mcpProxyServer := server.NewMCPServer(
+		"Test Proxy",
+		"0.1.0",
+		server.WithPromptCapabilities(true),
+	)
+
+	var addedPrompts []string
+	var deletedPrompts []string
+
+	service := &MCPService{
+		db:             db,
+		mcpProxyServer: mcpProxyServer,
+		promptDeletionCallback: func(promptNames ...string) {
+			deletedPrompts = append(deletedPrompts, promptNames...)
+		},
+		promptAdditionCallback: func(promptName string) error {
+			addedPrompts = append(addedPrompts, promptName)
+			return nil
+		},
+	}
+
+	srv := createTestServer(t, db)
+	createTestPrompt(t, db, srv, "code-review")
+	createTestPrompt(t, db, srv, "security-audit")
+
+	// Disable by server name should trigger deletion callback for each prompt
+	_, err := service.DisablePrompts("test-server")
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"test-server__code-review", "test-server__security-audit"}, deletedPrompts)
+
+	// Enable by server name should trigger addition callback for each prompt
+	_, err = service.EnablePrompts("test-server")
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"test-server__code-review", "test-server__security-audit"}, addedPrompts)
 }
 
 func TestMergeServerPromptNames(t *testing.T) {

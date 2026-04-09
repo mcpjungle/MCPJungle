@@ -9,10 +9,14 @@ type ToolGroup struct {
 	Name string `json:"name"`
 	// IncludedTools is a list of tools included in this group.
 	IncludedTools []string `json:"included_tools,omitempty"`
+	// IncludedPrompts is a list of prompts included in this group.
+	IncludedPrompts []string `json:"included_prompts,omitempty"`
 	// IncludedServers is a list of MCP server names. All tools from these servers will be included.
 	IncludedServers []string `json:"included_servers,omitempty"`
 	// ExcludedTools is a list of tools to exclude from the group (useful with IncludedServers).
 	ExcludedTools []string `json:"excluded_tools,omitempty"`
+	// ExcludedPrompts is a list of prompts to exclude from the group (useful with IncludedServers).
+	ExcludedPrompts []string `json:"excluded_prompts,omitempty"`
 
 	Description string `json:"description"`
 }

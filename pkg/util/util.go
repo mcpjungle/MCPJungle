@@ -1,14 +1,14 @@
 package util
 
-// DiffTools detects which tools have been added and removed between two slices containing tool names.
-func DiffTools(oldTools, newTools []string) (added, removed []string) {
-	oldSet := make(map[string]struct{}, len(oldTools))
-	newSet := make(map[string]struct{}, len(newTools))
+// DiffItems detects which mcp items have been added and removed between two slices containing tool names.
+func DiffItems(oldItems, newItems []string) (added, removed []string) {
+	oldSet := make(map[string]struct{}, len(oldItems))
+	newSet := make(map[string]struct{}, len(newItems))
 
-	for _, t := range oldTools {
+	for _, t := range oldItems {
 		oldSet[t] = struct{}{}
 	}
-	for _, t := range newTools {
+	for _, t := range newItems {
 		newSet[t] = struct{}{}
 	}
 

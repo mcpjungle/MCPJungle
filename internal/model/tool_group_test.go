@@ -19,6 +19,18 @@ func (m *mockToolResolver) ListToolsByServer(serverName string) ([]Tool, error) 
 	return []Tool{}, nil
 }
 
+// mockPromptResolver implements PromptResolver for testing
+type mockPromptResolver struct {
+	serverPrompts map[string][]Prompt
+}
+
+func (m *mockPromptResolver) ListPromptsByServer(serverName string) ([]Prompt, error) {
+	if prompts, exists := m.serverPrompts[serverName]; exists {
+		return prompts, nil
+	}
+	return []Prompt{}, nil
+}
+
 func TestToolGroup_GetTools(t *testing.T) {
 	tools := []string{"tool1", "tool2"}
 	toolsJSON, _ := json.Marshal(tools)
@@ -283,5 +295,265 @@ func TestToolGroup_ResolveEffectiveTools_EmptyGroup(t *testing.T) {
 
 	if len(result) != 0 {
 		t.Errorf("Expected 0 tools for empty group, got %d", len(result))
+	}
+}
+
+func TestToolGroup_GetPrompts(t *testing.T) {
+	t.Run("with prompts", func(t *testing.T) {
+		prompts := []string{"prompt1", "prompt2"}
+		promptsJSON, _ := json.Marshal(prompts)
+
+		group := &ToolGroup{
+			IncludedPrompts: datatypes.JSON(promptsJSON),
+		}
+
+		result, err := group.GetPrompts()
+		if err != nil {
+			t.Fatalf("GetPrompts() failed: %v", err)
+		}
+		if len(result) != 2 {
+			t.Errorf("Expected 2 prompts, got %d", len(result))
+		}
+		if result[0] != "prompt1" || result[1] != "prompt2" {
+			t.Errorf("Expected [prompt1, prompt2], got %v", result)
+		}
+	})
+
+	t.Run("nil returns empty slice", func(t *testing.T) {
+		group := &ToolGroup{}
+
+		result, err := group.GetPrompts()
+		if err != nil {
+			t.Fatalf("GetPrompts() failed: %v", err)
+		}
+		if len(result) != 0 {
+			t.Errorf("Expected 0 prompts, got %d", len(result))
+		}
+	})
+}
+
+func TestToolGroup_GetExcludedPrompts(t *testing.T) {
+	t.Run("with excluded prompts", func(t *testing.T) {
+		prompts := []string{"excluded1", "excluded2"}
+		promptsJSON, _ := json.Marshal(prompts)
+
+		group := &ToolGroup{
+			ExcludedPrompts: datatypes.JSON(promptsJSON),
+		}
+
+		result, err := group.GetExcludedPrompts()
+		if err != nil {
+			t.Fatalf("GetExcludedPrompts() failed: %v", err)
+		}
+		if len(result) != 2 {
+			t.Errorf("Expected 2 excluded prompts, got %d", len(result))
+		}
+		if result[0] != "excluded1" || result[1] != "excluded2" {
+			t.Errorf("Expected [excluded1, excluded2], got %v", result)
+		}
+	})
+
+	t.Run("nil returns empty slice", func(t *testing.T) {
+		group := &ToolGroup{}
+
+		result, err := group.GetExcludedPrompts()
+		if err != nil {
+			t.Fatalf("GetExcludedPrompts() failed: %v", err)
+		}
+		if len(result) != 0 {
+			t.Errorf("Expected 0 excluded prompts, got %d", len(result))
+		}
+	})
+}
+
+func TestToolGroup_ResolveEffectivePrompts(t *testing.T) {
+	resolver := &mockPromptResolver{
+		serverPrompts: map[string][]Prompt{
+			"github": {
+				{Name: "github__code-review"},
+				{Name: "github__security-audit"},
+				{Name: "github__summarize"},
+			},
+			"slack": {
+				{Name: "slack__compose-message"},
+				{Name: "slack__daily-standup"},
+			},
+		},
+	}
+
+	t.Run("IncludedPrompts only", func(t *testing.T) {
+		prompts := []string{"manual__prompt1", "manual__prompt2"}
+		promptsJSON, _ := json.Marshal(prompts)
+
+		group := &ToolGroup{
+			IncludedPrompts: datatypes.JSON(promptsJSON),
+		}
+
+		result, err := group.ResolveEffectivePrompts(resolver)
+		if err != nil {
+			t.Fatalf("ResolveEffectivePrompts() failed: %v", err)
+		}
+
+		if len(result) != 2 {
+			t.Errorf("Expected 2 prompts, got %d", len(result))
+		}
+
+		promptMap := make(map[string]bool)
+		for _, p := range result {
+			promptMap[p] = true
+		}
+		if !promptMap["manual__prompt1"] || !promptMap["manual__prompt2"] {
+			t.Errorf("Expected manual prompts, got %v", result)
+		}
+	})
+
+	t.Run("IncludedServers only", func(t *testing.T) {
+		servers := []string{"github"}
+		serversJSON, _ := json.Marshal(servers)
+
+		group := &ToolGroup{
+			IncludedServers: datatypes.JSON(serversJSON),
+		}
+
+		result, err := group.ResolveEffectivePrompts(resolver)
+		if err != nil {
+			t.Fatalf("ResolveEffectivePrompts() failed: %v", err)
+		}
+
+		if len(result) != 3 {
+			t.Errorf("Expected 3 prompts from github server, got %d", len(result))
+		}
+
+		promptMap := make(map[string]bool)
+		for _, p := range result {
+			promptMap[p] = true
+		}
+		expected := []string{"github__code-review", "github__security-audit", "github__summarize"}
+		for _, e := range expected {
+			if !promptMap[e] {
+				t.Errorf("Expected prompt %s not found in result %v", e, result)
+			}
+		}
+	})
+
+	t.Run("IncludedServers with ExcludedPrompts", func(t *testing.T) {
+		servers := []string{"github", "slack"}
+		serversJSON, _ := json.Marshal(servers)
+
+		excluded := []string{"github__summarize", "slack__daily-standup"}
+		excludedJSON, _ := json.Marshal(excluded)
+
+		group := &ToolGroup{
+			IncludedServers: datatypes.JSON(serversJSON),
+			ExcludedPrompts: datatypes.JSON(excludedJSON),
+		}
+
+		result, err := group.ResolveEffectivePrompts(resolver)
+		if err != nil {
+			t.Fatalf("ResolveEffectivePrompts() failed: %v", err)
+		}
+
+		if len(result) != 3 {
+			t.Errorf("Expected 3 prompts (5 from servers - 2 excluded), got %d", len(result))
+		}
+
+		promptMap := make(map[string]bool)
+		for _, p := range result {
+			promptMap[p] = true
+		}
+
+		expected := []string{"github__code-review", "github__security-audit", "slack__compose-message"}
+		for _, e := range expected {
+			if !promptMap[e] {
+				t.Errorf("Expected prompt %s not found in result %v", e, result)
+			}
+		}
+
+		unexpected := []string{"github__summarize", "slack__daily-standup"}
+		for _, u := range unexpected {
+			if promptMap[u] {
+				t.Errorf("Unexpected excluded prompt %s found in result %v", u, result)
+			}
+		}
+	})
+
+	t.Run("Mixed IncludedPrompts and IncludedServers with ExcludedPrompts", func(t *testing.T) {
+		prompts := []string{"manual__custom-prompt"}
+		promptsJSON, _ := json.Marshal(prompts)
+
+		servers := []string{"slack"}
+		serversJSON, _ := json.Marshal(servers)
+
+		excluded := []string{"slack__daily-standup"}
+		excludedJSON, _ := json.Marshal(excluded)
+
+		group := &ToolGroup{
+			IncludedPrompts: datatypes.JSON(promptsJSON),
+			IncludedServers: datatypes.JSON(serversJSON),
+			ExcludedPrompts: datatypes.JSON(excludedJSON),
+		}
+
+		result, err := group.ResolveEffectivePrompts(resolver)
+		if err != nil {
+			t.Fatalf("ResolveEffectivePrompts() failed: %v", err)
+		}
+
+		if len(result) != 2 {
+			t.Errorf("Expected 2 prompts (1 manual + 2 from slack - 1 excluded), got %d", len(result))
+		}
+
+		promptMap := make(map[string]bool)
+		for _, p := range result {
+			promptMap[p] = true
+		}
+
+		if !promptMap["manual__custom-prompt"] || !promptMap["slack__compose-message"] {
+			t.Errorf("Expected manual and slack prompts, got %v", result)
+		}
+		if promptMap["slack__daily-standup"] {
+			t.Errorf("Unexpected excluded prompt slack__daily-standup found in result %v", result)
+		}
+	})
+
+	t.Run("Same prompt in IncludedPrompts and ExcludedPrompts", func(t *testing.T) {
+		prompts := []string{"manual__prompt1", "github__code-review"}
+		promptsJSON, _ := json.Marshal(prompts)
+
+		excluded := []string{"github__code-review"}
+		excludedJSON, _ := json.Marshal(excluded)
+
+		group := &ToolGroup{
+			IncludedPrompts: datatypes.JSON(promptsJSON),
+			ExcludedPrompts: datatypes.JSON(excludedJSON),
+		}
+
+		result, err := group.ResolveEffectivePrompts(resolver)
+		if err != nil {
+			t.Fatalf("ResolveEffectivePrompts() failed: %v", err)
+		}
+
+		if len(result) != 1 {
+			t.Errorf("Expected 1 prompt (manual__prompt1), got %d", len(result))
+		}
+		if result[0] != "manual__prompt1" {
+			t.Errorf("Expected manual__prompt1, got %v", result)
+		}
+	})
+}
+
+func TestToolGroup_ResolveEffectivePrompts_EmptyGroup(t *testing.T) {
+	resolver := &mockPromptResolver{
+		serverPrompts: map[string][]Prompt{},
+	}
+
+	group := &ToolGroup{}
+
+	result, err := group.ResolveEffectivePrompts(resolver)
+	if err != nil {
+		t.Fatalf("ResolveEffectivePrompts() failed: %v", err)
+	}
+
+	if len(result) != 0 {
+		t.Errorf("Expected 0 prompts for empty group, got %d", len(result))
 	}
 }
