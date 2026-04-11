@@ -207,6 +207,10 @@ fi
 # 9) Print Homebrew formula config snippet
 log "Homebrew formula config (from .goreleaser.yaml)"
 sed -n '/^brews:/,/^dockers:/p' "$ROOT_DIR/.goreleaser.yaml" || true
+
+# 10) Run manual API error response verification against an isolated server
+log "Running manual API error response verification"
+BIN_PATH="$BIN_PATH" "$ROOT_DIR/scripts/test-api-error-responses.sh"
 popd >/dev/null
 
 log "All tests passed 🎉"
