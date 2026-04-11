@@ -35,7 +35,7 @@ func (m *McpClientService) CreateClient(client model.McpClient) (*model.McpClien
 	if client.AccessToken != "" {
 		// user has supplied a custom access token, validate it
 		if err := internal.ValidateAccessToken(client.AccessToken); err != nil {
-			return nil, fmt.Errorf("invalid access token: %w", err)
+			return nil, fmt.Errorf("invalid access token: %v: %w", err, apierrors.ErrInvalidInput)
 		}
 		// todo: add audit log entry for custom token usage
 	} else {
@@ -90,7 +90,7 @@ func (m *McpClientService) UpdateClient(updatedClient model.McpClient) (*model.M
 	}
 
 	if err := internal.ValidateAccessToken(updatedClient.AccessToken); err != nil {
-		return nil, fmt.Errorf("invalid access token: %w", err)
+		return nil, fmt.Errorf("invalid access token: %v: %w", err, apierrors.ErrInvalidInput)
 	}
 
 	// Update only the access token for now

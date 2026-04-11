@@ -7,6 +7,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
@@ -117,6 +118,7 @@ func TestGetPrompt_InvalidName(t *testing.T) {
 	_, err := service.GetPrompt("invalid-name")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "does not contain a __ separator")
+	assert.ErrorIs(t, err, apierrors.ErrInvalidInput)
 }
 
 func TestEnableDisablePrompts(t *testing.T) {

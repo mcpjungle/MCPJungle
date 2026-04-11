@@ -3,6 +3,7 @@ package mcp
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"reflect"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 )
 
 func TestValidateServerName(t *testing.T) {
@@ -38,6 +40,9 @@ func TestValidateServerName(t *testing.T) {
 			err := validateServerName(tt.input)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("validateServerName(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+			if tt.wantErr && !errors.Is(err, apierrors.ErrInvalidInput) {
+				t.Errorf("validateServerName(%q) error = %v, want ErrInvalidInput", tt.input, err)
 			}
 		})
 	}

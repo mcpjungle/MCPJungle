@@ -3,13 +3,16 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
+	"gorm.io/gorm"
 )
 
 // ListPrompts returns all prompts registered in the registry.
@@ -57,7 +60,7 @@ func (m *MCPService) ListPromptsByServer(name string) ([]model.Prompt, error) {
 func (m *MCPService) GetPrompt(name string) (*model.Prompt, error) {
 	serverName, promptName, ok := splitServerPromptName(name)
 	if !ok {
-		return nil, fmt.Errorf("invalid input: prompt name does not contain a %s separator", serverPromptNameSep)
+		return nil, fmt.Errorf("invalid input: prompt name does not contain a %s separator: %w", serverPromptNameSep, apierrors.ErrInvalidInput)
 	}
 
 	s, err := m.GetMcpServer(serverName)
@@ -67,6 +70,9 @@ func (m *MCPService) GetPrompt(name string) (*model.Prompt, error) {
 
 	var prompt model.Prompt
 	if err := m.db.Where("server_id = ? AND name = ?", s.ID, promptName).First(&prompt).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("prompt %s not found: %w", name, apierrors.ErrNotFound)
+		}
 		return nil, fmt.Errorf("failed to get prompt %s from DB: %w", name, err)
 	}
 	// set the prompt name back to its canonical form
@@ -78,7 +84,7 @@ func (m *MCPService) GetPrompt(name string) (*model.Prompt, error) {
 func (m *MCPService) GetPromptWithArgs(ctx context.Context, name string, args map[string]any) (*types.PromptResult, error) {
 	serverName, promptName, ok := splitServerPromptName(name)
 	if !ok {
-		return nil, fmt.Errorf("invalid input: prompt name does not contain a %s separator", serverPromptNameSep)
+		return nil, fmt.Errorf("invalid input: prompt name does not contain a %s separator: %w", serverPromptNameSep, apierrors.ErrInvalidInput)
 	}
 
 	serverModel, err := m.GetMcpServer(serverName)

@@ -19,6 +19,7 @@ import (
 	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
@@ -42,20 +43,29 @@ var validServerName = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 // eg- In `aws__ec2__create_sg`, `aws` is the MCP server's name and `ec2__create_sg` is the tool.
 func validateServerName(name string) error {
 	if name == "" {
-		return fmt.Errorf("invalid server name: '%s' must not be empty", name)
+		return fmt.Errorf("invalid server name: '%s' must not be empty: %w", name, apierrors.ErrInvalidInput)
 	}
 	if !validServerName.MatchString(name) {
-		return fmt.Errorf("invalid server name: '%s' must follow the regular expression %s", name, validServerName)
+		return fmt.Errorf(
+			"invalid server name: '%s' must follow the regular expression %s: %w",
+			name,
+			validServerName,
+			apierrors.ErrInvalidInput,
+		)
 	}
 	if strings.Contains(name, serverToolNameSep) {
-		return fmt.Errorf("invalid server name: '%s' must not contain multiple consecutive underscores", name)
+		return fmt.Errorf(
+			"invalid server name: '%s' must not contain multiple consecutive underscores: %w",
+			name,
+			apierrors.ErrInvalidInput,
+		)
 	}
 	if strings.HasSuffix(name, string(serverToolNameSep[0])) {
 		// Don't allow a trailing underscore in server name.
 		// This avoids situations like this: `aws_` + `ec2_create_sg` -> `aws___ec2_create_sg`
 		//  splitting this would result in: `aws` + `_ec2_create_sg` because we always split on
 		//  the first occurrence of `__`
-		return fmt.Errorf("invalid server name: '%s' must not end with an underscore", name)
+		return fmt.Errorf("invalid server name: '%s' must not end with an underscore: %w", name, apierrors.ErrInvalidInput)
 	}
 	return nil
 }

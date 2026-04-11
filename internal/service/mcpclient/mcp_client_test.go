@@ -1,9 +1,11 @@
 package mcpclient
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 )
 
@@ -128,6 +130,7 @@ func TestCreateClientWithInvalidAccessToken(t *testing.T) {
 
 	client, err := svc.CreateClient(clientInput)
 	testhelpers.AssertError(t, err)
+	testhelpers.AssertTrue(t, errors.Is(err, apierrors.ErrInvalidInput), "expected ErrInvalidInput")
 	if client != nil {
 		t.Error("Expected client creation to fail with invalid access token")
 	}
@@ -341,6 +344,7 @@ func TestUpdateClientInvalidAccessToken(t *testing.T) {
 
 	client, err := svc.UpdateClient(clientInput)
 	testhelpers.AssertError(t, err)
+	testhelpers.AssertTrue(t, errors.Is(err, apierrors.ErrInvalidInput), "expected ErrInvalidInput")
 	if client != nil {
 		t.Error("Expected client update to fail with invalid access token")
 	}

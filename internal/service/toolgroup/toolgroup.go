@@ -71,12 +71,13 @@ func NewToolGroupService(db *gorm.DB, mcpService *mcp.MCPService) (*ToolGroupSer
 func (s *ToolGroupService) CreateToolGroup(group *model.ToolGroup) error {
 	// validate the tool group name
 	if len(group.Name) == 0 {
-		return errors.New("tool group name cannot be empty")
+		return fmt.Errorf("tool group name cannot be empty: %w", apierrors.ErrInvalidInput)
 	}
 	if !ValidGroupName.MatchString(group.Name) {
 		return fmt.Errorf(
-			"invalid group name: name must start with an alphanumeric character and " +
-				"can only contain alphanumeric characters, underscores, and hyphens",
+			"invalid group name: name must start with an alphanumeric character and "+
+				"can only contain alphanumeric characters, underscores, and hyphens: %w",
+			apierrors.ErrInvalidInput,
 		)
 	}
 
@@ -86,7 +87,10 @@ func (s *ToolGroupService) CreateToolGroup(group *model.ToolGroup) error {
 		return fmt.Errorf("failed to resolve effective tools: %w", err)
 	}
 	if len(toolNames) == 0 {
-		return errors.New("tool group must contain at least one tool after resolving servers and exclusions")
+		return fmt.Errorf(
+			"tool group must contain at least one tool after resolving servers and exclusions: %w",
+			apierrors.ErrInvalidInput,
+		)
 	}
 
 	// create the proxy MCP servers that expose only specified tools
@@ -99,7 +103,7 @@ func (s *ToolGroupService) CreateToolGroup(group *model.ToolGroup) error {
 	for _, name := range toolNames {
 		tool, exists := s.mcpService.GetToolInstance(name)
 		if !exists {
-			return fmt.Errorf("tool %s does not exist or is disabled", name)
+			return fmt.Errorf("tool %s does not exist or is disabled: %w", name, apierrors.ErrInvalidInput)
 		}
 
 		parentServer, err := s.mcpService.GetToolParentServer(name)
@@ -172,7 +176,7 @@ func (s *ToolGroupService) UpdateToolGroup(name string, updatedGroup *model.Tool
 	for _, toolName := range toolsAdded {
 		tool, exists := s.mcpService.GetToolInstance(toolName)
 		if !exists {
-			return nil, fmt.Errorf("tool %s does not exist or is disabled", toolName)
+			return nil, fmt.Errorf("tool %s does not exist or is disabled: %w", toolName, apierrors.ErrInvalidInput)
 		}
 
 		parentServer, err := s.mcpService.GetToolParentServer(toolName)

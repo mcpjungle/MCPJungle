@@ -8,6 +8,7 @@ import (
 	"github.com/glebarez/sqlite"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
+	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -196,5 +197,31 @@ func TestResolveEffectiveTools_ReturnsSorted(t *testing.T) {
 	// For the common case where explicit tools were stored, assert sorting.
 	if !reflect.DeepEqual(tools, expected) {
 		t.Fatalf("expected sorted tools %v, got %v", expected, tools)
+	}
+}
+
+func TestCreateToolGroup_InvalidNameReturnsInvalidInput(t *testing.T) {
+	db := setupInMemoryDB(t)
+	s := &ToolGroupService{
+		db:         db,
+		mcpService: &mcp.MCPService{},
+	}
+
+	err := s.CreateToolGroup(&model.ToolGroup{Name: "-bad-group"})
+	if !errors.Is(err, apierrors.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got: %v", err)
+	}
+}
+
+func TestCreateToolGroup_EmptyResolvedToolsReturnsInvalidInput(t *testing.T) {
+	db := setupInMemoryDB(t)
+	s := &ToolGroupService{
+		db:         db,
+		mcpService: &mcp.MCPService{},
+	}
+
+	err := s.CreateToolGroup(&model.ToolGroup{Name: "empty-group"})
+	if !errors.Is(err, apierrors.ErrInvalidInput) {
+		t.Fatalf("expected ErrInvalidInput, got: %v", err)
 	}
 }

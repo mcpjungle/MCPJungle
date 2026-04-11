@@ -40,6 +40,18 @@ func TestHandleServiceError(t *testing.T) {
 			expectedBody:   "not found",
 		},
 		{
+			name:           "bare ErrInvalidInput returns 400",
+			err:            apierrors.ErrInvalidInput,
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "invalid user input",
+		},
+		{
+			name:           "wrapped ErrInvalidInput returns 400",
+			err:            fmt.Errorf("invalid access token: %w", apierrors.ErrInvalidInput),
+			expectedStatus: http.StatusBadRequest,
+			expectedBody:   "invalid access token",
+		},
+		{
 			name:           "unrelated error returns 500",
 			err:            errors.New("db connection refused"),
 			expectedStatus: http.StatusInternalServerError,
@@ -82,4 +94,16 @@ func TestErrNotFoundWrapping(t *testing.T) {
 	testhelpers.AssertTrue(t, errors.Is(wrapped, apierrors.ErrNotFound), "single-wrapped must match")
 	testhelpers.AssertTrue(t, errors.Is(doubleWrapped, apierrors.ErrNotFound), "double-wrapped must match")
 	testhelpers.AssertFalse(t, errors.Is(unrelated, apierrors.ErrNotFound), "unrelated error must not match")
+}
+
+func TestInvalidInputWrapping(t *testing.T) {
+	bare := apierrors.ErrInvalidInput
+	wrapped := fmt.Errorf("invalid tool name: %w", apierrors.ErrInvalidInput)
+	doubleWrapped := fmt.Errorf("outer: %w", wrapped)
+	unrelated := errors.New("something else")
+
+	testhelpers.AssertTrue(t, errors.Is(bare, apierrors.ErrInvalidInput), "bare ErrInvalidInput must match")
+	testhelpers.AssertTrue(t, errors.Is(wrapped, apierrors.ErrInvalidInput), "single-wrapped must match")
+	testhelpers.AssertTrue(t, errors.Is(doubleWrapped, apierrors.ErrInvalidInput), "double-wrapped must match")
+	testhelpers.AssertFalse(t, errors.Is(unrelated, apierrors.ErrInvalidInput), "unrelated error must not match")
 }

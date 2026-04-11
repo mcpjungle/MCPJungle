@@ -1,9 +1,11 @@
 package user
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
@@ -94,6 +96,7 @@ func TestCreateUserInvalidAccessToken(t *testing.T) {
 	}
 	user, err := svc.CreateUser(u)
 	testhelpers.AssertError(t, err)
+	testhelpers.AssertTrue(t, errors.Is(err, apierrors.ErrInvalidInput), "expected ErrInvalidInput")
 	if user != nil {
 		t.Error("Expected user creation to fail due to invalid access token")
 	}
@@ -189,6 +192,7 @@ func TestDeleteAdminUser(t *testing.T) {
 	// Try to delete admin user (should fail)
 	err := svc.DeleteUser("admin")
 	testhelpers.AssertError(t, err)
+	testhelpers.AssertTrue(t, errors.Is(err, apierrors.ErrInvalidInput), "expected ErrInvalidInput")
 	// Verify admin user still exists
 	retrievedUser, _ := svc.GetUserByAccessToken(admin.AccessToken)
 	testhelpers.AssertEqual(t, "admin", retrievedUser.Username)
@@ -235,6 +239,7 @@ func TestUpdateUserInvalidAccessToken(t *testing.T) {
 	}
 	updatedUser, err := svc.UpdateUser(updateInput)
 	testhelpers.AssertError(t, err)
+	testhelpers.AssertTrue(t, errors.Is(err, apierrors.ErrInvalidInput), "expected ErrInvalidInput")
 	if updatedUser != nil {
 		t.Error("Expected update to fail due to invalid access token")
 	}
@@ -251,6 +256,7 @@ func TestUpdateUserNotFound(t *testing.T) {
 	}
 	updatedUser, err := svc.UpdateUser(updateInput)
 	testhelpers.AssertError(t, err)
+	testhelpers.AssertTrue(t, errors.Is(err, apierrors.ErrNotFound), "expected ErrNotFound")
 	if updatedUser != nil {
 		t.Error("Expected update to fail for non-existent user")
 	}
@@ -272,6 +278,7 @@ func TestUpdateUserNoAccessToken(t *testing.T) {
 	}
 	updatedUser, err := svc.UpdateUser(updateInput)
 	testhelpers.AssertError(t, err)
+	testhelpers.AssertTrue(t, errors.Is(err, apierrors.ErrInvalidInput), "expected ErrInvalidInput")
 	if updatedUser != nil {
 		t.Error("Expected update to fail for non-existent user")
 	}

@@ -2,12 +2,58 @@ package mcp
 
 import (
 	"encoding/json"
+	"errors"
 	"reflect"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
+
+func setupTestDBWithTools(t *testing.T) *gorm.DB {
+	t.Helper()
+
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("failed to open in-memory db: %v", err)
+	}
+
+	if err := db.AutoMigrate(&model.McpServer{}, &model.Tool{}, &model.Prompt{}); err != nil {
+		t.Fatalf("failed to migrate schema: %v", err)
+	}
+
+	return db
+}
+
+func TestGetTool_InvalidName(t *testing.T) {
+	db := setupTestDBWithTools(t)
+	service := &MCPService{db: db}
+
+	_, err := service.GetTool("invalid-name")
+	if err == nil {
+		t.Fatalf("GetTool() error = nil, want non-nil")
+	}
+	if !errors.Is(err, apierrors.ErrInvalidInput) {
+		t.Fatalf("GetTool() error = %v, want ErrInvalidInput", err)
+	}
+}
+
+func TestGetToolParentServer_InvalidName(t *testing.T) {
+	db := setupTestDBWithTools(t)
+	service := &MCPService{db: db}
+
+	_, err := service.GetToolParentServer("invalid-name")
+	if err == nil {
+		t.Fatalf("GetToolParentServer() error = nil, want non-nil")
+	}
+	if !errors.Is(err, apierrors.ErrInvalidInput) {
+		t.Fatalf("GetToolParentServer() error = %v, want ErrInvalidInput", err)
+	}
+}
 
 func TestConvertMCPResponse(t *testing.T) {
 	tests := []struct {

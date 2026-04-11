@@ -8,6 +8,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
+	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
@@ -21,7 +22,7 @@ func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request mcp.Ca
 	name := request.Params.Name
 	serverName, toolName, ok := splitServerToolName(name)
 	if !ok {
-		return nil, fmt.Errorf("invalid input: tool name does not contain a %s separator", serverToolNameSep)
+		return nil, fmt.Errorf("invalid input: tool name does not contain a %s separator: %w", serverToolNameSep, apierrors.ErrInvalidInput)
 	}
 
 	serverMode := ctx.Value("mode").(model.ServerMode)
@@ -83,7 +84,7 @@ func (m *MCPService) mcpProxyPromptHandler(ctx context.Context, request mcp.GetP
 	name := request.Params.Name
 	serverName, promptName, ok := splitServerPromptName(name)
 	if !ok {
-		return nil, fmt.Errorf("invalid input: prompt name does not contain a %s separator", serverPromptNameSep)
+		return nil, fmt.Errorf("invalid input: prompt name does not contain a %s separator: %w", serverPromptNameSep, apierrors.ErrInvalidInput)
 	}
 
 	serverMode := ctx.Value("mode").(model.ServerMode)

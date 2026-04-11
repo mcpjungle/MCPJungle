@@ -68,7 +68,7 @@ func (u *UserService) CreateUser(input *model.User) (*model.User, error) {
 	} else {
 		// validate the user-provided custom access token
 		if err := internal.ValidateAccessToken(input.AccessToken); err != nil {
-			return nil, fmt.Errorf("invalid access token: %w", err)
+			return nil, fmt.Errorf("invalid access token: %v: %w", err, apierrors.ErrInvalidInput)
 		}
 		user.AccessToken = input.AccessToken
 	}
@@ -91,11 +91,11 @@ func (u *UserService) UpdateUser(input *model.User) (*model.User, error) {
 	}
 
 	if input.AccessToken == "" {
-		return nil, fmt.Errorf("access token cannot be empty")
+		return nil, fmt.Errorf("access token cannot be empty: %w", apierrors.ErrInvalidInput)
 	}
 	// validate the user-provided custom access token
 	if err := internal.ValidateAccessToken(input.AccessToken); err != nil {
-		return nil, fmt.Errorf("invalid access token: %w", err)
+		return nil, fmt.Errorf("invalid access token: %v: %w", err, apierrors.ErrInvalidInput)
 	}
 	user.AccessToken = input.AccessToken
 
@@ -128,7 +128,7 @@ func (u *UserService) DeleteUser(username string) error {
 	}
 
 	if user.Role == types.UserRoleAdmin {
-		return fmt.Errorf("cannot delete an admin user")
+		return fmt.Errorf("cannot delete an admin user: %w", apierrors.ErrInvalidInput)
 	}
 
 	err = u.db.Unscoped().Where("username = ?", username).Delete(&model.User{}).Error
