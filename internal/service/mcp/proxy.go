@@ -22,7 +22,7 @@ func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request mcp.Ca
 	name := request.Params.Name
 	serverName, toolName, ok := splitServerToolName(name)
 	if !ok {
-		return nil, fmt.Errorf("invalid input: tool name does not contain a %s separator: %w", serverToolNameSep, apierrors.ErrInvalidInput)
+		return nil, fmt.Errorf("tool name does not contain a %s separator: %w", serverToolNameSep, apierrors.ErrInvalidInput)
 	}
 
 	serverMode := ctx.Value("mode").(model.ServerMode)
@@ -84,7 +84,7 @@ func (m *MCPService) mcpProxyPromptHandler(ctx context.Context, request mcp.GetP
 	name := request.Params.Name
 	serverName, promptName, ok := splitServerPromptName(name)
 	if !ok {
-		return nil, fmt.Errorf("invalid input: prompt name does not contain a %s separator: %w", serverPromptNameSep, apierrors.ErrInvalidInput)
+		return nil, fmt.Errorf("prompt name does not contain a %s separator: %w", serverPromptNameSep, apierrors.ErrInvalidInput)
 	}
 
 	serverMode := ctx.Value("mode").(model.ServerMode)

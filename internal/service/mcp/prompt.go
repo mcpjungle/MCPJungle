@@ -60,7 +60,7 @@ func (m *MCPService) ListPromptsByServer(name string) ([]model.Prompt, error) {
 func (m *MCPService) GetPrompt(name string) (*model.Prompt, error) {
 	serverName, promptName, ok := splitServerPromptName(name)
 	if !ok {
-		return nil, fmt.Errorf("invalid input: prompt name does not contain a %s separator: %w", serverPromptNameSep, apierrors.ErrInvalidInput)
+		return nil, fmt.Errorf("prompt name does not contain a %s separator: %w", serverPromptNameSep, apierrors.ErrInvalidInput)
 	}
 
 	s, err := m.GetMcpServer(serverName)
@@ -84,7 +84,7 @@ func (m *MCPService) GetPrompt(name string) (*model.Prompt, error) {
 func (m *MCPService) GetPromptWithArgs(ctx context.Context, name string, args map[string]any) (*types.PromptResult, error) {
 	serverName, promptName, ok := splitServerPromptName(name)
 	if !ok {
-		return nil, fmt.Errorf("invalid input: prompt name does not contain a %s separator: %w", serverPromptNameSep, apierrors.ErrInvalidInput)
+		return nil, fmt.Errorf("prompt name does not contain a %s separator: %w", serverPromptNameSep, apierrors.ErrInvalidInput)
 	}
 
 	serverModel, err := m.GetMcpServer(serverName)

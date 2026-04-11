@@ -74,7 +74,7 @@ func (m *MCPService) ListToolsByServer(name string) ([]model.Tool, error) {
 func (m *MCPService) GetTool(name string) (*model.Tool, error) {
 	serverName, toolName, ok := splitServerToolName(name)
 	if !ok {
-		return nil, fmt.Errorf("invalid input: tool name does not contain a %s separator: %w", serverToolNameSep, apierrors.ErrInvalidInput)
+		return nil, fmt.Errorf("tool name does not contain a %s separator: %w", serverToolNameSep, apierrors.ErrInvalidInput)
 	}
 
 	s, err := m.GetMcpServer(serverName)
@@ -108,7 +108,7 @@ func (m *MCPService) GetToolInstance(name string) (mcp.Tool, bool) {
 func (m *MCPService) GetToolParentServer(name string) (*model.McpServer, error) {
 	serverName, _, ok := splitServerToolName(name)
 	if !ok {
-		return nil, fmt.Errorf("invalid input: tool name does not contain a %s separator: %w", serverToolNameSep, apierrors.ErrInvalidInput)
+		return nil, fmt.Errorf("tool name does not contain a %s separator: %w", serverToolNameSep, apierrors.ErrInvalidInput)
 	}
 	return m.GetMcpServer(serverName)
 }
