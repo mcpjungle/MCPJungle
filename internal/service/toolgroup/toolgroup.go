@@ -298,6 +298,7 @@ func (s *ToolGroupService) newMCPServer(groupName string) *server.MCPServer {
 	return server.NewMCPServer(
 		fmt.Sprintf("MCPJungle proxy MCP server for tool group: %s", groupName),
 		"0.1.0",
+		server.WithResourceCapabilities(false, false),
 		server.WithToolCapabilities(true),
 		server.WithPromptCapabilities(true),
 		server.WithToolFilter(mcp.ProxyToolFilter),
@@ -309,6 +310,7 @@ func (s *ToolGroupService) newSseMCPServer(groupName string) *server.MCPServer {
 	return server.NewMCPServer(
 		fmt.Sprintf("MCPJungle proxy MCP server for SSE transport for tool group: %s", groupName),
 		"0.1.0",
+		server.WithResourceCapabilities(false, false),
 		server.WithToolCapabilities(true),
 		server.WithPromptCapabilities(true),
 		server.WithToolFilter(mcp.ProxyToolFilter),
