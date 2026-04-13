@@ -10,7 +10,7 @@ import (
 
 var updateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "Update resources",
+	Short: "Update entities",
 	Annotations: map[string]string{
 		"group": string(subCommandGroupAdvanced),
 		"order": "8",
