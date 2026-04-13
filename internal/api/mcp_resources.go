@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -23,7 +24,7 @@ func (s *Server) listResourcesHandler() gin.HandlerFunc {
 			resources, err = s.mcpService.ListResourcesByServer(server)
 		}
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleServiceError(c, err)
 			return
 		}
 		c.JSON(http.StatusOK, resources)
@@ -41,7 +42,7 @@ func (s *Server) getResourceHandler() gin.HandlerFunc {
 
 		resource, err := s.mcpService.GetResource(uri, c.Query("server"))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get resource: " + err.Error()})
+			handleServiceError(c, fmt.Errorf("failed to get resource: %w", err))
 			return
 		}
 
@@ -65,7 +66,7 @@ func (s *Server) readResourceHandler() gin.HandlerFunc {
 
 		resp, err := s.mcpService.ReadResource(c, request.URI, request.Server)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read resource: " + err.Error()})
+			handleServiceError(c, fmt.Errorf("failed to read resource: %w", err))
 			return
 		}
 
