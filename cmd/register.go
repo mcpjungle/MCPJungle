@@ -148,25 +148,33 @@ func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
 	}
 
 	tools, err := apiClient.ListTools(s.Name)
+	toolsFetched := err == nil
 	if err != nil {
-		// if we fail to fetch tool list, fail silently because this is not a must-have output
-		return nil
-	}
-
-	cmd.Println()
-	if len(tools) == 0 {
-		cmd.Println("This server does not provide any tools.")
-		return nil
-	}
-	cmd.Println("The following tools are now available from this server:")
-	for i, tool := range tools {
-		cmd.Printf("%d. %s: %s\n\n", i+1, tool.Name, tool.Description)
+		tools = nil
 	}
 
 	prompts, err := apiClient.ListPrompts(s.Name)
+	promptsFetched := err == nil
 	if err != nil {
-		return nil
+		prompts = nil
 	}
+
+	resources, err := apiClient.ListResources(s.Name)
+	resourcesFetched := err == nil
+	if err != nil {
+		resources = nil
+	}
+
+	printedSection := false
+	if len(tools) > 0 {
+		cmd.Println()
+		cmd.Println("The following tools are now available from this server:")
+		for i, tool := range tools {
+			cmd.Printf("%d. %s: %s\n\n", i+1, tool.Name, tool.Description)
+		}
+		printedSection = true
+	}
+
 	if len(prompts) > 0 {
 		cmd.Println()
 		cmd.Println("The following prompts are now available from this server:")
@@ -177,6 +185,29 @@ func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
 			}
 			cmd.Println()
 		}
+		printedSection = true
+	}
+
+	if len(resources) > 0 {
+		cmd.Println()
+		cmd.Println("The following resources are now available from this server:")
+		for i, resource := range resources {
+			cmd.Printf("%d. %s\n", i+1, resource.Name)
+			cmd.Printf("   URI: %s\n", resource.URI)
+			if resource.MIMEType != "" {
+				cmd.Printf("   MIME Type: %s\n", resource.MIMEType)
+			}
+			if resource.Description != "" {
+				cmd.Printf("   %s\n", resource.Description)
+			}
+			cmd.Println()
+		}
+		printedSection = true
+	}
+
+	if !printedSection && toolsFetched && promptsFetched && resourcesFetched {
+		cmd.Println()
+		cmd.Println("This server does not provide any tools, prompts or resources.")
 	}
 
 	return nil
