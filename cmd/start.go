@@ -22,6 +22,7 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/migrations"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
+	"github.com/mcpjungle/mcpjungle/internal/service/configsync"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
@@ -434,6 +435,29 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create Tool Group service: %v", err)
 	}
 
+	var configSyncManager *configsync.Manager
+	var configSyncCancel context.CancelFunc
+	if model.IsEnterpriseMode(desiredServerMode) {
+		configDir, err := configsync.DefaultConfigDir()
+		if err != nil {
+			return fmt.Errorf("failed to resolve config directory: %v", err)
+		}
+		configSyncManager = configsync.NewManager(
+			dbConn,
+			mcpService,
+			mcpClientService,
+			toolGroupService,
+			userService,
+			configDir,
+		)
+		configSyncCtx, cancel := context.WithCancel(context.Background())
+		configSyncCancel = cancel
+		if err := configSyncManager.Start(configSyncCtx); err != nil {
+			return fmt.Errorf("failed to start config sync: %v", err)
+		}
+		log.Printf("[server] config sync enabled for %s", configDir)
+	}
+
 	// create the API server
 	opts := &api.ServerOptions{
 		MCPProxyServer:    mcpProxyServer,
@@ -522,6 +546,13 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 	// Block until we receive a shutdown signal
 	sig := <-quit
 	log.Printf("[server] Received signal %v, initiating graceful shutdown...\n", sig)
+
+	if configSyncCancel != nil {
+		configSyncCancel()
+	}
+	if configSyncManager != nil {
+		configSyncManager.Close()
+	}
 
 	// Gracefully shutdown the MCP service (closes all stateful sessions)
 	mcpService.Shutdown()

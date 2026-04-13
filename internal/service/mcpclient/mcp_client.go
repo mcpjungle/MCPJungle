@@ -29,6 +29,18 @@ func (m *McpClientService) ListClients() ([]*model.McpClient, error) {
 	return clients, nil
 }
 
+// GetClientByName retrieves an MCP client by name from the database.
+func (m *McpClientService) GetClientByName(name string) (*model.McpClient, error) {
+	var client model.McpClient
+	if err := m.db.Where("name = ?", name).First(&client).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("client not found")
+		}
+		return nil, err
+	}
+	return &client, nil
+}
+
 // CreateClient creates a new MCP client in the database.
 // It also generates a new access token for the client.
 func (m *McpClientService) CreateClient(client model.McpClient) (*model.McpClient, error) {
@@ -100,4 +112,44 @@ func (m *McpClientService) UpdateClient(updatedClient model.McpClient) (*model.M
 		return nil, err
 	}
 	return &client, nil
+}
+
+// UpsertClientFromConfig creates or updates an MCP client using config-as-code input.
+func (m *McpClientService) UpsertClientFromConfig(client model.McpClient) (*model.McpClient, error) {
+	if client.Name == "" {
+		return nil, errors.New("client name cannot be empty")
+	}
+	if client.AccessToken == "" {
+		return nil, errors.New("access token cannot be empty")
+	}
+	if err := internal.ValidateAccessToken(client.AccessToken); err != nil {
+		return nil, fmt.Errorf("invalid access token: %w", err)
+	}
+	if client.AllowList == nil {
+		client.AllowList = []byte("[]")
+	}
+
+	var existing model.McpClient
+	if err := m.db.Where("name = ?", client.Name).First(&existing).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			if err := m.db.Create(&client).Error; err != nil {
+				return nil, err
+			}
+			return &client, nil
+		}
+		return nil, err
+	}
+
+	updates := map[string]any{
+		"description":  client.Description,
+		"allow_list":   client.AllowList,
+		"access_token": client.AccessToken,
+	}
+	if err := m.db.Model(&existing).Updates(updates).Error; err != nil {
+		return nil, err
+	}
+	existing.Description = client.Description
+	existing.AllowList = client.AllowList
+	existing.AccessToken = client.AccessToken
+	return &existing, nil
 }

@@ -137,3 +137,38 @@ func (u *UserService) DeleteUser(username string) error {
 	}
 	return nil
 }
+
+// UpsertUserFromConfig creates or updates a user using config-as-code input.
+func (u *UserService) UpsertUserFromConfig(input *model.User) (*model.User, error) {
+	if input.Username == "" {
+		return nil, fmt.Errorf("username cannot be empty")
+	}
+	if input.AccessToken == "" {
+		return nil, fmt.Errorf("access token cannot be empty")
+	}
+	if err := internal.ValidateAccessToken(input.AccessToken); err != nil {
+		return nil, fmt.Errorf("invalid access token: %w", err)
+	}
+
+	var existing model.User
+	if err := u.db.Where("username = ?", input.Username).First(&existing).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			userModel := model.User{
+				Username:    input.Username,
+				Role:        types.UserRoleUser,
+				AccessToken: input.AccessToken,
+			}
+			if err := u.db.Create(&userModel).Error; err != nil {
+				return nil, fmt.Errorf("failed to create user: %w", err)
+			}
+			return &userModel, nil
+		}
+		return nil, fmt.Errorf("failed to find user: %w", err)
+	}
+
+	existing.AccessToken = input.AccessToken
+	if err := u.db.Save(&existing).Error; err != nil {
+		return nil, fmt.Errorf("failed to update user: %w", err)
+	}
+	return &existing, nil
+}
