@@ -368,15 +368,7 @@ func runListResources(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 	for i, r := range resources {
-		ed := "ENABLED"
-		if !r.Enabled {
-			ed = "DISABLED"
-		}
-		cmd.Printf("%d. %s  [%s]\n", i+1, r.Name, ed)
-		cmd.Printf("URI: %s\n", r.URI)
-		if r.MIMEType != "" {
-			cmd.Printf("MIME Type: %s\n", r.MIMEType)
-		}
+		cmd.Printf("%d. %s\n", i+1, r.Name)
 		if r.Description != "" {
 			cmd.Println(r.Description)
 		}
