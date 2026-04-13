@@ -22,8 +22,10 @@ var (
 	listToolsCmdGroupName  string
 )
 
-var listPromptsCmdServerName string
-var listResourcesCmdServerName string
+var (
+	listPromptsCmdServerName   string
+	listResourcesCmdServerName string
+)
 
 var listToolsCmd = &cobra.Command{
 	Use:   "tools",

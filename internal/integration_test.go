@@ -151,14 +151,14 @@ func TestResourcesIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	testResource := &model.Resource{
-		ServerID:     testServer.ID,
-		URI:          "github://repo/status",
-		Name:         "repo-status",
-		Description:  "Current repository status",
-		MIMEType:     "application/json",
-		Annotations:  []byte(`{"audience":["assistant"],"priority":0.8}`),
-		Meta:         []byte(`{"test":"value"}`),
-		Enabled:      true,
+		ServerID:    testServer.ID,
+		URI:         "github://repo/status",
+		Name:        "repo-status",
+		Description: "Current repository status",
+		MIMEType:    "application/json",
+		Annotations: []byte(`{"audience":["assistant"],"priority":0.8}`),
+		Meta:        []byte(`{"test":"value"}`),
+		Enabled:     true,
 	}
 	err = db.Create(testResource).Error
 	require.NoError(t, err)

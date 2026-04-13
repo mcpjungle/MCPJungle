@@ -21,8 +21,10 @@ var getCmd = &cobra.Command{
 	},
 }
 
-var getPromptArgs map[string]string
-var getResourceCmdRead bool
+var (
+	getPromptArgs      map[string]string
+	getResourceCmdRead bool
+)
 
 var getGroupCmd = &cobra.Command{
 	Use:   "group [name]",
