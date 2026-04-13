@@ -193,14 +193,6 @@ func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
 		cmd.Println("The following resources are now available from this server:")
 		for i, resource := range resources {
 			cmd.Printf("%d. %s\n", i+1, resource.Name)
-			cmd.Printf("   URI: %s\n", resource.URI)
-			if resource.MIMEType != "" {
-				cmd.Printf("   MIME Type: %s\n", resource.MIMEType)
-			}
-			if resource.Description != "" {
-				cmd.Printf("   %s\n", resource.Description)
-			}
-			cmd.Println()
 		}
 		printedSection = true
 	}

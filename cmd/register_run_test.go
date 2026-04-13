@@ -86,6 +86,12 @@ func TestRunRegisterMCPServer_PrintsPromptsAndResourcesWithoutTools(t *testing.T
 	if !strings.Contains(output, "The following resources are now available from this server:") {
 		t.Fatalf("expected resources section, got: %s", output)
 	}
+	if !strings.Contains(output, "1. server__file") {
+		t.Fatalf("expected resource name in output, got: %s", output)
+	}
+	if strings.Contains(output, "URI: file:///tmp/test.txt") {
+		t.Fatalf("did not expect resource metadata in register output, got: %s", output)
+	}
 	if strings.Contains(output, "This server does not provide any tools.") {
 		t.Fatalf("did not expect early no-tools message, got: %s", output)
 	}
