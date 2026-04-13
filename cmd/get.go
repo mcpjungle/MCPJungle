@@ -22,7 +22,6 @@ var getCmd = &cobra.Command{
 }
 
 var getPromptArgs map[string]string
-var getResourceCmdServerName string
 var getResourceCmdRead bool
 
 var getGroupCmd = &cobra.Command{
@@ -63,12 +62,6 @@ func init() {
 		"arg",
 		nil,
 		"Arguments to pass to the prompt in the form of 'key=value' (this flag can be specified multiple times)",
-	)
-	getResourceCmd.Flags().StringVar(
-		&getResourceCmdServerName,
-		"server",
-		"",
-		"Get the resource from a specific MCP server",
 	)
 	getResourceCmd.Flags().BoolVar(
 		&getResourceCmdRead,
@@ -184,7 +177,7 @@ func runGetPrompt(cmd *cobra.Command, args []string) error {
 }
 
 func runGetResource(cmd *cobra.Command, args []string) error {
-	resource, err := resolveCLIResourceByName(args[0], getResourceCmdServerName)
+	resource, err := resolveCLIResourceByName(args[0])
 	if err != nil {
 		return err
 	}
@@ -210,8 +203,8 @@ func runGetResource(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func resolveCLIResourceByName(name string, serverName string) (*types.Resource, error) {
-	resources, err := apiClient.ListResources(serverName)
+func resolveCLIResourceByName(name string) (*types.Resource, error) {
+	resources, err := apiClient.ListResources("")
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve resource %s: %w", name, err)
 	}
@@ -234,7 +227,7 @@ func resolveCLIResourceByName(name string, serverName string) (*types.Resource, 
 }
 
 func runGetResourceRead(cmd *cobra.Command, resource *types.Resource) error {
-	result, err := apiClient.ReadResource(resource.URI, getResourceCmdServerName)
+	result, err := apiClient.ReadResource(resource.URI, "")
 	if err != nil {
 		return fmt.Errorf("failed to read resource: %w", err)
 	}

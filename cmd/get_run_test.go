@@ -34,16 +34,13 @@ func TestRunGetResource_Metadata(t *testing.T) {
 	defer server.Close()
 
 	origClient := apiClient
-	origServer := getResourceCmdServerName
 	origRead := getResourceCmdRead
 	defer func() {
 		apiClient = origClient
-		getResourceCmdServerName = origServer
 		getResourceCmdRead = origRead
 	}()
 
 	apiClient = client.NewClient(server.URL, "", http.DefaultClient)
-	getResourceCmdServerName = ""
 	getResourceCmdRead = false
 
 	cmd := &cobra.Command{}
@@ -103,16 +100,13 @@ func TestRunGetResource_Read(t *testing.T) {
 	defer server.Close()
 
 	origClient := apiClient
-	origServer := getResourceCmdServerName
 	origRead := getResourceCmdRead
 	defer func() {
 		apiClient = origClient
-		getResourceCmdServerName = origServer
 		getResourceCmdRead = origRead
 	}()
 
 	apiClient = client.NewClient(server.URL, "", http.DefaultClient)
-	getResourceCmdServerName = ""
 	getResourceCmdRead = true
 
 	cmd := &cobra.Command{}
