@@ -163,8 +163,6 @@ func (m *MCPService) mcpProxyPromptHandler(ctx context.Context, request mcp.GetP
 // It loads all the registered MCP tools, prompts and resources from the database into the proxy server.
 func (m *MCPService) initMCPProxyServer() error {
 	mcpServerModelsCache := make(map[string]*model.McpServer)
-	mcpServerModelsByIDCache := make(map[uint]*model.McpServer)
-
 	// Load Tools
 	tools, err := m.ListTools()
 	if err != nil {
@@ -267,18 +265,7 @@ func (m *MCPService) initMCPProxyServer() error {
 		}
 		resource.Name = rm.Name
 
-		server, exists := mcpServerModelsByIDCache[rm.ServerID]
-		if !exists {
-			server, err = m.GetServerByID(rm.ServerID)
-			if err != nil {
-				return fmt.Errorf(
-					"init mcp proxy server: failed to get MCP server for resource %s from DB: %w", rm.URI, err,
-				)
-			}
-			mcpServerModelsByIDCache[rm.ServerID] = server
-		}
-
-		if server.Transport == types.TransportSSE {
+		if rm.Server.Transport == types.TransportSSE {
 			m.sseMcpProxyServer.AddResource(resource, m.mcpProxyResourceHandler)
 		} else {
 			m.mcpProxyServer.AddResource(resource, m.mcpProxyResourceHandler)

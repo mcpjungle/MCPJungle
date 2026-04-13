@@ -17,23 +17,12 @@ import (
 // It sets each resource's name to its canonical display form by prepending its server name.
 func (m *MCPService) ListResources() ([]model.Resource, error) {
 	var resources []model.Resource
-	if err := m.db.Find(&resources).Error; err != nil {
+	if err := m.db.Preload("Server").Find(&resources).Error; err != nil {
 		return nil, err
 	}
 
-	serverCache := make(map[uint]string)
 	for i := range resources {
-		serverName, ok := serverCache[resources[i].ServerID]
-		if !ok {
-			var s model.McpServer
-			if err := m.db.First(&s, "id = ?", resources[i].ServerID).Error; err != nil {
-				return nil, fmt.Errorf("failed to get server for resource %s: %w", resources[i].URI, err)
-			}
-			serverName = s.Name
-			serverCache[resources[i].ServerID] = serverName
-		}
-
-		resources[i].Name = mergeServerResourceNames(serverName, resources[i].Name)
+		resources[i].Name = mergeServerResourceNames(resources[i].Server.Name, resources[i].Name)
 	}
 
 	return resources, nil
@@ -65,7 +54,7 @@ func (m *MCPService) ListResourcesByServer(name string) ([]model.Resource, error
 // GetResourcesByURI fetches enabled resources matching a URI.
 func (m *MCPService) GetResourcesByURI(uri string) ([]model.Resource, error) {
 	var resources []model.Resource
-	if err := m.db.Where("uri = ? AND enabled = ?", uri, true).Find(&resources).Error; err != nil {
+	if err := m.db.Preload("Server").Where("uri = ? AND enabled = ?", uri, true).Find(&resources).Error; err != nil {
 		return nil, fmt.Errorf("failed to get resources for URI %s from DB: %w", uri, err)
 	}
 	return resources, nil
@@ -86,11 +75,11 @@ func (m *MCPService) GetResource(uri string, serverName string) (*model.Resource
 		if err != nil {
 			return nil, fmt.Errorf("failed to get MCP server %s from DB: %w", serverName, err)
 		}
-		if err := m.db.Where("server_id = ? AND uri = ?", s.ID, uri).Find(&resources).Error; err != nil {
+		if err := m.db.Preload("Server").Where("server_id = ? AND uri = ?", s.ID, uri).Find(&resources).Error; err != nil {
 			return nil, fmt.Errorf("failed to get resource %s from DB: %w", uri, err)
 		}
 	} else {
-		if err := m.db.Where("uri = ?", uri).Find(&resources).Error; err != nil {
+		if err := m.db.Preload("Server").Where("uri = ?", uri).Find(&resources).Error; err != nil {
 			return nil, fmt.Errorf("failed to get resource %s from DB: %w", uri, err)
 		}
 	}
@@ -103,11 +92,7 @@ func (m *MCPService) GetResource(uri string, serverName string) (*model.Resource
 	}
 
 	resource := resources[0]
-	server, err := m.GetServerByID(resource.ServerID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get server for resource %s: %w", uri, err)
-	}
-	resource.Name = mergeServerResourceNames(server.Name, resource.Name)
+	resource.Name = mergeServerResourceNames(resource.Server.Name, resource.Name)
 	return &resource, nil
 }
 
@@ -137,14 +122,10 @@ func (m *MCPService) resolveResourceMatch(ctx context.Context, uri string, serve
 	}
 
 	matches := make([]resourceMatch, 0, len(resources))
-	for _, resource := range resources {
-		serverModel, err := m.GetServerByID(resource.ServerID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get MCP server for resource %s from DB: %w", uri, err)
-		}
+	for i := range resources {
 		matches = append(matches, resourceMatch{
-			resource: resource,
-			server:   serverModel,
+			resource: resources[i],
+			server:   &resources[i].Server,
 		})
 	}
 
@@ -236,7 +217,7 @@ func (m *MCPService) setResourcesEnabled(entity string, enabled bool) ([]string,
 	}
 
 	var resources []model.Resource
-	if err := m.db.Where("uri = ?", entity).Find(&resources).Error; err != nil {
+	if err := m.db.Preload("Server").Where("uri = ?", entity).Find(&resources).Error; err != nil {
 		return nil, fmt.Errorf("failed to get resources for URI %s: %w", entity, err)
 	}
 	if len(resources) == 0 {
@@ -255,25 +236,20 @@ func (m *MCPService) setResourcesEnabled(entity string, enabled bool) ([]string,
 		return nil, fmt.Errorf("failed to set resource %s enabled=%t: %w", resource.URI, enabled, err)
 	}
 
-	s, err := m.GetServerByID(resource.ServerID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get MCP server for resource %s: %w", resource.URI, err)
-	}
-
 	if enabled {
 		mcpResource, err := convertResourceModelToMcpObject(&resource)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert resource model to MCP object for resource %s: %w", resource.URI, err)
 		}
-		mcpResource.Name = mergeServerResourceNames(s.Name, mcpResource.Name)
+		mcpResource.Name = mergeServerResourceNames(resource.Server.Name, mcpResource.Name)
 
-		if s.Transport == types.TransportSSE {
+		if resource.Server.Transport == types.TransportSSE {
 			m.sseMcpProxyServer.AddResource(mcpResource, m.mcpProxyResourceHandler)
 		} else {
 			m.mcpProxyServer.AddResource(mcpResource, m.mcpProxyResourceHandler)
 		}
 	} else {
-		if s.Transport == types.TransportSSE {
+		if resource.Server.Transport == types.TransportSSE {
 			m.sseMcpProxyServer.DeleteResources(resource.URI)
 		} else {
 			m.mcpProxyServer.DeleteResources(resource.URI)
