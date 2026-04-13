@@ -47,8 +47,8 @@ var getResourceCmd = &cobra.Command{
 	Use:   "resource [uri]",
 	Args:  cobra.ExactArgs(1),
 	Short: "Get resource metadata",
-	Long: "Retrieve resource metadata from MCPJungle by URI.\n" +
-		"If multiple servers expose the same URI, use --server to disambiguate.",
+	Long: "Get resource metadata by URI.\n" +
+		"Use the --server option to specify the MCP server to get the resource from.",
 	RunE: runGetResource,
 }
 
