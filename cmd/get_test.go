@@ -59,4 +59,8 @@ func TestGetResourceSubcommand(t *testing.T) {
 	serverFlag := getResourceCmd.Flags().Lookup("server")
 	testhelpers.AssertNotNil(t, serverFlag)
 	testhelpers.AssertTrue(t, len(serverFlag.Usage) > 0, "Server flag should have usage description")
+
+	readFlag := getResourceCmd.Flags().Lookup("read")
+	testhelpers.AssertNotNil(t, readFlag)
+	testhelpers.AssertTrue(t, len(readFlag.Usage) > 0, "Read flag should have usage description")
 }
