@@ -25,8 +25,8 @@ var readResourceCmd = &cobra.Command{
 	Use:   "resource [uri]",
 	Args:  cobra.ExactArgs(1),
 	Short: "Read live resource content",
-	Long: "Read live content from a resource through MCPJungle.\n" +
-		"If multiple servers expose the same URI, use --server to disambiguate.",
+	Long: "Read live content from a resource.\n" +
+		"Use the --server option to specify the MCP server to read the resource from.",
 	RunE: runReadResource,
 }
 
