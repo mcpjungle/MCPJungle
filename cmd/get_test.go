@@ -50,7 +50,7 @@ func TestGetGroupSubcommand(t *testing.T) {
 }
 
 func TestGetResourceSubcommand(t *testing.T) {
-	testhelpers.AssertEqual(t, "resource [uri]", getResourceCmd.Use)
+	testhelpers.AssertEqual(t, "resource [name]", getResourceCmd.Use)
 	testhelpers.AssertEqual(t, "Get resource metadata", getResourceCmd.Short)
 	testhelpers.AssertNotNil(t, getResourceCmd.Long)
 	testhelpers.AssertNotNil(t, getResourceCmd.RunE)

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/spf13/cobra"
 )
 
@@ -48,12 +49,11 @@ var getPromptCmd = &cobra.Command{
 }
 
 var getResourceCmd = &cobra.Command{
-	Use:   "resource [uri]",
+	Use:   "resource [name]",
 	Args:  cobra.ExactArgs(1),
 	Short: "Get resource metadata",
-	Long: "Get resource metadata by URI.\n" +
-		"Use the --server option to specify the MCP server to get the resource from.\n" +
-		"Use --read to read the resource content instead of showing metadata.",
+	Long: "Get resource metadata by name.\n" +
+		"Use --read to read the resource content instead.",
 	RunE: runGetResource,
 }
 
@@ -184,13 +184,13 @@ func runGetPrompt(cmd *cobra.Command, args []string) error {
 }
 
 func runGetResource(cmd *cobra.Command, args []string) error {
-	if getResourceCmdRead {
-		return runGetResourceRead(cmd, args[0])
+	resource, err := resolveCLIResourceByName(args[0], getResourceCmdServerName)
+	if err != nil {
+		return err
 	}
 
-	resource, err := apiClient.GetResource(args[0], getResourceCmdServerName)
-	if err != nil {
-		return fmt.Errorf("failed to get resource: %w", err)
+	if getResourceCmdRead {
+		return runGetResourceRead(cmd, resource)
 	}
 
 	cmd.Printf("Resource: %s\n", resource.Name)
@@ -210,13 +210,37 @@ func runGetResource(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runGetResourceRead(cmd *cobra.Command, uri string) error {
-	result, err := apiClient.ReadResource(uri, getResourceCmdServerName)
+func resolveCLIResourceByName(name string, serverName string) (*types.Resource, error) {
+	resources, err := apiClient.ListResources(serverName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve resource %s: %w", name, err)
+	}
+
+	var matches []*types.Resource
+	for _, resource := range resources {
+		if resource.Name == name {
+			matches = append(matches, resource)
+		}
+	}
+
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("resource %s not found", name)
+	}
+	if len(matches) > 1 {
+		return nil, fmt.Errorf("resource name %s is ambiguous across multiple servers", name)
+	}
+
+	return matches[0], nil
+}
+
+func runGetResourceRead(cmd *cobra.Command, resource *types.Resource) error {
+	result, err := apiClient.ReadResource(resource.URI, getResourceCmdServerName)
 	if err != nil {
 		return fmt.Errorf("failed to read resource: %w", err)
 	}
 
-	cmd.Printf("Resource URI: %s\n\n", uri)
+	cmd.Printf("Resource: %s\n", resource.Name)
+	cmd.Printf("URI: %s\n\n", resource.URI)
 	for i, content := range result.Contents {
 		cmd.Printf("Content %d:\n", i+1)
 

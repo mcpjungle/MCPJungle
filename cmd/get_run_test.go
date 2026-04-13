@@ -16,13 +16,15 @@ import (
 func TestRunGetResource_Metadata(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/api/v0/resource":
-			_ = json.NewEncoder(w).Encode(types.Resource{
-				Name:        "server__file",
-				URI:         "file:///tmp/test.txt",
-				MIMEType:    "text/plain",
-				Description: "Sample file",
-				Enabled:     true,
+		case "/api/v0/resources":
+			_ = json.NewEncoder(w).Encode([]*types.Resource{
+				{
+					Name:        "server__file",
+					URI:         "file:///tmp/test.txt",
+					MIMEType:    "text/plain",
+					Description: "Sample file",
+					Enabled:     true,
+				},
 			})
 		default:
 			w.WriteHeader(http.StatusNotFound)
@@ -49,7 +51,7 @@ func TestRunGetResource_Metadata(t *testing.T) {
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	if err := runGetResource(cmd, []string{"file:///tmp/test.txt"}); err != nil {
+	if err := runGetResource(cmd, []string{"server__file"}); err != nil {
 		t.Fatalf("runGetResource returned error: %v", err)
 	}
 
@@ -65,7 +67,25 @@ func TestRunGetResource_Metadata(t *testing.T) {
 func TestRunGetResource_Read(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case "/api/v0/resources":
+			_ = json.NewEncoder(w).Encode([]*types.Resource{
+				{
+					Name:        "server__file",
+					URI:         "file:///tmp/test.txt",
+					MIMEType:    "application/json",
+					Description: "Sample file",
+					Enabled:     true,
+				},
+			})
 		case "/api/v0/resources/read":
+			var request types.ResourceReadRequest
+			if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+				t.Fatalf("failed to decode request body: %v", err)
+			}
+			if request.URI != "file:///tmp/test.txt" {
+				t.Fatalf("expected resolved URI in read request, got: %s", request.URI)
+			}
+
 			_ = json.NewEncoder(w).Encode(types.ResourceReadResult{
 				Contents: []map[string]any{
 					{
@@ -100,7 +120,7 @@ func TestRunGetResource_Read(t *testing.T) {
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
-	if err := runGetResource(cmd, []string{"file:///tmp/test.txt"}); err != nil {
+	if err := runGetResource(cmd, []string{"server__file"}); err != nil {
 		t.Fatalf("runGetResource returned error: %v", err)
 	}
 
@@ -111,7 +131,10 @@ func TestRunGetResource_Read(t *testing.T) {
 	if !strings.Contains(output, "\"hello\": \"world\"") {
 		t.Fatalf("expected pretty-printed JSON output, got: %s", output)
 	}
-	if strings.Contains(output, "Resource: server__file") {
-		t.Fatalf("did not expect metadata output in read mode, got: %s", output)
+	if !strings.Contains(output, "Resource: server__file") {
+		t.Fatalf("expected resolved resource name in read mode, got: %s", output)
+	}
+	if !strings.Contains(output, "URI: file:///tmp/test.txt") {
+		t.Fatalf("expected resolved URI in read mode, got: %s", output)
 	}
 }
