@@ -63,7 +63,7 @@ func init() {
 		&getResourceCmdServerName,
 		"server",
 		"",
-		"Scope the resource lookup to a specific server",
+		"Get the resource from a specific MCP server",
 	)
 
 	getCmd.AddCommand(getGroupCmd)
