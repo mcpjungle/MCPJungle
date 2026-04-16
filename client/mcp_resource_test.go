@@ -120,19 +120,19 @@ func TestGetResource(t *testing.T) {
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("Expected GET method, got %s", r.Method)
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST method, got %s", r.Method)
 		}
-		if !strings.HasSuffix(r.URL.Path, "/resource") {
-			t.Errorf("Expected path to end with /resource, got %s", r.URL.Path)
+		if !strings.HasSuffix(r.URL.Path, "/resources/get") {
+			t.Errorf("Expected path to end with /resources/get, got %s", r.URL.Path)
 		}
-		if r.URL.Query().Get("uri") != expected.URI {
-			t.Errorf("Expected uri=%s, got %s", expected.URI, r.URL.Query().Get("uri"))
+		var request types.ResourceGetRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Fatalf("Failed to decode request: %v", err)
 		}
-		if r.URL.Query().Get("server") != "polaro" {
-			t.Errorf("Expected server=polaro, got %s", r.URL.Query().Get("server"))
+		if request.URI != expected.URI {
+			t.Errorf("Expected uri=%s, got %s", expected.URI, request.URI)
 		}
-
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(expected)
@@ -140,7 +140,7 @@ func TestGetResource(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, "token", &http.Client{})
-	resource, err := client.GetResource(expected.URI, "polaro")
+	resource, err := client.GetResource(expected.URI)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -185,7 +185,7 @@ func TestReadResource(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, "token", &http.Client{})
-	result, err := client.ReadResource("mcpj://res/polaro/c3lzdGVtOi8vc3lzdGVtL2luZm8", "")
+	result, err := client.ReadResource("mcpj://res/polaro/c3lzdGVtOi8vc3lzdGVtL2luZm8")
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}

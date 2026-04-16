@@ -231,7 +231,7 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		userAPI.GET("/tool", s.getToolHandler())
 
 		userAPI.GET("/resources", s.listResourcesHandler())
-		userAPI.GET("/resource", s.getResourceHandler())
+		userAPI.POST("/resources/get", s.getResourceHandler())
 		userAPI.POST("/resources/read", s.readResourceHandler())
 
 		// Prompt endpoints

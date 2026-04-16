@@ -2,7 +2,7 @@
 
 # This script tests that the MCP Jungle server returns appropriate error responses for invalid API requests.
 # It starts an isolated server instance, initializes it, and then makes various API calls.
-# It assumes that the mcpjungle binary is already built and available at the specified path.
+# It refreshes the mcpjungle binary when the checked-in Go sources are newer than the binary.
 
 set -euo pipefail
 
@@ -24,6 +24,25 @@ require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "ERROR: Required command '$1' not found in PATH" >&2
     exit 1
+  fi
+}
+
+ensure_fresh_binary() {
+  local needs_build=0
+
+  if [[ ! -x "$BIN_PATH" ]]; then
+    needs_build=1
+  elif find "$ROOT_DIR" -name '*.go' -newer "$BIN_PATH" -print -quit | grep -q .; then
+    needs_build=1
+  fi
+
+  if [[ "$needs_build" -eq 1 ]]; then
+    log "Building fresh MCPJungle binary at ${BIN_PATH}"
+    mkdir -p "$(dirname "$BIN_PATH")"
+    (
+      cd "$ROOT_DIR"
+      go build -o "$BIN_PATH" .
+    )
   fi
 }
 
@@ -139,11 +158,11 @@ log "Checking required commands"
 require_cmd curl
 require_cmd sed
 require_cmd mktemp
+require_cmd find
+require_cmd grep
+require_cmd go
 
-if [[ ! -x "$BIN_PATH" ]]; then
-  echo "ERROR: MCPJungle binary not found or not executable at '$BIN_PATH'" >&2
-  exit 1
-fi
+ensure_fresh_binary
 
 log "Starting isolated MCPJungle server on port ${PORT}"
 (
@@ -224,6 +243,42 @@ assert_status \
   "404" \
   "not found" \
   "$ADMIN_TOKEN"
+
+assert_status \
+  "get resource rejects invalid mcpj uri" \
+  "POST" \
+  "/api/v0/resources/get" \
+  "400" \
+  "not a valid MCPJungle resource URI" \
+  "$ADMIN_TOKEN" \
+  '{"uri":"not-a-mcpj-uri"}'
+
+assert_status \
+  "get resource returns not found for valid mcpj uri" \
+  "POST" \
+  "/api/v0/resources/get" \
+  "404" \
+  "not found" \
+  "$ADMIN_TOKEN" \
+  '{"uri":"mcpj://res/ghost-server/ZmlsZTovL2Zvby50eHQ"}'
+
+assert_status \
+  "read resource rejects invalid mcpj uri" \
+  "POST" \
+  "/api/v0/resources/read" \
+  "400" \
+  "not a valid MCPJungle resource URI" \
+  "$ADMIN_TOKEN" \
+  '{"uri":"not-a-mcpj-uri"}'
+
+assert_status \
+  "read resource returns not found for valid mcpj uri" \
+  "POST" \
+  "/api/v0/resources/read" \
+  "404" \
+  "not found" \
+  "$ADMIN_TOKEN" \
+  '{"uri":"mcpj://res/ghost-server/ZmlsZTovL2Zvby50eHQ"}'
 
 assert_status \
   "create tool group rejects invalid group name" \

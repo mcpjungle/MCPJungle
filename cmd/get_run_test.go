@@ -18,9 +18,13 @@ func TestRunGetResource_Metadata(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/api/v0/resource":
-			if r.URL.Query().Get("uri") != resourceURI {
-				t.Fatalf("expected resource URI query param, got: %s", r.URL.Query().Get("uri"))
+		case "/api/v0/resources/get":
+			var request types.ResourceGetRequest
+			if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+				t.Fatalf("failed to decode request body: %v", err)
+			}
+			if request.URI != resourceURI {
+				t.Fatalf("expected resource URI in request body, got: %s", request.URI)
 			}
 			_ = json.NewEncoder(w).Encode(&types.Resource{
 				Name:        "server__file",
@@ -69,9 +73,13 @@ func TestRunGetResource_Read(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/api/v0/resource":
-			if r.URL.Query().Get("uri") != resourceURI {
-				t.Fatalf("expected resource URI query param, got: %s", r.URL.Query().Get("uri"))
+		case "/api/v0/resources/get":
+			var request types.ResourceGetRequest
+			if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+				t.Fatalf("failed to decode request body: %v", err)
+			}
+			if request.URI != resourceURI {
+				t.Fatalf("expected resource URI in request body, got: %s", request.URI)
 			}
 			_ = json.NewEncoder(w).Encode(&types.Resource{
 				Name:        "server__file",

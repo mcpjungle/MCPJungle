@@ -34,13 +34,18 @@ func (s *Server) listResourcesHandler() gin.HandlerFunc {
 // getResourceHandler returns resource metadata for the given URI.
 func (s *Server) getResourceHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		uri := c.Query("uri")
-		if uri == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "missing 'uri' query parameter"})
+		var request types.ResourceGetRequest
+		if err := json.NewDecoder(c.Request.Body).Decode(&request); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "failed to decode request body: " + err.Error()})
 			return
 		}
 
-		resource, err := s.mcpService.GetResource(uri, c.Query("server"))
+		if request.URI == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "missing 'uri' field in request body"})
+			return
+		}
+
+		resource, err := s.mcpService.GetResource(request.URI)
 		if err != nil {
 			handleServiceError(c, fmt.Errorf("failed to get resource: %w", err))
 			return
@@ -64,7 +69,7 @@ func (s *Server) readResourceHandler() gin.HandlerFunc {
 			return
 		}
 
-		resp, err := s.mcpService.ReadResource(c, request.URI, request.Server)
+		resp, err := s.mcpService.ReadResource(c, request.URI)
 		if err != nil {
 			handleServiceError(c, fmt.Errorf("failed to read resource: %w", err))
 			return

@@ -78,7 +78,7 @@ func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request mcp.Ca
 // by forwarding the request to the appropriate upstream MCP server and
 // relaying the response back.
 func (m *MCPService) mcpProxyResourceHandler(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-	match, err := m.resolveResourceMatch(ctx, request.Params.URI, "")
+	match, err := m.resolveResourceMatch(ctx, request.Params.URI)
 	if err != nil {
 		return nil, err
 	}

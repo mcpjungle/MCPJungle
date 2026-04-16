@@ -4,13 +4,16 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
+	"gorm.io/gorm"
 )
 
 const resourceURIPrefix = "mcpj://res/"
@@ -21,7 +24,9 @@ func buildResourceURI(serverName string, originalURI string) string {
 
 func parseResourceURI(resourceURI string) (string, string, error) {
 	if len(resourceURI) <= len(resourceURIPrefix) || resourceURI[:len(resourceURIPrefix)] != resourceURIPrefix {
-		return "", "", fmt.Errorf("resource URI %s is not a valid MCPJungle resource URI", resourceURI)
+		return "", "", fmt.Errorf(
+			"resource URI %s is not a valid MCPJungle resource URI: %w", resourceURI, apierrors.ErrInvalidInput,
+		)
 	}
 
 	rest := resourceURI[len(resourceURIPrefix):]
@@ -33,7 +38,9 @@ func parseResourceURI(resourceURI string) (string, string, error) {
 		}
 	}
 	if separatorIndex <= 0 || separatorIndex == len(rest)-1 {
-		return "", "", fmt.Errorf("resource URI %s is not a valid MCPJungle resource URI", resourceURI)
+		return "", "", fmt.Errorf(
+			"resource URI %s is not a valid MCPJungle resource URI: %w", resourceURI, apierrors.ErrInvalidInput,
+		)
 	}
 
 	serverName := rest[:separatorIndex]
@@ -44,7 +51,9 @@ func parseResourceURI(resourceURI string) (string, string, error) {
 
 	decodedOriginalURI, err := base64.RawStdEncoding.DecodeString(encodedOriginalURI)
 	if err != nil {
-		return "", "", fmt.Errorf("resource URI %s contains an invalid upstream URI encoding: %w", resourceURI, err)
+		return "", "", fmt.Errorf(
+			"resource URI %s contains an invalid upstream URI encoding: %w", resourceURI, apierrors.ErrInvalidInput,
+		)
 	}
 
 	return serverName, string(decodedOriginalURI), nil
@@ -108,26 +117,22 @@ func (m *MCPService) ListResourcesByServer(name string) ([]model.Resource, error
 	return resources, nil
 }
 
-// GetResource fetches resource metadata by URI, optionally scoped to a specific server.
-func (m *MCPService) GetResource(uri string, serverName string) (*model.Resource, error) {
+// GetResource fetches resource metadata by URI.
+func (m *MCPService) GetResource(uri string) (*model.Resource, error) {
 	if uri == "" {
-		return nil, fmt.Errorf("resource URI must not be empty")
+		return nil, fmt.Errorf("resource URI must not be empty: %w", apierrors.ErrInvalidInput)
 	}
 
-	resourceServerName, _, err := parseResourceURI(uri)
-	if err != nil {
+	if _, _, err := parseResourceURI(uri); err != nil {
 		return nil, err
-	}
-	if serverName != "" && serverName != resourceServerName {
-		return nil, fmt.Errorf("resource URI %s does not belong to server %s", uri, serverName)
 	}
 
 	var resource model.Resource
 	if err := m.db.Preload("Server").Where("uri = ?", uri).First(&resource).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("resource %s not found: %w", uri, apierrors.ErrNotFound)
+		}
 		return nil, fmt.Errorf("failed to get resource %s from DB: %w", uri, err)
-	}
-	if resource.ID == 0 {
-		return nil, fmt.Errorf("resource %s not found", uri)
 	}
 	resource.Name = mergeServerResourceNames(resource.Server.Name, resource.Name)
 	return &resource, nil
@@ -138,8 +143,8 @@ type resourceMatch struct {
 	server   *model.McpServer
 }
 
-func (m *MCPService) resolveResourceMatch(ctx context.Context, uri string, serverName string) (*resourceMatch, error) {
-	resource, err := m.GetResource(uri, serverName)
+func (m *MCPService) resolveResourceMatch(ctx context.Context, uri string) (*resourceMatch, error) {
+	resource, err := m.GetResource(uri)
 	if err != nil {
 		return nil, err
 	}
@@ -161,9 +166,9 @@ func (m *MCPService) resolveResourceMatch(ctx context.Context, uri string, serve
 	return &match, nil
 }
 
-// ReadResource reads live resource content by URI, optionally scoped to a specific server.
-func (m *MCPService) ReadResource(ctx context.Context, uri string, serverName string) (*types.ResourceReadResult, error) {
-	match, err := m.resolveResourceMatch(ctx, uri, serverName)
+// ReadResource reads live resource content by URI.
+func (m *MCPService) ReadResource(ctx context.Context, uri string) (*types.ResourceReadResult, error) {
+	match, err := m.resolveResourceMatch(ctx, uri)
 	if err != nil {
 		return nil, err
 	}
@@ -221,13 +226,16 @@ func (m *MCPService) setResourcesEnabled(entity string, enabled bool) ([]string,
 			return m.setServerResourcesEnabled(s, enabled)
 		}
 	}
+	if _, _, err := parseResourceURI(entity); err != nil {
+		return nil, err
+	}
 
 	var resources []model.Resource
 	if err := m.db.Preload("Server").Where("uri = ?", entity).Find(&resources).Error; err != nil {
 		return nil, fmt.Errorf("failed to get resources for URI %s: %w", entity, err)
 	}
 	if len(resources) == 0 {
-		return nil, fmt.Errorf("failed to get resource %s: not found", entity)
+		return nil, fmt.Errorf("resource %s not found: %w", entity, apierrors.ErrNotFound)
 	}
 
 	resource := resources[0]

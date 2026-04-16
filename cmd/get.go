@@ -179,7 +179,7 @@ func runGetPrompt(cmd *cobra.Command, args []string) error {
 }
 
 func runGetResource(cmd *cobra.Command, args []string) error {
-	resource, err := apiClient.GetResource(args[0], "")
+	resource, err := apiClient.GetResource(args[0])
 	if err != nil {
 		return fmt.Errorf("failed to get resource: %w", err)
 	}
@@ -206,7 +206,7 @@ func runGetResource(cmd *cobra.Command, args []string) error {
 }
 
 func runGetResourceRead(cmd *cobra.Command, resource *types.Resource) error {
-	result, err := apiClient.ReadResource(resource.URI, "")
+	result, err := apiClient.ReadResource(resource.URI)
 	if err != nil {
 		return fmt.Errorf("failed to read resource: %w", err)
 	}

@@ -11,10 +11,14 @@ type Resource struct {
 	Meta        map[string]any `json:"meta,omitempty"`
 }
 
-// ResourceReadRequest represents a request to read a resource, optionally scoped to a server.
+// ResourceGetRequest represents a request to fetch resource metadata.
+type ResourceGetRequest struct {
+	URI string `json:"uri"`
+}
+
+// ResourceReadRequest represents a request to read a resource.
 type ResourceReadRequest struct {
-	URI    string `json:"uri"`
-	Server string `json:"server,omitempty"`
+	URI string `json:"uri"`
 }
 
 // ResourceReadResult represents the result of reading a resource.

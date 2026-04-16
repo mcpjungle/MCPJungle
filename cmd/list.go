@@ -373,7 +373,7 @@ func runListResources(cmd *cobra.Command, args []string) error {
 		cmd.Printf("%d. %s\n", i+1, r.Name)
 		cmd.Printf("   URI: %s\n", r.URI)
 		if r.Description != "" {
-			cmd.Println(r.Description)
+			cmd.Println("   Description: ", r.Description)
 		}
 		cmd.Println()
 	}

@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	mcpclient "github.com/mark3labs/mcp-go/client"
@@ -9,6 +10,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
+	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -172,6 +174,54 @@ func TestDisableResourcesByPublicURI(t *testing.T) {
 	assert.Equal(t, []string{resourceURI}, disabledResources)
 }
 
+func TestGetResourceInvalidURI(t *testing.T) {
+	db := setupTestDBWithResources(t)
+	service := &MCPService{db: db}
+
+	_, err := service.GetResource("not-a-mcpj-uri")
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, apierrors.ErrInvalidInput))
+}
+
+func TestGetResourceNotFound(t *testing.T) {
+	db := setupTestDBWithResources(t)
+	service := &MCPService{db: db}
+
+	srv := createTestServer(t, db)
+	missingURI := buildResourceURI(srv.Name, "resource://missing")
+
+	_, err := service.GetResource(missingURI)
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, apierrors.ErrNotFound))
+}
+
+func TestDisableResourcesInvalidURI(t *testing.T) {
+	db := setupTestDBWithResources(t)
+	service := &MCPService{
+		db:             db,
+		mcpProxyServer: server.NewMCPServer("Test Proxy", "0.1.0"),
+	}
+
+	_, err := service.DisableResources("not-a-mcpj-uri")
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, apierrors.ErrInvalidInput))
+}
+
+func TestDisableResourcesNotFound(t *testing.T) {
+	db := setupTestDBWithResources(t)
+	service := &MCPService{
+		db:             db,
+		mcpProxyServer: server.NewMCPServer("Test Proxy", "0.1.0"),
+	}
+
+	srv := createTestServer(t, db)
+	missingURI := buildResourceURI(srv.Name, "resource://missing")
+
+	_, err := service.DisableResources(missingURI)
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, apierrors.ErrNotFound))
+}
+
 func TestMCPProxyResourceHandlerRoutesReadByURI(t *testing.T) {
 	db := setupTestDBWithResources(t)
 	srv := createTestServer(t, db)
@@ -315,7 +365,7 @@ func TestMCPProxyResourceHandlerRoutesDuplicateUpstreamURIs(t *testing.T) {
 	req.Params.URI = buildResourceURI("test-server-2", "resource://shared/status")
 	ctx := context.WithValue(context.Background(), "mode", model.ModeDev)
 
-	resource, err := service.GetResource(req.Params.URI, "")
+	resource, err := service.GetResource(req.Params.URI)
 	require.NoError(t, err)
 	require.Equal(t, types.SessionModeStateful, resource.Server.SessionMode)
 
