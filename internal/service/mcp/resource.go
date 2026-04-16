@@ -150,49 +150,21 @@ func (m *MCPService) GetResource(uri string) (*model.Resource, error) {
 	return &resource, nil
 }
 
-type resourceMatch struct {
-	resource model.Resource
-	server   *model.McpServer
-}
-
-func (m *MCPService) resolveResourceMatch(ctx context.Context, uri string) (*resourceMatch, error) {
+// ReadResource reads live resource content by URI.
+func (m *MCPService) ReadResource(ctx context.Context, uri string) (*types.ResourceReadResult, error) {
 	resource, err := m.GetResource(uri)
 	if err != nil {
 		return nil, err
 	}
 
-	match := resourceMatch{
-		resource: *resource,
-		server:   &resource.Server,
-	}
-
-	if modeValue := ctx.Value("mode"); modeValue != nil {
-		if serverMode, ok := modeValue.(model.ServerMode); ok && model.IsEnterpriseMode(serverMode) {
-			c := ctx.Value("client").(*model.McpClient)
-			if !c.CheckHasServerAccess(match.server.Name) {
-				return nil, fmt.Errorf("client %s is not authorized to access resource %s", c.Name, uri)
-			}
-		}
-	}
-
-	return &match, nil
-}
-
-// ReadResource reads live resource content by URI.
-func (m *MCPService) ReadResource(ctx context.Context, uri string) (*types.ResourceReadResult, error) {
-	match, err := m.resolveResourceMatch(ctx, uri)
-	if err != nil {
-		return nil, err
-	}
-
-	session, err := m.getSession(ctx, match.server)
+	session, err := m.getSession(ctx, &resource.Server)
 	if err != nil {
 		return nil, err
 	}
 	defer session.closeIfApplicable()
 
 	req := mcp.ReadResourceRequest{}
-	req.Params.URI = match.resource.OriginalURI
+	req.Params.URI = resource.OriginalURI
 	res, err := session.client.ReadResource(ctx, req)
 	if err != nil {
 		session.invalidateOnError(err)
@@ -209,7 +181,7 @@ func (m *MCPService) ReadResource(ctx context.Context, uri string) (*types.Resou
 		if err := json.Unmarshal(raw, &content); err != nil {
 			return nil, fmt.Errorf("failed to deserialize resource content: %w", err)
 		}
-		content["uri"] = match.resource.URI
+		content["uri"] = resource.URI
 		contents = append(contents, content)
 	}
 

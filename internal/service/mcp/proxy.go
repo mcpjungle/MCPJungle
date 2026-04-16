@@ -78,24 +78,38 @@ func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request mcp.Ca
 // by forwarding the request to the appropriate upstream MCP server and
 // relaying the response back.
 func (m *MCPService) mcpProxyResourceHandler(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-	match, err := m.resolveResourceMatch(ctx, request.Params.URI)
+	// get the upstream mcp server and original resource uri for the requested resource uri
+	resource, err := m.GetResource(request.Params.URI)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get resource %s from DB: %w", request.Params.URI, err)
 	}
-	session, err := m.getSession(ctx, match.server)
+
+	if modeValue := ctx.Value("mode"); modeValue != nil {
+		serverMode, ok := modeValue.(model.ServerMode)
+		if ok && model.IsEnterpriseMode(serverMode) {
+			// In enterprise mode, we need to check whether the MCP client is authorized to access the MCP server.
+			// If not, return error Unauthorized.
+			c := ctx.Value("client").(*model.McpClient)
+			if !c.CheckHasServerAccess(resource.Server.Name) {
+				return nil, fmt.Errorf("client %s is not authorized to access resource %s", c.Name, request.Params.URI)
+			}
+		}
+	}
+
+	session, err := m.getSession(ctx, &resource.Server)
 	if err != nil {
 		return nil, err
 	}
 	defer session.closeIfApplicable()
 
-	request.Params.URI = match.resource.OriginalURI
+	request.Params.URI = resource.OriginalURI
 	res, err := session.client.ReadResource(ctx, request)
 	if err != nil {
 		session.invalidateOnError(err)
 		return nil, err
 	}
 
-	return rewriteResourceContentsURI(res.Contents, match.resource.URI), nil
+	return rewriteResourceContentsURI(res.Contents, resource.URI), nil
 }
 
 // mcpProxyPromptHandler handles prompt requests for the MCP proxy server
@@ -259,6 +273,8 @@ func (m *MCPService) initMCPProxyServer() error {
 		if !rm.Enabled {
 			continue
 		}
+
+		// no need to use mcp servers model cache because resources come pre-loaded with server, ie, rm.Server
 
 		resource, err := convertResourceModelToMcpObject(&rm)
 		if err != nil {
