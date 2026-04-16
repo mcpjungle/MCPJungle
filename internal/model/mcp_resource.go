@@ -9,9 +9,11 @@ import (
 type Resource struct {
 	gorm.Model
 
-	// URI uniquely identifies the resource within an upstream server.
-	// MCPJungle allows the same URI to exist across different servers.
+	// URI is the MCPJungle-assigned public URI for this resource.
 	URI string `json:"uri" gorm:"not null"`
+
+	// OriginalURI is the upstream MCP server's resource URI.
+	OriginalURI string `json:"-" gorm:"not null"`
 
 	// Name is the upstream display name of the resource, without the server name prefix.
 	Name string `json:"name" gorm:"not null"`

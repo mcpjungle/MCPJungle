@@ -88,13 +88,14 @@ func (m *MCPService) mcpProxyResourceHandler(ctx context.Context, request mcp.Re
 	}
 	defer session.closeIfApplicable()
 
+	request.Params.URI = match.resource.OriginalURI
 	res, err := session.client.ReadResource(ctx, request)
 	if err != nil {
 		session.invalidateOnError(err)
 		return nil, err
 	}
 
-	return res.Contents, nil
+	return rewriteResourceContentsURI(res.Contents, match.resource.URI), nil
 }
 
 // mcpProxyPromptHandler handles prompt requests for the MCP proxy server

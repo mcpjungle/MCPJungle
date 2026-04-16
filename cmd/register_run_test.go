@@ -15,6 +15,8 @@ import (
 )
 
 func TestRunRegisterMCPServer_PrintsPromptsAndResourcesWithoutTools(t *testing.T) {
+	resourceURI := "mcpj://res/server/ZmlsZTovLy90bXAvdGVzdC50eHQ"
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v0/servers":
@@ -33,7 +35,7 @@ func TestRunRegisterMCPServer_PrintsPromptsAndResourcesWithoutTools(t *testing.T
 			_ = json.NewEncoder(w).Encode([]*types.Resource{
 				{
 					Name:        "server__file",
-					URI:         "file:///tmp/test.txt",
+					URI:         resourceURI,
 					MIMEType:    "text/plain",
 					Description: "Sample file",
 				},
@@ -89,8 +91,8 @@ func TestRunRegisterMCPServer_PrintsPromptsAndResourcesWithoutTools(t *testing.T
 	if !strings.Contains(output, "1. server__file") {
 		t.Fatalf("expected resource name in output, got: %s", output)
 	}
-	if strings.Contains(output, "URI: file:///tmp/test.txt") {
-		t.Fatalf("did not expect resource metadata in register output, got: %s", output)
+	if !strings.Contains(output, "URI: "+resourceURI) {
+		t.Fatalf("expected resource URI in register output, got: %s", output)
 	}
 	if strings.Contains(output, "This server does not provide any tools.") {
 		t.Fatalf("did not expect early no-tools message, got: %s", output)

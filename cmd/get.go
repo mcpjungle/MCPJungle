@@ -50,10 +50,10 @@ var getPromptCmd = &cobra.Command{
 }
 
 var getResourceCmd = &cobra.Command{
-	Use:   "resource [name]",
+	Use:   "resource [uri]",
 	Args:  cobra.ExactArgs(1),
 	Short: "Get resource metadata",
-	Long: "Get resource metadata by name.\n" +
+	Long: "Get resource metadata by URI.\n" +
 		"Use --read to read the resource content instead.",
 	RunE: runGetResource,
 }
@@ -179,9 +179,9 @@ func runGetPrompt(cmd *cobra.Command, args []string) error {
 }
 
 func runGetResource(cmd *cobra.Command, args []string) error {
-	resource, err := resolveCLIResourceByName(args[0])
+	resource, err := apiClient.GetResource(args[0], "")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get resource: %w", err)
 	}
 
 	if getResourceCmdRead {
@@ -203,29 +203,6 @@ func runGetResource(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
-}
-
-func resolveCLIResourceByName(name string) (*types.Resource, error) {
-	resources, err := apiClient.ListResources("")
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve resource %s: %w", name, err)
-	}
-
-	var matches []*types.Resource
-	for _, resource := range resources {
-		if resource.Name == name {
-			matches = append(matches, resource)
-		}
-	}
-
-	if len(matches) == 0 {
-		return nil, fmt.Errorf("resource %s not found", name)
-	}
-	if len(matches) > 1 {
-		return nil, fmt.Errorf("resource name %s is ambiguous across multiple servers", name)
-	}
-
-	return matches[0], nil
 }
 
 func runGetResourceRead(cmd *cobra.Command, resource *types.Resource) error {

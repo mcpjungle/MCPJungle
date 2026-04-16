@@ -2,16 +2,73 @@ package mcp
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
-	"strings"
 
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
+
+const resourceURIPrefix = "mcpj://res/"
+
+func buildResourceURI(serverName string, originalURI string) string {
+	return resourceURIPrefix + serverName + "/" + base64.RawStdEncoding.EncodeToString([]byte(originalURI))
+}
+
+func parseResourceURI(resourceURI string) (string, string, error) {
+	if len(resourceURI) <= len(resourceURIPrefix) || resourceURI[:len(resourceURIPrefix)] != resourceURIPrefix {
+		return "", "", fmt.Errorf("resource URI %s is not a valid MCPJungle resource URI", resourceURI)
+	}
+
+	rest := resourceURI[len(resourceURIPrefix):]
+	separatorIndex := -1
+	for i := range rest {
+		if rest[i] == '/' {
+			separatorIndex = i
+			break
+		}
+	}
+	if separatorIndex <= 0 || separatorIndex == len(rest)-1 {
+		return "", "", fmt.Errorf("resource URI %s is not a valid MCPJungle resource URI", resourceURI)
+	}
+
+	serverName := rest[:separatorIndex]
+	encodedOriginalURI := rest[separatorIndex+1:]
+	if err := validateServerName(serverName); err != nil {
+		return "", "", err
+	}
+
+	decodedOriginalURI, err := base64.RawStdEncoding.DecodeString(encodedOriginalURI)
+	if err != nil {
+		return "", "", fmt.Errorf("resource URI %s contains an invalid upstream URI encoding: %w", resourceURI, err)
+	}
+
+	return serverName, string(decodedOriginalURI), nil
+}
+
+func rewriteResourceContentsURI(contents []mcp.ResourceContents, resourceURI string) []mcp.ResourceContents {
+	rewritten := make([]mcp.ResourceContents, 0, len(contents))
+	for _, content := range contents {
+		if textContent, ok := mcp.AsTextResourceContents(content); ok {
+			c := *textContent
+			c.URI = resourceURI
+			rewritten = append(rewritten, c)
+			continue
+		}
+		if blobContent, ok := mcp.AsBlobResourceContents(content); ok {
+			c := *blobContent
+			c.URI = resourceURI
+			rewritten = append(rewritten, c)
+			continue
+		}
+		rewritten = append(rewritten, content)
+	}
+	return rewritten
+}
 
 // ListResources returns all resources registered in the registry.
 // It sets each resource's name to its canonical display form by prepending its server name.
@@ -51,47 +108,27 @@ func (m *MCPService) ListResourcesByServer(name string) ([]model.Resource, error
 	return resources, nil
 }
 
-// GetResourcesByURI fetches enabled resources matching a URI.
-func (m *MCPService) GetResourcesByURI(uri string) ([]model.Resource, error) {
-	var resources []model.Resource
-	if err := m.db.Preload("Server").Where("uri = ? AND enabled = ?", uri, true).Find(&resources).Error; err != nil {
-		return nil, fmt.Errorf("failed to get resources for URI %s from DB: %w", uri, err)
-	}
-	return resources, nil
-}
-
 // GetResource fetches resource metadata by URI, optionally scoped to a specific server.
 func (m *MCPService) GetResource(uri string, serverName string) (*model.Resource, error) {
 	if uri == "" {
 		return nil, fmt.Errorf("resource URI must not be empty")
 	}
 
-	var resources []model.Resource
-	if serverName != "" {
-		if err := validateServerName(serverName); err != nil {
-			return nil, err
-		}
-		s, err := m.GetMcpServer(serverName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get MCP server %s from DB: %w", serverName, err)
-		}
-		if err := m.db.Preload("Server").Where("server_id = ? AND uri = ?", s.ID, uri).Find(&resources).Error; err != nil {
-			return nil, fmt.Errorf("failed to get resource %s from DB: %w", uri, err)
-		}
-	} else {
-		if err := m.db.Preload("Server").Where("uri = ?", uri).Find(&resources).Error; err != nil {
-			return nil, fmt.Errorf("failed to get resource %s from DB: %w", uri, err)
-		}
+	resourceServerName, _, err := parseResourceURI(uri)
+	if err != nil {
+		return nil, err
+	}
+	if serverName != "" && serverName != resourceServerName {
+		return nil, fmt.Errorf("resource URI %s does not belong to server %s", uri, serverName)
 	}
 
-	if len(resources) == 0 {
+	var resource model.Resource
+	if err := m.db.Preload("Server").Where("uri = ?", uri).First(&resource).Error; err != nil {
+		return nil, fmt.Errorf("failed to get resource %s from DB: %w", uri, err)
+	}
+	if resource.ID == 0 {
 		return nil, fmt.Errorf("resource %s not found", uri)
 	}
-	if len(resources) > 1 {
-		return nil, fmt.Errorf("resource URI %s is ambiguous across multiple servers", uri)
-	}
-
-	resource := resources[0]
 	resource.Name = mergeServerResourceNames(resource.Server.Name, resource.Name)
 	return &resource, nil
 }
@@ -102,58 +139,26 @@ type resourceMatch struct {
 }
 
 func (m *MCPService) resolveResourceMatch(ctx context.Context, uri string, serverName string) (*resourceMatch, error) {
-	var resources []model.Resource
-	var err error
-	if serverName != "" {
-		resource, err := m.GetResource(uri, serverName)
-		if err != nil {
-			return nil, err
-		}
-		resources = []model.Resource{*resource}
-	} else {
-		resources, err = m.GetResourcesByURI(uri)
-		if err != nil {
-			return nil, err
-		}
+	resource, err := m.GetResource(uri, serverName)
+	if err != nil {
+		return nil, err
 	}
 
-	if len(resources) == 0 {
-		return nil, fmt.Errorf("resource %s not found", uri)
-	}
-
-	matches := make([]resourceMatch, 0, len(resources))
-	for i := range resources {
-		matches = append(matches, resourceMatch{
-			resource: resources[i],
-			server:   &resources[i].Server,
-		})
+	match := resourceMatch{
+		resource: *resource,
+		server:   &resource.Server,
 	}
 
 	if modeValue := ctx.Value("mode"); modeValue != nil {
 		if serverMode, ok := modeValue.(model.ServerMode); ok && model.IsEnterpriseMode(serverMode) {
 			c := ctx.Value("client").(*model.McpClient)
-			authorized := matches[:0]
-			for _, match := range matches {
-				if c.CheckHasServerAccess(match.server.Name) {
-					authorized = append(authorized, match)
-				}
-			}
-			if len(authorized) == 0 {
+			if !c.CheckHasServerAccess(match.server.Name) {
 				return nil, fmt.Errorf("client %s is not authorized to access resource %s", c.Name, uri)
 			}
-			matches = authorized
 		}
 	}
 
-	if len(matches) > 1 {
-		serverNames := make([]string, len(matches))
-		for i, match := range matches {
-			serverNames[i] = match.server.Name
-		}
-		return nil, fmt.Errorf("resource URI %s is ambiguous across multiple servers: %s", uri, strings.Join(serverNames, ", "))
-	}
-
-	return &matches[0], nil
+	return &match, nil
 }
 
 // ReadResource reads live resource content by URI, optionally scoped to a specific server.
@@ -170,7 +175,7 @@ func (m *MCPService) ReadResource(ctx context.Context, uri string, serverName st
 	defer session.closeIfApplicable()
 
 	req := mcp.ReadResourceRequest{}
-	req.Params.URI = uri
+	req.Params.URI = match.resource.OriginalURI
 	res, err := session.client.ReadResource(ctx, req)
 	if err != nil {
 		session.invalidateOnError(err)
@@ -187,6 +192,7 @@ func (m *MCPService) ReadResource(ctx context.Context, uri string, serverName st
 		if err := json.Unmarshal(raw, &content); err != nil {
 			return nil, fmt.Errorf("failed to deserialize resource content: %w", err)
 		}
+		content["uri"] = match.resource.URI
 		contents = append(contents, content)
 	}
 
@@ -222,9 +228,6 @@ func (m *MCPService) setResourcesEnabled(entity string, enabled bool) ([]string,
 	}
 	if len(resources) == 0 {
 		return nil, fmt.Errorf("failed to get resource %s: not found", entity)
-	}
-	if len(resources) > 1 {
-		return nil, fmt.Errorf("resource URI %s is ambiguous across multiple servers", entity)
 	}
 
 	resource := resources[0]
@@ -316,7 +319,8 @@ func (m *MCPService) registerServerResources(ctx context.Context, s *model.McpSe
 
 		r := &model.Resource{
 			ServerID:    s.ID,
-			URI:         resource.URI,
+			URI:         buildResourceURI(s.Name, resource.URI),
+			OriginalURI: resource.URI,
 			Name:        resource.GetName(),
 			Description: resource.Description,
 			MIMEType:    resource.MIMEType,
@@ -328,6 +332,7 @@ func (m *MCPService) registerServerResources(ctx context.Context, s *model.McpSe
 			continue
 		}
 
+		resource.URI = r.URI
 		resource.Name = canonicalResourceName
 		if s.Transport == types.TransportSSE {
 			m.sseMcpProxyServer.AddResource(resource, m.mcpProxyResourceHandler)

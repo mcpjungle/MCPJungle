@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"testing"
 
@@ -150,9 +151,11 @@ func TestResourcesIntegration(t *testing.T) {
 	err = db.Create(testServer).Error
 	require.NoError(t, err)
 
+	resourceURI := "mcpj://res/github/" + base64.RawStdEncoding.EncodeToString([]byte("github://repo/status"))
 	testResource := &model.Resource{
 		ServerID:    testServer.ID,
-		URI:         "github://repo/status",
+		URI:         resourceURI,
+		OriginalURI: "github://repo/status",
 		Name:        "repo-status",
 		Description: "Current repository status",
 		MIMEType:    "application/json",
@@ -179,7 +182,7 @@ func TestResourcesIntegration(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, resources, 1)
 	assert.Equal(t, "github__repo-status", resources[0].Name)
-	assert.Equal(t, "github://repo/status", resources[0].URI)
+	assert.Equal(t, resourceURI, resources[0].URI)
 
 	proxyClient, err := mcpclient.NewInProcessClient(mcpProxyServer)
 	require.NoError(t, err)
@@ -203,7 +206,7 @@ func TestResourcesIntegration(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, listResult.Resources, 1)
 	assert.Equal(t, "github__repo-status", listResult.Resources[0].Name)
-	assert.Equal(t, "github://repo/status", listResult.Resources[0].URI)
+	assert.Equal(t, resourceURI, listResult.Resources[0].URI)
 }
 
 // Note: Naming convention utilities are tested in the service package tests

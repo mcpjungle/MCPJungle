@@ -371,6 +371,7 @@ func runListResources(cmd *cobra.Command, args []string) error {
 	}
 	for i, r := range resources {
 		cmd.Printf("%d. %s\n", i+1, r.Name)
+		cmd.Printf("   URI: %s\n", r.URI)
 		if r.Description != "" {
 			cmd.Println(r.Description)
 		}

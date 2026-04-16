@@ -13,14 +13,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func TestRunListResources_PrintsNamesAndDescriptionsOnly(t *testing.T) {
+func TestRunListResources_PrintsNamesURIsAndDescriptions(t *testing.T) {
+	resourceURI := "mcpj://res/server/ZmlsZTovLy90bXAvdGVzdC50eHQ"
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v0/resources":
 			_ = json.NewEncoder(w).Encode([]*types.Resource{
 				{
 					Name:        "server__file",
-					URI:         "file:///tmp/test.txt",
+					URI:         resourceURI,
 					MIMEType:    "text/plain",
 					Description: "Sample file",
 					Enabled:     true,
@@ -59,8 +61,8 @@ func TestRunListResources_PrintsNamesAndDescriptionsOnly(t *testing.T) {
 	if !strings.Contains(output, "Sample file") {
 		t.Fatalf("expected resource description in output, got: %s", output)
 	}
-	if strings.Contains(output, "URI: file:///tmp/test.txt") {
-		t.Fatalf("did not expect URI in list output, got: %s", output)
+	if !strings.Contains(output, "URI: "+resourceURI) {
+		t.Fatalf("expected URI in list output, got: %s", output)
 	}
 	if strings.Contains(output, "MIME Type: text/plain") {
 		t.Fatalf("did not expect MIME type in list output, got: %s", output)

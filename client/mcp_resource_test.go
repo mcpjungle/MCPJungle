@@ -16,14 +16,14 @@ func TestListResources(t *testing.T) {
 	t.Run("successful list without filter", func(t *testing.T) {
 		expectedResources := []*types.Resource{
 			{
-				URI:         "system://battery",
+				URI:         "mcpj://res/polaro/c3lzdGVtOi8vYmF0dGVyeQ",
 				Name:        "polaro__system_battery",
 				Enabled:     true,
 				Description: "Battery Status",
 				MIMEType:    "application/json",
 			},
 			{
-				URI:         "system://network",
+				URI:         "mcpj://res/polaro/c3lzdGVtOi8vbmV0d29yaw",
 				Name:        "polaro__system_network",
 				Enabled:     false,
 				Description: "Network Status",
@@ -112,7 +112,7 @@ func TestGetResource(t *testing.T) {
 	t.Parallel()
 
 	expected := &types.Resource{
-		URI:         "system://system/info",
+		URI:         "mcpj://res/polaro/c3lzdGVtOi8vc3lzdGVtL2luZm8",
 		Name:        "polaro__system_info",
 		Enabled:     true,
 		Description: "CPU load, memory, disk, and uptime",
@@ -155,7 +155,7 @@ func TestReadResource(t *testing.T) {
 	expected := &types.ResourceReadResult{
 		Contents: []map[string]any{
 			{
-				"uri":      "system://system/info",
+				"uri":      "mcpj://res/polaro/c3lzdGVtOi8vc3lzdGVtL2luZm8",
 				"mimeType": "application/json",
 				"text":     "{\"uptime\":\"up 1 hour\"}",
 			},
@@ -174,8 +174,8 @@ func TestReadResource(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Fatalf("Failed to decode request: %v", err)
 		}
-		if request.URI != "system://system/info" {
-			t.Errorf("Expected URI system://system/info, got %s", request.URI)
+		if request.URI != "mcpj://res/polaro/c3lzdGVtOi8vc3lzdGVtL2luZm8" {
+			t.Errorf("Expected MCPJungle URI, got %s", request.URI)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -185,7 +185,7 @@ func TestReadResource(t *testing.T) {
 	defer server.Close()
 
 	client := NewClient(server.URL, "token", &http.Client{})
-	result, err := client.ReadResource("system://system/info", "")
+	result, err := client.ReadResource("mcpj://res/polaro/c3lzdGVtOi8vc3lzdGVtL2luZm8", "")
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
