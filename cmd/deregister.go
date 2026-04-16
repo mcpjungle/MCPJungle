@@ -28,7 +28,7 @@ func runDeregisterMCPServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to deregister MCP server %s: %w", server, err)
 	}
 	fmt.Printf("Successfully deregistered MCP server %s\n", server)
-	fmt.Println("The tools provided by this server have also been deregistered.")
-	// TODO: Output the list of tools that were deregistered.
+	fmt.Println("Any tools, prompts or resources provided by this server have also been deregistered.")
+	// TODO: Output the list of tools, prompts, resources that were deregistered.
 	return nil
 }
