@@ -12,7 +12,7 @@ type Resource struct {
 	// URI is the MCPJungle-assigned public URI for this resource.
 	URI string `json:"uri" gorm:"not null"`
 
-	// OriginalURI is the upstream MCP server's resource URI.
+	// OriginalURI is the resource's original URI as advertised by the upstream MCP server
 	OriginalURI string `json:"-" gorm:"not null"`
 
 	// Name is the upstream display name of the resource, without the server name prefix.

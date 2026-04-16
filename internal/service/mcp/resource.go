@@ -18,10 +18,18 @@ import (
 
 const resourceURIPrefix = "mcpj://res/"
 
+// buildResourceURI constructs a new URI for a mcp resource which is unique across all resources registered in mcpjungle.
+// It is of the form:
+// mcpj://res/{upstream mcp server name}/{base64-encoded original URI}
+// This ensures that even if multiple upstream MCP servers expose resources with the same URI, they can be uniquely
+// identified and accessed in mcpjungle by clients.
 func buildResourceURI(serverName string, originalURI string) string {
 	return resourceURIPrefix + serverName + "/" + base64.RawStdEncoding.EncodeToString([]byte(originalURI))
 }
 
+// parseResourceURI parses the server name and original URI from a resource URI.
+// This helps mcpjungle map a globally unique resource URI back to the corresponding upstream MCP server and the
+// resource being referred to.
 func parseResourceURI(resourceURI string) (string, string, error) {
 	if len(resourceURI) <= len(resourceURIPrefix) || resourceURI[:len(resourceURIPrefix)] != resourceURIPrefix {
 		return "", "", fmt.Errorf(
@@ -59,6 +67,10 @@ func parseResourceURI(resourceURI string) (string, string, error) {
 	return serverName, string(decodedOriginalURI), nil
 }
 
+// rewriteResourceContentsURI rewrites the URI field in each item of the resource contents to the given resource URI.
+// This is necessary because the original resource contents returned by the upstream MCP server will have the original
+// resource URI, which cannot be accessed by clients. By rewriting the URI to the new resource URI, clients can use
+// the URIs in the resource contents to access the resources through mcpjungle.
 func rewriteResourceContentsURI(contents []mcp.ResourceContents, resourceURI string) []mcp.ResourceContents {
 	rewritten := make([]mcp.ResourceContents, 0, len(contents))
 	for _, content := range contents {
