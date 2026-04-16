@@ -128,7 +128,7 @@ func runGetPrompt(cmd *cobra.Command, args []string) error {
 
 	result, err := apiClient.GetPromptWithArgs(name, arguments)
 	if err != nil {
-		return fmt.Errorf("failed to get prompt: %w", err)
+		return prettifyGetPromptError(name, err)
 	}
 
 	// Pretty print the result
@@ -153,4 +153,33 @@ func runGetPrompt(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+
+// prettifyGetPromptError rewrites low-level errors from GetPromptWithArgs into
+// something a CLI user can act on. It:
+//  1. Drops the redundant outer "failed to get prompt:" wrapping that
+//     duplicates the server's message.
+//  2. Adds a usage hint when the upstream MCP server reports invalid
+//     arguments (MCP JSON-RPC error -32602), because the raw error payload
+//     is a JSON array that looks like noise to someone running the command.
+func prettifyGetPromptError(name string, err error) error {
+	msg := err.Error()
+	// Strip any stacked "failed to get prompt: " prefixes the wrappers add.
+	const prefix = "failed to get prompt: "
+	for strings.HasPrefix(msg, prefix) {
+		msg = msg[len(prefix):]
+	}
+
+	// Detect the "Invalid arguments for prompt" shape from the MCP protocol
+	// (error -32602) and point the user at --arg so they can retry.
+	if strings.Contains(msg, "-32602") || strings.Contains(msg, "Invalid arguments for prompt") {
+		return fmt.Errorf(
+			"%s\n\nHint: prompt %q rejected the arguments you supplied. "+
+				"Pass required arguments with --arg key=value, e.g. "+
+				"`mcpjungle get prompt %q --arg key=value`.",
+			msg, name, name,
+		)
+	}
+	return fmt.Errorf("%s", msg)
 }
