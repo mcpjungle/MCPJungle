@@ -14,6 +14,7 @@ import (
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -282,6 +283,119 @@ func TestMCPProxyResourceHandlerRoutesReadByURI(t *testing.T) {
 	req := mcp.ReadResourceRequest{}
 	req.Params.URI = buildResourceURI("test-server", "resource://test/status")
 	ctx := context.WithValue(context.Background(), "mode", model.ModeDev)
+
+	contents, err := service.mcpProxyResourceHandler(ctx, req)
+	require.NoError(t, err)
+	require.Len(t, contents, 1)
+
+	textContent, ok := contents[0].(mcp.TextResourceContents)
+	require.True(t, ok)
+	assert.Equal(t, "ok", textContent.Text)
+	assert.Equal(t, buildResourceURI("test-server", "resource://test/status"), textContent.URI)
+}
+
+func TestMCPProxyResourceHandlerEnterpriseRejectsUnauthorizedClient(t *testing.T) {
+	db := setupTestDBWithResources(t)
+	srv := createTestServer(t, db)
+	createTestResource(t, db, srv, "resource://test/status", "status")
+
+	sessionCreated := false
+	sessionManager := NewSessionManager(&SessionManagerConfig{
+		IdleTimeoutSec:    0,
+		InitReqTimeoutSec: 10,
+	})
+	sessionManager.createSessionFunc = func(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*mcpclient.Client, error) {
+		sessionCreated = true
+		return nil, errors.New("session should not be created for unauthorized client")
+	}
+
+	service := &MCPService{
+		db:                         db,
+		mcpProxyServer:             server.NewMCPServer("Test Proxy", "0.1.0"),
+		sseMcpProxyServer:          server.NewMCPServer("Test Proxy SSE", "0.1.0"),
+		metrics:                    telemetry.NewNoopCustomMetrics(),
+		mcpServerInitReqTimeoutSec: 10,
+		sessionManager:             sessionManager,
+	}
+
+	req := mcp.ReadResourceRequest{}
+	req.Params.URI = buildResourceURI("test-server", "resource://test/status")
+	ctx := context.WithValue(context.Background(), "mode", model.ModeEnterprise)
+	ctx = context.WithValue(ctx, "client", &model.McpClient{
+		Name:      "scoped-client",
+		AllowList: datatypes.JSON(`["other-server"]`),
+	})
+
+	_, err := service.mcpProxyResourceHandler(ctx, req)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not authorized to access MCP server test-server")
+	assert.False(t, sessionCreated)
+}
+
+func TestMCPProxyResourceHandlerEnterpriseAllowsAuthorizedClient(t *testing.T) {
+	db := setupTestDBWithResources(t)
+	srv := createTestServer(t, db)
+	srv.SessionMode = types.SessionModeStateful
+	err := db.Save(srv).Error
+	require.NoError(t, err)
+	createTestResource(t, db, srv, "resource://test/status", "status")
+
+	upstreamServer := server.NewMCPServer("Upstream", "0.1.0")
+	upstreamServer.AddResource(
+		mcp.Resource{
+			URI:         "resource://test/status",
+			Name:        "status",
+			Description: "Current status",
+			MIMEType:    "text/plain",
+		},
+		func(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+			return []mcp.ResourceContents{
+				mcp.TextResourceContents{
+					URI:      request.Params.URI,
+					MIMEType: "text/plain",
+					Text:     "ok",
+				},
+			}, nil
+		},
+	)
+
+	sessionManager := NewSessionManager(&SessionManagerConfig{
+		IdleTimeoutSec:    0,
+		InitReqTimeoutSec: 10,
+	})
+	sessionManager.createSessionFunc = func(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*mcpclient.Client, error) {
+		client, err := mcpclient.NewInProcessClient(upstreamServer)
+		if err != nil {
+			return nil, err
+		}
+		if err := client.Start(ctx); err != nil {
+			return nil, err
+		}
+		initReq := mcp.InitializeRequest{}
+		initReq.Params.ProtocolVersion = mcp.LATEST_PROTOCOL_VERSION
+		initReq.Params.ClientInfo = mcp.Implementation{Name: "test-client", Version: "1.0.0"}
+		if _, err := client.Initialize(ctx, initReq); err != nil {
+			return nil, err
+		}
+		return client, nil
+	}
+
+	service := &MCPService{
+		db:                         db,
+		mcpProxyServer:             server.NewMCPServer("Test Proxy", "0.1.0"),
+		sseMcpProxyServer:          server.NewMCPServer("Test Proxy SSE", "0.1.0"),
+		metrics:                    telemetry.NewNoopCustomMetrics(),
+		mcpServerInitReqTimeoutSec: 10,
+		sessionManager:             sessionManager,
+	}
+
+	req := mcp.ReadResourceRequest{}
+	req.Params.URI = buildResourceURI("test-server", "resource://test/status")
+	ctx := context.WithValue(context.Background(), "mode", model.ModeEnterprise)
+	ctx = context.WithValue(ctx, "client", &model.McpClient{
+		Name:      "scoped-client",
+		AllowList: datatypes.JSON(`["test-server"]`),
+	})
 
 	contents, err := service.mcpProxyResourceHandler(ctx, req)
 	require.NoError(t, err)
