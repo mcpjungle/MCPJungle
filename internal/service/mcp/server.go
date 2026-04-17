@@ -8,6 +8,7 @@ import (
 
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"gorm.io/gorm"
 )
 
@@ -18,6 +19,25 @@ import (
 func (m *MCPService) RegisterMcpServer(ctx context.Context, s *model.McpServer) error {
 	if err := validateServerName(s.Name); err != nil {
 		return err
+	}
+
+	switch s.Transport {
+	case types.TransportStreamableHTTP:
+		conf, err := s.GetStreamableHTTPConfig()
+		if err != nil {
+			return err
+		}
+		if err := validateURL(conf.URL); err != nil {
+			return err
+		}
+	case types.TransportSSE:
+		conf, err := s.GetSSEConfig()
+		if err != nil {
+			return err
+		}
+		if err := validateURL(conf.URL); err != nil {
+			return err
+		}
 	}
 
 	mcpClient, err := newMcpServerSession(ctx, s, m.mcpServerInitReqTimeoutSec)

@@ -100,6 +100,15 @@ func mergeServerResourceNames(s, r string) string {
 	return s + serverResourceNameSep + r
 }
 
+// validateURL checks that rawURL is a well-formed http or https URL.
+func validateURL(rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+		return fmt.Errorf("invalid url: '%s' must be a valid http or https url: %w", rawURL, apierrors.ErrInvalidInput)
+	}
+	return nil
+}
+
 // isLoopbackURL returns true if rawURL resolves to a loopback address.
 // It assumes that rawURL is a valid URL.
 func isLoopbackURL(rawURL string) bool {
