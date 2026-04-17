@@ -3,6 +3,8 @@ package model
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net/url"
 
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"gorm.io/datatypes"
@@ -59,10 +61,25 @@ type McpServer struct {
 	SessionMode types.SessionMode `json:"session_mode" gorm:"type:varchar(20);default:'stateless'"`
 }
 
+// validateURL checks that rawURL is a well-formed http or https URL.
+func validateURL(rawURL string) error {
+	u, err := url.ParseRequestURI(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid url %q: must be a valid http or https URL", rawURL)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("invalid url scheme %q: must be http or https", u.Scheme)
+	}
+	return nil
+}
+
 // NewStreamableHTTPServer creates a new MCP server with streamable HTTP transport configuration.
 func NewStreamableHTTPServer(name, description, url, bearerToken string, headers map[string]string, sessionMode types.SessionMode) (*McpServer, error) {
 	if url == "" {
 		return nil, errors.New("url is required for streamable HTTP transport")
+	}
+	if err := validateURL(url); err != nil {
+		return nil, err
 	}
 	config := StreamableHTTPConfig{
 		URL:         url,
@@ -115,6 +132,9 @@ func NewStdioServer(name, description, command string, args []string, env map[st
 func NewSSEServer(name, description, url, bearerToken string, sessionMode types.SessionMode) (*McpServer, error) {
 	if url == "" {
 		return nil, errors.New("url is required for SSE transport")
+	}
+	if err := validateURL(url); err != nil {
+		return nil, err
 	}
 	config := SSEConfig{
 		URL:         url,
