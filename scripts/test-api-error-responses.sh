@@ -204,6 +204,15 @@ assert_status \
   '{"name":"bad__server","transport":"stdio","command":"echo"}'
 
 assert_status \
+  "register server rejects invalid http url" \
+  "POST" \
+  "/api/v0/servers" \
+  "400" \
+  "must be a valid http or https url" \
+  "$ADMIN_TOKEN" \
+  '{"name":"bad-http-url","transport":"streamable_http","url":"http:///missing-host"}'
+
+assert_status \
   "get tool rejects invalid canonical name" \
   "GET" \
   "/api/v0/tool?name=invalid-name" \

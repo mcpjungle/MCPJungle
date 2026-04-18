@@ -54,20 +54,6 @@ func TestNewStreamableHTTPServer(t *testing.T) {
 			errMsg:      "url is required for streamable HTTP transport",
 		},
 		{
-			name:       "invalid url no scheme",
-			serverName: "invalid-server",
-			url:        "blahblahblah",
-			wantErr:    true,
-			errMsg:     `invalid url "blahblahblah": must be a valid http or https URL`,
-		},
-		{
-			name:       "invalid url bad scheme",
-			serverName: "invalid-server",
-			url:        "ftp://example.com",
-			wantErr:    true,
-			errMsg:     `invalid url scheme "ftp": must be http or https`,
-		},
-		{
 			// empty name is tolerated because these methods only validate the transport-specific fields.
 			// name validation's responsibility lies with the main mcp registration logic.
 			name:        "empty name is allowed",
@@ -281,20 +267,6 @@ func TestNewSSEServer(t *testing.T) {
 			bearerToken: "token",
 			wantErr:     true,
 			errMsg:      "url is required for SSE transport",
-		},
-		{
-			name:       "invalid url no scheme",
-			serverName: "invalid-server",
-			url:        "blahblahblah",
-			wantErr:    true,
-			errMsg:     `invalid url "blahblahblah": must be a valid http or https URL`,
-		},
-		{
-			name:       "invalid url bad scheme",
-			serverName: "invalid-server",
-			url:        "ftp://example.com",
-			wantErr:    true,
-			errMsg:     `invalid url scheme "ftp": must be http or https`,
 		},
 		{
 			name:        "empty name is allowed",

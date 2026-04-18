@@ -21,6 +21,7 @@ func (m *MCPService) RegisterMcpServer(ctx context.Context, s *model.McpServer) 
 		return err
 	}
 
+	// Only validate URLs for transports that actually carry a URL in their config.
 	switch s.Transport {
 	case types.TransportStreamableHTTP:
 		conf, err := s.GetStreamableHTTPConfig()

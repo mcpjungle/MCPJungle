@@ -103,10 +103,15 @@ func mergeServerResourceNames(s, r string) string {
 // validateURL checks that rawURL is a well-formed http or https URL.
 func validateURL(rawURL string) error {
 	u, err := url.Parse(rawURL)
-	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+	if err != nil || u.Host == "" {
 		return fmt.Errorf("invalid url: '%s' must be a valid http or https url: %w", rawURL, apierrors.ErrInvalidInput)
 	}
-	return nil
+	switch strings.ToLower(u.Scheme) {
+	case "http", "https":
+		return nil
+	default:
+		return fmt.Errorf("invalid url: '%s' must be a valid http or https url: %w", rawURL, apierrors.ErrInvalidInput)
+	}
 }
 
 // isLoopbackURL returns true if rawURL resolves to a loopback address.
