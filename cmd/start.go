@@ -381,6 +381,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		server.WithToolCapabilities(true),
 		server.WithPromptCapabilities(true),
 		server.WithToolFilter(mcp.ProxyToolFilter),
+		server.WithPromptFilter(mcp.ProxyPromptFilter),
 	)
 	sseMcpProxyServer := server.NewMCPServer(
 		"MCPJungle Proxy MCP Server for SSE transport",
@@ -389,6 +390,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		server.WithToolCapabilities(true),
 		server.WithPromptCapabilities(true),
 		server.WithToolFilter(mcp.ProxyToolFilter),
+		server.WithPromptFilter(mcp.ProxyPromptFilter),
 	)
 
 	timeout, err := getMcpServerInitReqTimeout()

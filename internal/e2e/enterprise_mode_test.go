@@ -159,7 +159,7 @@ func TestE2E_EnterpriseMode_McpProxy_AllowList_ListAndInvoke(t *testing.T) {
 
 	// --- Prompts ---
 
-	t.Run("list prompts: not filtered by allow list (ACL for prompt listing not implemented)", func(t *testing.T) {
+	t.Run("list prompts: only allowed server's prompts visible", func(t *testing.T) {
 		result, err := c.ListPrompts(context.Background(), mcp.ListPromptsRequest{})
 		require.NoError(t, err)
 
@@ -167,9 +167,8 @@ func TestE2E_EnterpriseMode_McpProxy_AllowList_ListAndInvoke(t *testing.T) {
 		for _, p := range result.Prompts {
 			names = append(names, p.Name)
 		}
-		// Both servers' prompts appear regardless of the allow list.
-		assert.Contains(t, names, "svc-a__simple-prompt")
-		assert.Contains(t, names, "svc-b__simple-prompt")
+		assert.Contains(t, names, "svc-a__simple-prompt", "allowed server prompt must be visible")
+		assert.NotContains(t, names, "svc-b__simple-prompt", "restricted server prompt must not be visible")
 	})
 
 	t.Run("get allowed prompt succeeds", func(t *testing.T) {

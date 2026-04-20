@@ -124,11 +124,13 @@ func setupE2EServer(t *testing.T, mode model.ServerMode) *e2eEnv {
 		server.WithToolCapabilities(true),
 		server.WithPromptCapabilities(true),
 		server.WithToolFilter(mcpSvc.ProxyToolFilter),
+		server.WithPromptFilter(mcpSvc.ProxyPromptFilter),
 	)
 	sseMcpProxy := server.NewMCPServer("MCPJungle SSE", "0.0.1",
 		server.WithToolCapabilities(true),
 		server.WithPromptCapabilities(true),
 		server.WithToolFilter(mcpSvc.ProxyToolFilter),
+		server.WithPromptFilter(mcpSvc.ProxyPromptFilter),
 	)
 
 	mcpService, err := mcpSvc.NewMCPService(&mcpSvc.ServiceConfig{
