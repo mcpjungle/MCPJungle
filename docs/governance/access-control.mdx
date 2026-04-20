@@ -1,0 +1,132 @@
+---
+title: "Control MCP client access"
+description: "Create MCP client identities in enterprise mode and give each one explicit access only to the upstream MCP servers it should be allowed to use."
+---
+
+In development mode, every MCP client connected to the gateway can access all registered servers.
+
+In enterprise mode, that is no longer true. No MCP client can access any registered server until you create a client identity and give it an allow-list.
+
+## Create an MCP client
+
+Use `create mcp-client` and specify the servers it should be allowed to access:
+
+```bash
+mcpjungle create mcp-client cursor-local --allow "calculator, github"
+```
+
+MCPJungle prints the generated access token once:
+
+```text
+MCP client 'cursor-local' created successfully!
+Servers accessible: calculator,github
+
+Access token: 1YHf2LwE1LXtp5lW_vM-gmdYHlPHdqwnILitBhXE4Aw
+Send this token in the `Authorization: Bearer {token}` HTTP header.
+```
+
+<Note>
+  If you omit `--allow`, the client is created but cannot access any registered servers.
+</Note>
+
+## Use the token from an MCP client
+
+Your MCP client or bridge must send the token in the `Authorization` header.
+
+Example for Cursor:
+
+```json
+{
+  "mcpServers": {
+    "mcpjungle": {
+      "url": "http://localhost:8080/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_ACCESS_TOKEN"
+      }
+    }
+  }
+}
+```
+
+Example for Claude via `mcp-remote`:
+
+```json
+{
+  "mcpServers": {
+    "mcpjungle": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "http://localhost:8080/mcp",
+        "--allow-http",
+        "--header",
+        "Authorization: Bearer YOUR_ACCESS_TOKEN"
+      ]
+    }
+  }
+}
+```
+
+## Custom access tokens
+
+If you want to supply your own token instead of using a generated one:
+
+```bash
+mcpjungle create mcp-client cursor-local --allow "calculator, github" --access-token my_custom_token
+```
+
+This is useful when tokens are issued or tracked externally.
+
+## Create a client from a config file
+
+```json
+{
+  "name": "cursor-local",
+  "allowed_servers": ["calculator", "github"],
+  "access_token": "my_secret_token_123",
+  "access_token_ref": {
+    "file": "/path/to/token-file.txt",
+    "env": "ENV_VAR_NAME"
+  }
+}
+```
+
+Create it with:
+
+```bash
+mcpjungle create mcp-client --conf ./cursor-local.json
+```
+
+<Warning>
+  When creating an MCP client from a config file, you must provide a token explicitly. MCPJungle cannot print an auto-generated token back through the file-based workflow.
+</Warning>
+
+## Recommended pattern
+
+For shared environments, create one MCP client per integration or workflow, not one shared token for everything.
+
+Examples:
+
+- one client for Cursor
+- one for Claude Desktop via `mcp-remote`
+- one for Copilot
+- one per internal agent or service
+
+That keeps access explicit and rotation manageable.
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Governance overview" icon="lock" href="/governance/overview">
+    Understand how enterprise mode changes the operating model.
+  </Card>
+  <Card title="Clients and users" icon="users" href="/governance/clients-and-users">
+    Manage machine identities and human user accounts separately.
+  </Card>
+  <Card title="Production deployment" icon="cloud" href="/deployment/production">
+    Run MCPJungle in enterprise mode and initialize it correctly.
+  </Card>
+  <Card title="Integrations" icon="plug" href="/integrations/cursor">
+    See how to apply client tokens in Cursor, Claude, and Copilot configs.
+  </Card>
+</CardGroup>

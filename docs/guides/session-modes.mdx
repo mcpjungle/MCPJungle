@@ -1,6 +1,6 @@
 ---
 title: "Stateful vs stateless server connections"
-description: "Understand MCPJungle's two session modes — stateless and stateful — and learn when persistent connections solve the STDIO cold-start problem."
+description: "Understand MCPJungle's two session modes, when persistent connections help, and why stateless should remain the default unless cold-start cost is a real problem."
 ---
 
 When an MCP client calls a tool through MCPJungle, the gateway must open a connection to the upstream MCP server, execute the tool, and return the result. How MCPJungle manages that connection lifecycle is controlled by the server's **session mode**.
@@ -84,7 +84,7 @@ The default value is `-1`, which disables the timeout entirely — stateful conn
 ## Choosing a session mode
 
 <Tip>
-Use stateless mode whenever possible. It is simpler, avoids resource leaks, and is sufficient for most Streamable HTTP servers that respond quickly.
+Use stateless mode whenever possible. It is simpler operationally, uses fewer long-lived resources, and is sufficient for most Streamable HTTP servers.
 </Tip>
 
 Use stateful mode when:

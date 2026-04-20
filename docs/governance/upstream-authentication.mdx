@@ -1,0 +1,116 @@
+---
+title: "Authenticate to upstream MCP servers"
+description: "Configure static bearer tokens and custom headers for upstream streamable HTTP MCP servers registered in MCPJungle."
+---
+
+This page is about **upstream authentication**: how MCPJungle authenticates when it calls a registered MCP server over streamable HTTP.
+
+It is not the same as enterprise-mode client authentication to the MCPJungle gateway itself.
+
+## When you need this
+
+Use upstream authentication when the MCP server you are registering requires a static token or custom headers.
+
+Typical examples:
+
+- SaaS-hosted MCP servers
+- internal MCP servers behind an API gateway
+- self-hosted MCP servers using static bearer-token auth
+
+## Bearer token via CLI flag
+
+If the upstream server accepts a standard bearer token, pass it at registration time:
+
+```bash
+mcpjungle register \
+  --name huggingface \
+  --description "HuggingFace MCP Server" \
+  --url https://huggingface.co/mcp \
+  --bearer-token <your-hf-api-token>
+```
+
+MCPJungle will send:
+
+```text
+Authorization: Bearer <your-hf-api-token>
+```
+
+on requests to that upstream server.
+
+## Bearer token in a config file
+
+```json
+{
+  "name": "huggingface",
+  "transport": "streamable_http",
+  "url": "https://huggingface.co/mcp",
+  "description": "HuggingFace MCP Server",
+  "bearer_token": "<your-hf-api-token>"
+}
+```
+
+## Custom headers
+
+If the upstream server expects a non-standard authorization format or additional headers, use the `headers` field:
+
+```json
+{
+  "name": "sourcegraph",
+  "transport": "streamable_http",
+  "url": "https://sourcegraph.mycompany.com/.api/mcp",
+  "headers": {
+    "Authorization": "token <your-sourcegraph-token>",
+    "Custom-Header": "custom-value"
+  }
+}
+```
+
+If you set both `bearer_token` and `headers.Authorization`, the explicit header value should be treated as the more specific configuration.
+
+## Environment variable placeholders
+
+JSON config files support `${VAR_NAME}` placeholders in string fields, including `bearer_token` and header values:
+
+```json
+{
+  "name": "affine-main",
+  "transport": "streamable_http",
+  "url": "https://app.affine.pro/api/workspaces/${AFFINE_WORKSPACE_ID}/mcp",
+  "bearer_token": "${AFFINE_API_TOKEN}",
+  "headers": {
+    "X-Workspace": "${AFFINE_WORKSPACE_ID}"
+  }
+}
+```
+
+Placeholder expansion happens in the CLI process before the config is sent to MCPJungle.
+
+## Important scope distinction
+
+Two different authentication layers can exist in the same deployment:
+
+- **Gateway authentication**: Enterprise-mode clients authenticating to MCPJungle.
+- **Upstream authentication**: MCPJungle authenticating to a registered HTTP MCP server.
+
+Those are separate concerns and use different configuration points.
+
+## Current limitation
+
+MCPJungle does not yet support OAuth flow for upstream server authentication. Static tokens and headers are the current supported model.
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Register servers" icon="server" href="/guides/register-servers">
+    Register streamable HTTP MCP servers with CLI flags or config files.
+  </Card>
+  <Card title="Access control" icon="shield-halved" href="/governance/access-control">
+    Configure how MCP clients authenticate to the MCPJungle gateway itself.
+  </Card>
+  <Card title="Clients and users" icon="users" href="/governance/clients-and-users">
+    Manage human and machine identities in enterprise mode.
+  </Card>
+  <Card title="Limitations" icon="triangle-exclamation" href="/limitations">
+    Review current gaps, including OAuth support.
+  </Card>
+</CardGroup>

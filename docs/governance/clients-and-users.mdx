@@ -1,0 +1,115 @@
+---
+title: "Manage clients and users"
+description: "Manage machine identities for MCP clients and user accounts for human operators in MCPJungle enterprise mode."
+---
+
+Enterprise mode separates machine identities from human identities.
+
+- **MCP clients** represent IDEs, bridges, and agents that connect to the gateway.
+- **Users** represent humans who need authenticated access to MCPJungle.
+
+That separation keeps client access control clean and avoids overloading one token model for every use case.
+
+## MCP clients
+
+MCP clients are intended for non-human consumers of the gateway, such as:
+
+- Cursor
+- Claude via `mcp-remote`
+- GitHub Copilot
+- internal agents and services
+
+Each MCP client gets:
+
+- a unique name
+- an access token
+- an allow-list of upstream MCP servers
+
+See [Access control](/governance/access-control) for the main workflow.
+
+## Users
+
+Users are human accounts for operators who need authenticated CLI or API access.
+
+Compared with admins, a standard user has a narrower permission set. They can inspect and use MCPJungle, but they do not get the same write capabilities as an admin.
+
+## Create users
+
+```bash
+# Auto-generated token
+mcpjungle create user bob
+
+# Custom token
+mcpjungle create user alice --access-token alice_token_123
+
+# From config file
+mcpjungle create user --conf /path/to/user-config.json
+```
+
+## User config file
+
+```json
+{
+  "name": "charlie",
+  "access_token": "charlies_secret_token",
+  "access_token_ref": {
+    "file": "/path/to/token-file.txt",
+    "env": "ENV_VAR_NAME"
+  }
+}
+```
+
+When using a config file, provide a token explicitly.
+
+## Token supply strategies
+
+For MCP client or user config files, there are three ways to supply a token:
+
+1. `access_token`
+2. `access_token_ref.file`
+3. `access_token_ref.env`
+
+Inline tokens are acceptable for testing. For anything more serious, use file- or environment-based secrets.
+
+## Environment variable placeholders
+
+JSON config files support `${VAR_NAME}` placeholders in string values:
+
+```json
+{
+  "name": "${MCP_CLIENT_NAME}",
+  "allowed_servers": ["${PRIMARY_SERVER}", "time"],
+  "access_token_ref": {
+    "env": "CLIENT_TOKEN_ENV_NAME"
+  }
+}
+```
+
+Expansion happens in the CLI process before the request is sent to MCPJungle.
+
+## Recommended identity model
+
+For a small to medium sized deployment:
+
+- create a small number of admin users for platform operators
+- create one MCP client per consuming application or workflow
+- avoid sharing one token across multiple tools or teams
+
+That keeps auditability and token rotation manageable without introducing needless process overhead.
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Access control" icon="shield-halved" href="/governance/access-control">
+    Control which upstream servers each MCP client can access.
+  </Card>
+  <Card title="Governance overview" icon="lock" href="/governance/overview">
+    Understand the overall enterprise operating model.
+  </Card>
+  <Card title="Config file reference" icon="file-code" href="/reference/config-file">
+    See the exact config schemas for clients and users.
+  </Card>
+  <Card title="Production deployment" icon="cloud" href="/deployment/production">
+    Initialize and operate MCPJungle correctly in enterprise mode.
+  </Card>
+</CardGroup>

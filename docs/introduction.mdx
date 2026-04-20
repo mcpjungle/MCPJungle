@@ -1,30 +1,45 @@
 ---
 title: "MCPJungle: MCP Gateway for Your AI Agents"
-description: "MCPJungle is a self-hosted MCP gateway that unifies all your MCP servers behind a single endpoint, so every AI agent connects to one place."
----
+description: "MCPJungle is a self-hosted MCP gateway for developers and teams who want one endpoint for many MCP servers, with centralized control over access and operations."
 
-MCPJungle is an open-source, self-hosted gateway for [Model Context Protocol](https://modelcontextprotocol.io/introduction) servers. Instead of configuring every AI client — Claude, Cursor, Copilot, or a custom agent — to connect to each MCP server individually, you register your MCP servers once in MCPJungle and expose all their tools through a single `/mcp` endpoint.
+MCPJungle is an open-source, self-hosted gateway for [Model Context Protocol](https://modelcontextprotocol.io/introduction) servers.
+
+Instead of configuring every AI client to connect to each MCP server separately, you register those servers once in MCPJungle and expose them through a single `/mcp` endpoint.
 
 ## The problem MCPJungle solves
 
-As you add MCP servers to your workflow, the management overhead compounds. Each new server means updating every AI client's configuration, duplicating credentials, and losing visibility into which tools are being called. When a server moves or changes, you update it in multiple places.
+As MCP usage grows, the management overhead compounds quickly:
 
-MCPJungle centralizes this. You register MCP servers once in the gateway. Every AI client connects to a single endpoint and automatically gets access to all registered tools — no per-client reconfiguration required.
+- Every new MCP server has to be configured in every client.
+- Credentials and headers are duplicated across tools and environments.
+- Tool discovery becomes fragmented across many server endpoints.
+- Teams lose a clean place to apply access control and observability.
+
+MCPJungle centralizes that sprawl. You register servers once, keep one gateway endpoint in front of them, and let AI clients discover tools through that single connection point.
 
 ## How it works
 
 MCPJungle has a client-server architecture:
 
-- **Gateway server** — runs as an HTTP service (default port `8080`) and acts as an MCP proxy. It maintains a registry of all your MCP servers, proxies tool calls to the appropriate upstream server, and exposes everything through a single streamable HTTP endpoint at `/mcp`. The server is typically run via Docker Compose.
-- **CLI client** — the `mcpjungle` binary you install locally. Use it to register and deregister MCP servers, manage tool groups, configure access control, and inspect what tools are available.
+- **Gateway server**: Runs as an HTTP service on port `8080` by default. It stores registered MCP servers, proxies calls to them, and exposes a unified streamable HTTP MCP endpoint at `/mcp`.
+- **CLI client**: The `mcpjungle` binary you install locally. Use it to register servers, inspect tools, create tool groups, initialize enterprise mode, and manage access.
 
-The gateway supports both [streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) and [stdio](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#stdio) MCP servers. AI clients connect to MCPJungle over streamable HTTP — MCPJungle is the only MCP server they need to know about.
+The gateway supports both [streamable HTTP](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http) and [stdio](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#stdio) MCP servers. Clients connect only to MCPJungle. MCPJungle handles the rest.
 
 ## Who should use MCPJungle?
 
-- **Individual developers** using Claude Desktop or Cursor who want to access multiple MCP servers without maintaining separate configurations in each client.
-- **Teams building AI agents** that need centralized access control, observability, and a stable endpoint for tool-calling in production.
-- **Organizations** that want to manage all MCP client-server interactions from a single, self-hosted location without sending data to third-party services.
+- **Individual developers** who want Claude Desktop, Cursor, or Copilot to share one MCP setup instead of many.
+- **Teams building AI agents** that need a stable tool gateway with centralized registration and curation.
+- **Organizations** that need self-hosted access control, audit-friendly operations, and no dependency on a third-party MCP aggregator.
+
+## Deployment modes
+
+MCPJungle supports two operating modes:
+
+- **Development mode**: Ideal for local use by an individual. No gateway authentication is enforced.
+- **Enterprise mode**: Designed for shared deployments. It enables authenticated access, per-client server allow-lists, and OpenTelemetry metrics by default.
+
+That split makes it workable for both a solo developer on a laptop and a small or mid-sized team running a shared MCP control plane.
 
 ## Get started
 
@@ -34,7 +49,10 @@ The gateway supports both [streamable HTTP](https://modelcontextprotocol.io/spec
   </Card>
 
   <Card title="Installation" icon="download" href="/installation">
-    Install the MCPJungle binary via Homebrew, Docker, or a pre-built binary.
+    Install the CLI locally and choose the right runtime path for your gateway.
+  </Card>
+  <Card title="Core concepts" icon="diagram-project" href="/core-concepts">
+    Understand how servers, tools, prompts, groups, clients, and access control fit together.
   </Card>
 
   <Card title="Deploy with Docker" icon="docker" href="/deployment/docker">
@@ -42,6 +60,6 @@ The gateway supports both [streamable HTTP](https://modelcontextprotocol.io/spec
   </Card>
 
   <Card title="Register MCP servers" icon="server" href="/guides/register-servers">
-    Add HTTP and STDIO-based MCP servers to the gateway using the CLI.
+    Add HTTP and STDIO-based MCP servers to the gateway and expose them through one endpoint.
   </Card>
 </CardGroup>

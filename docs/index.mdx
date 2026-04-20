@@ -1,28 +1,32 @@
 ---
 title: "MCPJungle: Self-Hosted MCP Gateway for AI Agents"
-description: "MCPJungle is an open-source, self-hosted gateway that unifies all your Model Context Protocol servers behind a single endpoint for AI agents."
+description: "MCPJungle is a self-hosted MCP gateway that aggregates many MCP servers behind one endpoint, with support for local use, team deployments, and enterprise controls."
 ---
 
-MCPJungle is a self-hosted MCP Gateway that acts as the single connection point for all your AI agents. Instead of configuring every AI client to connect to each MCP server individually, you register your MCP servers once in MCPJungle and let your agents discover all their tools through one unified `/mcp` endpoint.
+MCPJungle is a self-hosted MCP gateway that gives your AI clients one stable endpoint for tools, prompts, and resources across all your MCP servers.
+
+Instead of wiring Claude, Cursor, Copilot, and internal agents to each MCP server individually, you register those servers once in MCPJungle and expose them through a single `/mcp` endpoint.
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
     Start the gateway, register your first MCP server, and connect Claude in under 5 minutes.
   </Card>
+  <Card title="Core Concepts" icon="diagram-project" href="/core-concepts">
+    Learn how the gateway, CLI, servers, tools, prompts, groups, and access model fit together.
+  </Card>
   <Card title="Installation" icon="download" href="/installation">
-    Install the MCPJungle binary via Homebrew or Docker on any platform.
+    Install the CLI locally and choose the right runtime path for your gateway deployment.
   </Card>
   <Card title="Deploy with Docker" icon="docker" href="/deployment/docker">
-    Run the MCPJungle server locally or in production using Docker Compose.
-  </Card>
-  <Card title="CLI Reference" icon="terminal" href="/reference/cli-overview">
-    Full reference for every MCPJungle CLI command and flag.
+    Run MCPJungle locally for yourself or in enterprise mode for a shared team deployment.
   </Card>
 </CardGroup>
 
 ## Why MCPJungle?
 
-Managing multiple MCP servers across different AI clients — Claude, Cursor, Copilot, custom agents — means duplicating configuration everywhere and losing visibility into what tools are being called. MCPJungle solves this by acting as a central registry and proxy.
+Without a gateway, MCP usage does not scale cleanly. Every new MCP server means more duplicated client config, more scattered credentials, and less visibility into what tools are actually available.
+
+MCPJungle introduces a single control layer for that sprawl.
 
 <CardGroup cols={2}>
   <Card title="One endpoint for everything" icon="network-wired">
@@ -32,10 +36,10 @@ Managing multiple MCP servers across different AI clients — Claude, Cursor, Co
     Works with remote HTTP-based MCP servers and local STDIO-based servers like `filesystem`, `github`, and `time`.
   </Card>
   <Card title="Tool Groups" icon="layer-group" href="/guides/tool-groups">
-    Create subsets of tools for specific agents or clients — give Claude only the tools it needs without exposing everything.
+    Expose curated subsets of tools to specific agents so each client only sees what it actually needs.
   </Card>
-  <Card title="Enterprise Access Control" icon="shield-halved" href="/enterprise/access-control">
-    In enterprise mode, issue per-client access tokens and define exactly which MCP servers each client can access.
+  <Card title="Access Control" icon="shield-halved" href="/governance/access-control">
+    In enterprise mode, issue per-client tokens and explicitly control which MCP servers each client can reach.
   </Card>
 </CardGroup>
 
@@ -76,16 +80,16 @@ Managing multiple MCP servers across different AI clients — Claude, Cursor, Co
 ## Explore the docs
 
 <CardGroup cols={2}>
-  <Card title="Managing MCP servers" icon="server" href="/guides/register-servers">
-    Register, update, and remove HTTP and STDIO-based MCP servers from the gateway.
+  <Card title="Servers and tools" icon="server" href="/guides/register-servers">
+    Register remote and STDIO-based MCP servers, curate what they expose, and manage prompts and groups.
   </Card>
-  <Card title="Tool Groups" icon="objects-column" href="/guides/tool-groups">
-    Expose curated subsets of tools to specific MCP clients using named groups.
+  <Card title="Deploy and operate" icon="cloud" href="/deployment/production">
+    Run MCPJungle in local or enterprise mode with the right database, runtime, and observability setup.
   </Card>
-  <Card title="Enterprise features" icon="building" href="/enterprise/overview">
-    Enable access control, user management, and OpenTelemetry observability.
+  <Card title="Access and governance" icon="lock" href="/governance/overview">
+    Understand enterprise mode, upstream authentication, client tokens, and user access.
   </Card>
-  <Card title="HTTP API reference" icon="code" href="/reference/api-overview">
-    Automate MCPJungle management with the REST API.
+  <Card title="Reference" icon="terminal" href="/reference/cli-overview">
+    Use the CLI, HTTP API, config files, and environment variables with exact command and schema details.
   </Card>
 </CardGroup>

@@ -1,0 +1,150 @@
+---
+title: "Core concepts"
+description: "Understand the core MCPJungle model: gateway versus CLI, upstream servers, tools, prompts, groups, session modes, and the difference between development and enterprise mode."
+---
+
+This page gives you the operating model behind MCPJungle. Read it once before you go deep into the task guides. It will make the rest of the docs much easier to navigate.
+
+## MCPJungle in one sentence
+
+MCPJungle is a self-hosted MCP gateway that sits between your AI clients and your upstream MCP servers.
+
+You register servers once in MCPJungle. Your clients connect once to MCPJungle.
+
+## Gateway versus CLI
+
+MCPJungle has two parts:
+
+- **Gateway server**: The long-running HTTP service that exposes `/mcp`, stores registry state, and proxies calls to upstream MCP servers.
+- **CLI**: The `mcpjungle` binary you run from your machine to manage the gateway.
+
+The CLI is an admin and operator tool. The gateway is what your AI clients actually connect to.
+
+## Upstream MCP servers
+
+An **upstream MCP server** is any MCP server you register in MCPJungle. MCPJungle currently supports two transport types:
+
+- **Streamable HTTP**: Remote or local HTTP-based MCP servers.
+- **STDIO**: Local process-based MCP servers started by MCPJungle.
+
+Each registered server becomes part of the gateway's aggregated catalog.
+
+## Tools, prompts, and resources
+
+When you register an upstream server, MCPJungle discovers what it exposes and stores that metadata.
+
+- **Tools** are callable operations.
+- **Prompts** are reusable prompt templates exposed by an MCP server.
+- **Resources** may also be surfaced depending on the upstream server.
+
+Tools and prompts are enabled by default when a server is first registered.
+
+## Canonical names
+
+MCPJungle refers to tools and prompts by canonical names so they remain unique across all registered servers.
+
+Tool format:
+
+```text
+<server-name>__<tool-name>
+```
+
+Prompt format:
+
+```text
+<server-name>__<prompt-name>
+```
+
+Examples:
+
+```text
+context7__get-library-docs
+filesystem__read_file
+huggingface__Model Details
+```
+
+## Main gateway versus group endpoints
+
+The default gateway endpoint is:
+
+```text
+/mcp
+```
+
+By default, clients connecting there can discover everything that is currently exposed by MCPJungle.
+
+If that surface area becomes too large, create a **Tool Group**. A group exposes a subset of tools at its own endpoint:
+
+```text
+/v0/groups/{group-name}/mcp
+```
+
+This lets you give each client a narrower, more relevant tool set.
+
+## Development mode versus enterprise mode
+
+MCPJungle supports two operating modes.
+
+### Development mode
+
+Use development mode when:
+
+- you are running MCPJungle locally for yourself
+- you want the shortest path to a working setup
+- you do not need authenticated client access
+
+In development mode, clients connecting to `/mcp` can access all registered servers.
+
+### Enterprise mode
+
+Use enterprise mode when:
+
+- you are running a shared deployment
+- you need authenticated client access
+- you want per-client server allow-lists
+- you want metrics enabled by default
+
+In enterprise mode, no MCP client can access registered servers until you create an MCP client record and give it an allow-list.
+
+## MCP clients and users
+
+Enterprise mode distinguishes between two identity types:
+
+- **MCP clients**: Non-human identities for tools like Cursor, Claude bridges, Copilot, or internal agents. They authenticate to the gateway and receive access to specific servers.
+- **Users**: Human operators who use the CLI or admin API. Standard users can inspect and use MCPJungle, but write access remains restricted compared with admins.
+
+## Stateless versus stateful sessions
+
+For each upstream server, MCPJungle can manage connection lifecycle in one of two ways:
+
+- **Stateless**: Open a fresh connection for each tool call, then close it.
+- **Stateful**: Keep the connection open and reuse it across calls.
+
+Stateless is the default and should remain your first choice. Stateful is mainly useful for STDIO servers with slow startup costs or servers that rely on persistent session state.
+
+## Recommended mental model
+
+Think of MCPJungle as three layers:
+
+1. **Upstream servers**: The actual capabilities.
+2. **MCPJungle**: The control plane and unified gateway.
+3. **AI clients**: Claude, Cursor, Copilot, or internal agents consuming curated access.
+
+That is the core product shape: central registration, centralized exposure, and a cleaner path from local experimentation to team deployment.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Register servers" icon="server" href="/guides/register-servers">
+    Add remote HTTP-based MCP servers to the gateway.
+  </Card>
+  <Card title="Register STDIO servers" icon="terminal" href="/guides/stdio-servers">
+    Add local process-based MCP servers such as filesystem or github.
+  </Card>
+  <Card title="Tool groups" icon="layer-group" href="/guides/tool-groups">
+    Expose narrower tool subsets to specific clients.
+  </Card>
+  <Card title="Enterprise overview" icon="building" href="/governance/overview">
+    Understand enterprise mode, client tokens, and shared deployment controls.
+  </Card>
+</CardGroup>

@@ -1,9 +1,11 @@
 ---
 title: "Register STDIO-based MCP servers"
-description: "Register local MCP servers that communicate over standard input/output — including filesystem, GitHub, and other npx or uvx-based servers."
+description: "Register STDIO-based MCP servers that run as local child processes, including filesystem, GitHub, and other servers launched with npx or uvx."
 ---
 
-MCPJungle supports MCP servers that use the [STDIO transport](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#stdio). These servers run as child processes on the same machine as the MCPJungle server and communicate through standard input and output. Common examples include the `filesystem`, `time`, and `github` MCP servers distributed as `npx` or `uvx` packages.
+MCPJungle supports MCP servers that use the [STDIO transport](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#stdio).
+
+These servers run as child processes on the same machine as the MCPJungle server and communicate through standard input and output. Common examples include `filesystem`, `time`, and `github`.
 
 Because STDIO servers run as local processes, you must register them using a JSON config file — the CLI flags only cover Streamable HTTP registration.
 
@@ -157,3 +159,20 @@ If your STDIO server depends on a tool other than `npx` or `uvx`, create a custo
 ## Debugging STDIO servers
 
 If a STDIO server fails to start or throws errors during a tool call, check the MCPJungle server logs. The server captures `stderr` output from child processes and writes it to its own log stream, making it the primary place to diagnose STDIO server issues.
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Session modes" icon="clock" href="/guides/session-modes">
+    Use stateful mode when a STDIO server's cold start cost becomes a bottleneck.
+  </Card>
+  <Card title="Docker deployment" icon="docker" href="/deployment/docker">
+    Choose the right image and understand container filesystem access.
+  </Card>
+  <Card title="Register HTTP servers" icon="server" href="/guides/register-servers">
+    Register remote MCP servers over streamable HTTP.
+  </Card>
+  <Card title="Config file reference" icon="file-code" href="/reference/config-file">
+    See the exact JSON schema for STDIO registration files.
+  </Card>
+</CardGroup>

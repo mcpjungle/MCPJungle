@@ -1,0 +1,163 @@
+---
+title: "Manage tools and prompts"
+description: "List, inspect, invoke, enable, and disable the tools and prompts exposed by the MCP servers registered in MCPJungle."
+---
+
+Once an MCP server is registered, MCPJungle tracks what it exposes and lets you manage that surface area without removing the server itself.
+
+This page covers the day-to-day workflow for:
+
+- listing tools and prompts
+- checking tool usage
+- invoking tools
+- retrieving prompts
+- enabling and disabling tools, prompts, and entire servers
+
+## Tools
+
+Every tool is identified by a canonical name:
+
+```text
+<server-name>__<tool-name>
+```
+
+Examples:
+
+```text
+context7__get-library-docs
+calculator__multiply
+filesystem__read_file
+```
+
+### List available tools
+
+```bash
+mcpjungle list tools
+```
+
+To scope the list to a Tool Group:
+
+```bash
+mcpjungle list tools --group claude-tools
+```
+
+### Inspect tool usage
+
+```bash
+mcpjungle usage calculator__multiply
+```
+
+This shows the tool schema and expected input shape.
+
+### Invoke a tool
+
+```bash
+mcpjungle invoke calculator__multiply --input '{"a": 100, "b": 50}'
+```
+
+You can also invoke through a Tool Group context:
+
+```bash
+mcpjungle invoke filesystem__read_file --group claude-tools --input '{"path": "README.md"}'
+```
+
+## Prompts
+
+MCPJungle supports [MCP Prompts](https://modelcontextprotocol.io/specification/2025-06-18/server/prompts). If a registered server exposes prompts, MCPJungle registers them alongside that server's tools.
+
+Prompt names follow the same canonical pattern:
+
+```text
+<server-name>__<prompt-name>
+```
+
+### List prompts
+
+```bash
+mcpjungle list prompts
+mcpjungle list prompts --server huggingface
+```
+
+### Retrieve a prompt with arguments
+
+```bash
+mcpjungle get prompt "huggingface__Model Details" --arg model_id="openai/gpt-oss-120b"
+```
+
+Pass one `--arg key=value` flag per prompt argument.
+
+## Enable and disable exposure
+
+MCPJungle lets you hide tools and prompts from clients without deleting the underlying server registration.
+
+When you disable something:
+
+- it disappears from gateway discovery
+- MCP clients cannot call it through MCPJungle
+- you can still manage it through the CLI and API
+
+All tools and prompts are enabled by default when a server is first registered.
+
+### Disable or re-enable a single tool
+
+```bash
+mcpjungle disable tool context7__get-library-docs
+mcpjungle enable tool context7__get-library-docs
+```
+
+### Disable or re-enable all tools from one server
+
+```bash
+mcpjungle disable tool context7
+mcpjungle enable tool context7
+```
+
+### Disable or re-enable an entire server
+
+Disabling a server disables all of its tools and prompts in one step:
+
+```bash
+mcpjungle disable server context7
+mcpjungle enable server context7
+```
+
+### Disable or re-enable prompts
+
+```bash
+mcpjungle disable prompt "huggingface__Model Details"
+mcpjungle enable prompt "huggingface__Model Details"
+
+mcpjungle disable prompt context7
+mcpjungle enable prompt context7
+```
+
+## How disabled entities behave
+
+| Context | Behavior |
+|---|---|
+| Main gateway (`/mcp`) | Disabled tools and prompts are not listed and cannot be called. |
+| Tool Groups | A disabled tool does not remain available just because a group includes it. |
+| CLI and HTTP API | Disabled entities can still be listed, inspected, and re-enabled. |
+
+## Operational notes
+
+- Disabling a server or tool does not remove its registration.
+- Deregister a server if you want to remove it permanently.
+- Prompts are currently **not** exposed through Tool Group endpoints.
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Tool groups" icon="layer-group" href="/guides/tool-groups">
+    Expose subsets of tools through dedicated MCP endpoints.
+  </Card>
+  <Card title="Register servers" icon="server" href="/guides/register-servers">
+    Add new streamable HTTP MCP servers to the gateway.
+  </Card>
+  <Card title="STDIO servers" icon="terminal" href="/guides/stdio-servers">
+    Register local process-based MCP servers.
+  </Card>
+  <Card title="Limitations" icon="triangle-exclamation" href="/limitations">
+    Review the current gaps, including prompt support in Tool Groups.
+  </Card>
+</CardGroup>

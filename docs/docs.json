@@ -33,39 +33,18 @@
             "pages": [
               "introduction",
               "quickstart",
-              "installation"
+              "installation",
+              "core-concepts"
             ]
           },
           {
-            "group": "Deployment",
-            "pages": [
-              "deployment/docker",
-              "deployment/production",
-              "deployment/database"
-            ]
-          },
-          {
-            "group": "Managing MCP Servers",
+            "group": "Servers and Tools",
             "pages": [
               "guides/register-servers",
               "guides/stdio-servers",
-              "guides/session-modes",
-              "guides/enable-disable"
-            ]
-          },
-          {
-            "group": "Tool Groups",
-            "pages": [
+              "guides/tools-and-prompts",
               "guides/tool-groups",
-              "guides/prompts"
-            ]
-          },
-          {
-            "group": "Enterprise",
-            "pages": [
-              "enterprise/overview",
-              "enterprise/access-control",
-              "enterprise/observability"
+              "guides/session-modes"
             ]
           },
           {
@@ -75,6 +54,30 @@
               "integrations/cursor",
               "integrations/copilot"
             ]
+          },
+          {
+            "group": "Deploy and Operate",
+            "pages": [
+              "deployment/docker",
+              "deployment/production",
+              "deployment/database",
+              "deployment/observability"
+            ]
+          },
+          {
+            "group": "Access and Governance",
+            "pages": [
+              "governance/overview",
+              "governance/upstream-authentication",
+              "governance/access-control",
+              "governance/clients-and-users"
+            ]
+          },
+          {
+            "group": "Limitations",
+            "pages": [
+              "limitations"
+            ]
           }
         ]
       },
@@ -82,7 +85,7 @@
         "tab": "Reference",
         "groups": [
           {
-            "group": "CLI Commands",
+            "group": "CLI",
             "pages": [
               "reference/cli-overview",
               "reference/cli-server",
@@ -92,7 +95,7 @@
             ]
           },
           {
-            "group": "HTTP API",
+            "group": "API",
             "pages": [
               "reference/api-overview",
               "reference/api-servers",

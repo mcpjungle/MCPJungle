@@ -1,9 +1,14 @@
 ---
 title: "Run MCPJungle with Docker Compose"
-description: "Two Docker Compose configurations for MCPJungle: development mode for individuals on a local machine, and enterprise mode for teams hosting on a remote server."
+description: "Use Docker Compose to run MCPJungle locally or as a shared deployment, with clear guidance on compose files, image variants, health checks, and container-side CLI usage."
 ---
 
-Docker Compose is the recommended way to run the MCPJungle server. Two compose files are provided: one tuned for individuals running MCPJungle locally, and one for organizations deploying it on a remote server.
+Docker Compose is the recommended way to run MCPJungle.
+
+The repository ships two Compose paths:
+
+- one optimized for local use by an individual
+- one optimized for a shared deployment running in enterprise mode
 
 ## Choose a compose file
 
@@ -18,7 +23,7 @@ Docker Compose is the recommended way to run the MCPJungle server. Two compose f
 
 ## Development mode
 
-`docker-compose.yaml` starts MCPJungle in development mode alongside a Postgres container. It uses the `latest-stdio` image by default, which bundles `npx` and `uvx` so you can register stdio-based MCP servers without any extra setup.
+`docker-compose.yaml` is the fastest path to a working local setup. It starts MCPJungle in development mode alongside Postgres and uses the `latest-stdio` image by default, which includes `npx` and `uvx` for common STDIO server workflows.
 
 <Steps>
   <Step title="Download the compose file">
@@ -44,7 +49,7 @@ Docker Compose is the recommended way to run the MCPJungle server. Two compose f
 
 ## Enterprise mode
 
-`docker-compose.prod.yaml` starts MCPJungle in enterprise mode. It also starts a Prometheus container (port `9090`) and a pgAdmin container (port `5050`) for observability and database management.
+`docker-compose.prod.yaml` starts MCPJungle in enterprise mode. It is intended for a shared deployment where access is authenticated and metrics are expected to be available.
 
 <Steps>
   <Step title="Download the compose file">
@@ -64,7 +69,7 @@ Docker Compose is the recommended way to run the MCPJungle server. Two compose f
     mcpjungle init-server
     ```
 
-    See the [production deployment guide](/deployment/production) for details on this step.
+    See the [production deployment guide](/deployment/production) for the full initialization and operating model.
   </Step>
 </Steps>
 
@@ -89,6 +94,18 @@ MCPJUNGLE_IMAGE_TAG=latest-stdio docker compose -f docker-compose.prod.yaml up -
 <Note>
   If your stdio servers rely on tools other than `npx` or `uvx`, you need to build a custom Docker image that includes those dependencies alongside the `mcpjungle` binary.
 </Note>
+
+## Graceful shutdown
+
+MCPJungle should be stopped cleanly so it can close active connections and flush in-flight work.
+
+For Compose-managed deployments, use:
+
+```bash
+docker compose down
+```
+
+For a single container, `docker stop` is sufficient because it sends `SIGTERM` by default.
 
 ## Run CLI commands inside a container
 

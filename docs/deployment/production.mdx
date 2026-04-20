@@ -1,9 +1,18 @@
 ---
 title: "Deploy MCPJungle for production"
-description: "Run MCPJungle in enterprise mode for teams and organizations: enable stricter security policies, initialize the server, and manage admin credentials."
+description: "Run MCPJungle as a shared deployment in enterprise mode, initialize it safely, connect it to PostgreSQL, and understand the operational expectations for a production setup."
 ---
 
-Enterprise mode is designed for teams and organizations hosting MCPJungle on a shared server. It enforces authentication and access control, enables OpenTelemetry metrics by default, and requires an explicit initialization step to create the admin user.
+This guide covers the production operating model for MCPJungle.
+
+For serious deployments, MCPJungle should run in **enterprise mode** with:
+
+- a dedicated PostgreSQL database
+- explicit server initialization
+- per-client authentication
+- observability enabled
+
+That is the mode intended for teams, internal platforms, and small to medium sized organizations running MCPJungle as shared infrastructure.
 
 ## Start in enterprise mode
 
@@ -31,12 +40,12 @@ You can enable enterprise mode in three ways:
 </Tabs>
 
 <Note>
-  The `SERVER_MODE=enterprise` environment variable accepts `development` and `enterprise` as valid values. The former value `production` is deprecated — if you use it, MCPJungle will warn you and treat it as `enterprise`.
+  `SERVER_MODE` accepts `development` and `enterprise`. The older `production` naming has been replaced with `enterprise`.
 </Note>
 
-## Initialize the server
+## Initialize the server once
 
-After the first boot in enterprise mode, you must initialize the server before any clients can connect. Run the following command from your client machine:
+After the first boot in enterprise mode, initialize the server from your client machine:
 
 ```bash
 mcpjungle init-server
@@ -47,6 +56,15 @@ This creates an admin user and writes its API access token to `~/.mcpjungle.conf
 <Warning>
   The admin token is only displayed once. Store it securely. If you lose it, you will need to reset the server.
 </Warning>
+
+## Recommended runtime pattern
+
+For a shared deployment, the recommended pattern is:
+
+1. Run the standard `ghcr.io/mcpjungle/mcpjungle:latest` image.
+2. Keep the CLI installed separately on operator machines.
+3. Point MCPJungle at a separate PostgreSQL instance.
+4. Keep the gateway itself stateless apart from its database dependency.
 
 ## Run with Docker
 
@@ -93,5 +111,22 @@ docker stop mcpjungle-server
 | Server initialization | Automatic | Manual (`init-server`) |
 
 <Info>
-  Even in enterprise mode, telemetry can be overridden with `OTEL_ENABLED=false` if you want to disable it.
+  Even in enterprise mode, you can override metrics with `OTEL_ENABLED=false` if needed, though that is not the recommended default for shared deployments.
 </Info>
+
+## What to read next
+
+<CardGroup cols={2}>
+  <Card title="Database" icon="database" href="/deployment/database">
+    Configure PostgreSQL correctly for production use.
+  </Card>
+  <Card title="Observability" icon="chart-line" href="/deployment/observability">
+    Scrape Prometheus-compatible metrics from the `/metrics` endpoint.
+  </Card>
+  <Card title="Governance overview" icon="lock" href="/governance/overview">
+    Understand enterprise mode, tokens, clients, and users.
+  </Card>
+  <Card title="Access control" icon="shield-halved" href="/governance/access-control">
+    Give each MCP client access only to the servers it should reach.
+  </Card>
+</CardGroup>

@@ -1,9 +1,11 @@
 ---
 title: "Expose tool subsets with Tool Groups"
-description: "Create named subsets of tools with their own MCP endpoint so each client only sees the tools it needs, keeping performance sharp as your registry grows."
+description: "Create named subsets of tools with their own MCP endpoint so each client only sees the tools it needs instead of the full registry surface."
 ---
 
-As you register more MCP servers in MCPJungle, the total number of tools visible through the gateway grows quickly. Exposing hundreds of tools to a single MCP client degrades LLM calling accuracy and slows down tool discovery. Tool Groups let you define a named subset of tools and give it its own dedicated MCP endpoint. Each client connects to a group endpoint instead of the main `/mcp` gateway, so it only sees the tools relevant to its task.
+As you register more MCP servers, the full tool catalog can become too large for a single agent workflow. Tool Groups solve that by exposing a named subset of tools through a dedicated MCP endpoint.
+
+Each client can then connect to the specific group endpoint instead of the main `/mcp` gateway.
 
 ## How tool groups work
 
@@ -108,6 +110,8 @@ It is now accessible at the following streamable http endpoint:
 ```
 
 Configure your MCP client to connect to that URL instead of `http://127.0.0.1:8080/mcp`. The client will only see the tools in the group.
+
+This is the recommended pattern whenever a single client should use a curated tool set rather than the whole gateway.
 
 ## Managing groups
 

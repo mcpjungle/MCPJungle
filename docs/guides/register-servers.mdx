@@ -1,9 +1,11 @@
 ---
 title: "Register Streamable HTTP MCP servers"
-description: "Register remote MCP servers with MCPJungle using the Streamable HTTP transport — via CLI flags, config files, and bearer token authentication."
+description: "Register remote MCP servers with MCPJungle over streamable HTTP, using either CLI flags or config files with bearer tokens and custom headers."
 ---
 
-MCPJungle can proxy any MCP server that speaks the [Streamable HTTP transport](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http). Once registered, all tools that server provides are available to every MCP client connected to MCPJungle through the gateway's `/mcp` endpoint.
+MCPJungle can proxy any MCP server that speaks the [Streamable HTTP transport](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http).
+
+Once registered, that server's tools become available through the MCPJungle gateway and can be exposed to clients through the main `/mcp` endpoint or through Tool Groups.
 
 ## Register a server with CLI flags
 
@@ -57,7 +59,7 @@ The full config file format for a Streamable HTTP server:
 
 ## Authenticating with a bearer token
 
-Many SaaS MCP servers (HuggingFace, Stripe, etc.) require an API token. Pass it with the `--bearer-token` flag:
+Many SaaS-hosted MCP servers require a static API token. Pass it with the `--bearer-token` flag:
 
 ```bash
 mcpjungle register \
@@ -133,6 +135,18 @@ context7__get-library-docs
 
 Use this canonical name when calling `mcpjungle invoke`, `mcpjungle usage`, or when your MCP client refers to a specific tool.
 
+## Verify the registration
+
+After registering a server, inspect what MCPJungle discovered:
+
+```bash
+mcpjungle list tools
+mcpjungle usage calculator__multiply
+mcpjungle invoke calculator__multiply --input '{"a": 100, "b": 50}'
+```
+
+That is the quickest way to confirm both the upstream server and MCPJungle routing are working as expected.
+
 ## Deregister a server
 
 To remove a server from MCPJungle:
@@ -163,3 +177,20 @@ By default, the CLI connects to MCPJungle at `http://127.0.0.1:8080`. If your se
     ```
   </Tab>
 </Tabs>
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="STDIO servers" icon="terminal" href="/guides/stdio-servers">
+    Register local process-based MCP servers using JSON config files.
+  </Card>
+  <Card title="Upstream authentication" icon="key" href="/governance/upstream-authentication">
+    Understand bearer tokens and custom headers for upstream MCP servers.
+  </Card>
+  <Card title="Tools and prompts" icon="toolbox" href="/guides/tools-and-prompts">
+    List, invoke, enable, disable, and retrieve what registered servers expose.
+  </Card>
+  <Card title="Config file reference" icon="file-code" href="/reference/config-file">
+    See the full JSON schema details for server registration files.
+  </Card>
+</CardGroup>

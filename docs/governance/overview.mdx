@@ -1,0 +1,95 @@
+---
+title: "Access and governance overview"
+description: "Understand MCPJungle's enterprise operating model: authenticated clients, per-client server access, user accounts, and governance for shared deployments."
+---
+
+MCPJungle can be run casually by one developer or as shared infrastructure for a team. The governance model matters once you move into the second case.
+
+In local development mode, the gateway is intentionally simple: clients connecting to MCPJungle can access all registered servers.
+
+In enterprise mode, the posture changes:
+
+- authenticated access is required
+- MCP clients must be created explicitly
+- each client receives an allow-list of servers
+- human users are separated from machine identities
+- metrics are enabled by default
+
+## Development mode versus enterprise mode
+
+| Capability | Development mode | Enterprise mode |
+|---|---|---|
+| Gateway authentication | Disabled | Required |
+| MCP client access control | Open access to registered servers | Explicit allow-list per client |
+| User accounts | Not needed | Supported |
+| OpenTelemetry metrics | Disabled by default | Enabled by default |
+| Server initialization | Automatic | Manual via `mcpjungle init-server` |
+
+## Governance model
+
+MCPJungle uses three main identity and access concepts in enterprise mode.
+
+### Admins
+
+Admins initialize the server, register MCP servers, create clients, create users, and manage platform configuration.
+
+### MCP clients
+
+MCP clients are machine identities for agents and IDE integrations such as Cursor, Claude bridges, Copilot, or internal services.
+
+Each client gets:
+
+- an access token
+- an allow-list of upstream MCP servers it may access
+
+### Users
+
+Users are human identities for people who need authenticated access to MCPJungle. They have a narrower permission set than admins.
+
+## Typical enterprise flow
+
+<Steps>
+  <Step title="Start MCPJungle in enterprise mode">
+    Deploy the gateway in enterprise mode and connect it to PostgreSQL.
+  </Step>
+  <Step title="Initialize the server">
+    Run `mcpjungle init-server` once to create the initial admin identity.
+  </Step>
+  <Step title="Register MCP servers">
+    Add the upstream servers you want the gateway to expose.
+  </Step>
+  <Step title="Create MCP clients">
+    Create one machine identity per client or workflow and grant access only to the servers that client should reach.
+  </Step>
+  <Step title="Create users when needed">
+    Create standard users for human operators who need authenticated visibility into MCPJungle.
+  </Step>
+</Steps>
+
+## Why this matters
+
+For a shared deployment, a serious product needs more than just a gateway endpoint. It needs a control boundary:
+
+- which client can reach which server
+- which humans can operate the system
+- how tokens are issued and rotated
+- how usage can be observed centrally
+
+That is what enterprise mode is for.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Upstream authentication" icon="key" href="/governance/upstream-authentication">
+    Configure bearer tokens and custom headers for MCPJungle's upstream server connections.
+  </Card>
+  <Card title="Access control" icon="shield-halved" href="/governance/access-control">
+    Create MCP clients and define exactly which servers they can access.
+  </Card>
+  <Card title="Clients and users" icon="users" href="/governance/clients-and-users">
+    Manage machine identities and human accounts cleanly.
+  </Card>
+  <Card title="Production deployment" icon="cloud" href="/deployment/production">
+    Run MCPJungle with the expected enterprise operating model.
+  </Card>
+</CardGroup>

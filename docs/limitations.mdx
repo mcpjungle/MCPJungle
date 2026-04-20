@@ -1,0 +1,48 @@
+---
+title: "Current limitations"
+description: "Current MCPJungle limitations and known gaps to account for when planning a deployment or integration."
+---
+
+MCPJungle is already useful as a serious self-hosted MCP gateway, but there are still product gaps to plan around.
+
+## OAuth for upstream authentication
+
+MCPJungle does not yet support OAuth flows for upstream MCP server authentication.
+
+Today, the supported model is static credentials such as:
+
+- bearer tokens
+- explicit custom headers
+
+If an upstream server requires a dynamic OAuth flow, MCPJungle is not yet the right direct integration path for that server.
+
+## Prompts in Tool Groups
+
+Prompts are not currently exposed through Tool Group endpoints.
+
+That means:
+
+- the main gateway can surface prompts
+- group-specific endpoints currently narrow tools only
+
+If your workflow relies on prompts and curated endpoints at the same time, this is an important limitation to account for.
+
+## Group updates
+
+Tool Groups cannot currently be updated in place. To change one, delete it and recreate it with the new configuration.
+
+## Enterprise group creation
+
+In enterprise mode, only admins can create Tool Groups at the moment.
+
+## Planning guidance
+
+None of these limitations block the main product shape:
+
+- aggregate many MCP servers
+- expose one gateway endpoint
+- curate tool subsets
+- authenticate clients in enterprise mode
+- operate it as self-hosted infrastructure
+
+But they do affect how you plan governance and workflow design around the gateway.
