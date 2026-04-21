@@ -91,7 +91,7 @@ Use development mode when:
 
 - you are running MCPJungle locally for yourself
 - you want the shortest path to a working setup
-- you do not need authenticated client access
+- you do not need governance or access control
 
 In development mode, clients connecting to `/mcp` can access all registered servers.
 
@@ -99,12 +99,14 @@ In development mode, clients connecting to `/mcp` can access all registered serv
 
 Use enterprise mode when:
 
-- you are running a shared deployment
+- you are running a shared deployment in an enterprise environment
 - you need authenticated client access
 - you want per-client server allow-lists
 - you want metrics enabled by default
 
 In enterprise mode, no MCP client can access registered servers until you create an MCP client record and give it an allow-list.
+
+This is the right fit for teams that need centralized management, collaborative control, and a shared MCP gateway.
 
 ## MCP clients and users
 

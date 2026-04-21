@@ -22,9 +22,17 @@ It acts as a gateway that your AI clients connect to, providing unified access t
   </Card>
 </CardGroup>
 
+## Use Cases
+MCPJungle is primarily built for:
+
+- **Individuals** who want to use MCPs locally through one clean endpoint, no configuration hassle.
+- **Teams** that want centralized MCP management, shared access to MCPs and Governance - hosted in their own cloud.
+
 ## Why MCPJungle?
 
-Without a gateway, MCP usage does not scale cleanly. Every new MCP server means more duplicated client config, more scattered credentials, and less visibility into what tools are actually available.
+Without a gateway, MCP usage does not scale cleanly.
+
+Every new MCP server means more duplicated client config, more scattered credentials, and less visibility into what tools are actually available.
 
 MCPJungle introduces a single control layer for that sprawl.
 
@@ -32,8 +40,8 @@ MCPJungle introduces a single control layer for that sprawl.
   <Card title="One endpoint for everything" icon="network-wired">
     Register any number of MCP servers. Every AI agent connects to a single `/mcp` endpoint and gets access to all tools automatically.
   </Card>
-  <Card title="Streamable HTTP and STDIO support" icon="arrows-left-right">
-    Works with remote HTTP-based MCP servers and local STDIO-based servers like `filesystem`, `github`, and `time`.
+  <Card title="Self-hosted infrastructure" icon="server">
+    Run MCPJungle on your local machine or on your own remote server. Your MCP traffic, tool access, and operational data stay inside infrastructure you control.
   </Card>
   <Card title="Tool Groups" icon="layer-group" href="/guides/tool-groups">
     Expose curated subsets of tools to specific agents so each client only sees what it actually needs.
