@@ -4,7 +4,7 @@ description: "Understand the core concepts in mcpjungle to get the most out of i
 ---
 
 ## Mcpjungle server
-The long-running HTTP service that you run either locally or deploy to a server.
+The long-running HTTP service that you run either locally or deploy to a remote host machine.
 
 It exposes a REST API for managing mcpjungle registry itself and a streamable HTTP endpoint at `/mcp` for AI clients to connect to.
 
@@ -53,6 +53,8 @@ filesystem__read_file
 huggingface__Model Details
 ```
 
+So if 2 mcp servers - `foo` and `bar` - expose a tool called `get_file`, mcpjungle will expose them as `foo__get_file` and `bar__get_file` respectively.
+
 AI clients can discover and use these names.
 
 ### Resources
@@ -64,10 +66,10 @@ mcpj://res/<server-name>/<base64encode(original-resource-uri)>
 
 eg-
 ```text
-mcpj://res/my_files_mcp/ZmlsZTovL3NhbXBsZS50eHQ
+mcpj://res/foo_mcp/ZmlsZTovL3NhbXBsZS50eHQ
 ```
 
-AI clients can discover and use these URIs.
+AI clients can discover and use these URIs to access mcp Resources.
 
 ## Groups
 By default, mcpjungle exposes all registered mcp servers (their tools, prompts and resources) at the main gateway endpoint `/mcp`.
@@ -102,8 +104,8 @@ This mode is ideal for individuals running mcpjungle locally for themselves.
 
 Use development mode when:
 
-- you are running MCPJungle locally for yourself
 - you want the shortest path to a working setup
+- you just need one clean MCP endpoint and minimal configuration hassle (sufficient for individual users)
 - you do not need governance or access control
 
 In development mode, clients connecting to `/mcp` can access all registered servers.
@@ -113,11 +115,10 @@ This mode is ideal for teams running shared MCP infrastructure in an enterprise 
 
 Use enterprise mode when:
 
+- users need shared access to MCPs
 - you need authenticated client access to MCPs
-- you want Access Control
-- you want centralized management and governance features such as observability, audit logs, etc
-
-In enterprise mode, no MCP client can access registered servers until you create an MCP client record and give it an allow-list.
+- you need Access Control
+- you need centralized management and governance features such as observability, audit logs, etc
 
 ## Initialization
 When mcpjungle server is started for the first time, it needs to be initialized.

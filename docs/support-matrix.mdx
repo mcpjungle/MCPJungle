@@ -1,0 +1,105 @@
+---
+title: "Support matrix"
+description: "Capability overview for MCPJungle, including what is stable today, what is still beta, and where support is currently limited."
+---
+
+This page summarizes the current support level across the major MCPJungle capability areas.
+
+Use it as a quick product-readiness view:
+
+- **Stable**: supported and appropriate for normal use
+- **Beta**: usable, but still maturing
+- **Limited**: supported only partially or with important constraints
+
+## Transports
+
+| Area | Capability | Support level | Notes |
+|---|---|---|---|
+| Upstream MCP servers | Streamable HTTP | Stable | Primary remote transport for registering MCP servers in MCPJungle. |
+| Upstream MCP servers | STDIO | Stable | Supported through config-file registration and local child-process execution. |
+| Upstream MCP servers | SSE | Beta | Support exists, but the project docs describe it as not yet mature. |
+| Client connection to MCPJungle | Streamable HTTP endpoint | Stable | Main gateway endpoint exposed at `/mcp`. |
+
+## MCP surface area
+
+| Area | Capability | Support level | Notes |
+|---|---|---|---|
+| MCP objects | Tools | Stable | Core MCPJungle workflow. Tools can be listed, invoked, enabled, disabled, and grouped. |
+| MCP objects | Prompts | Stable | Prompts are supported and can be listed, retrieved, enabled, and disabled. |
+| MCP objects | Resources | Limited | Resources may be surfaced from upstream servers, but the docs and product flows are still tool-first. |
+| Group endpoints | Tool Groups | Stable | Main mechanism for exposing curated subsets of tools to specific clients. |
+| Group endpoints | Prompts inside Tool Groups | Limited | Prompts are not currently exposed through Tool Group endpoints. |
+
+## Authentication and access control
+
+| Area | Capability | Support level | Notes |
+|---|---|---|---|
+| Upstream HTTP servers | Static bearer-token auth | Stable | Supported via `--bearer-token` or JSON config. |
+| Upstream HTTP servers | Custom headers | Stable | Supported through the `headers` field in config files. |
+| Upstream HTTP servers | OAuth flow | Limited | Not currently supported. |
+| MCPJungle gateway | Enterprise-mode client authentication | Stable | MCP clients authenticate with bearer tokens in enterprise mode. |
+| MCPJungle gateway | Per-client server allow-lists | Stable | Supported through MCP client creation in enterprise mode. |
+| MCPJungle gateway | User accounts | Stable | Supported for human operators in enterprise mode. |
+
+## Deployment and runtime
+
+| Area | Capability | Support level | Notes |
+|---|---|---|---|
+| Local deployment | Development mode | Stable | Intended for individuals using MCPJungle locally. |
+| Shared deployment | Enterprise mode | Stable | Intended for teams and shared infrastructure. |
+| Database | SQLite | Stable | Good default for local testing and single-user workflows. |
+| Database | PostgreSQL | Stable | Recommended for serious and shared deployments. |
+| Docker runtime | Standard image | Stable | Minimal image intended for remote and production use. |
+| Docker runtime | `latest-stdio` image | Stable | Recommended when STDIO servers rely on `npx` or `uvx`. |
+| Session lifecycle | Stateless sessions | Stable | Default and preferred mode. |
+| Session lifecycle | Stateful sessions | Stable | Supported for cold-start-sensitive or sessionful upstream servers. |
+
+## Integrations
+
+| Area | Capability | Support level | Notes |
+|---|---|---|---|
+| AI clients | Claude Desktop | Stable | Supported via `mcp-remote`. |
+| AI clients | Cursor | Stable | Supported directly over HTTP. |
+| AI clients | GitHub Copilot | Stable | Supported through Copilot's MCP configuration flow. |
+
+## Observability and operations
+
+| Area | Capability | Support level | Notes |
+|---|---|---|---|
+| Metrics | Prometheus-compatible OpenTelemetry metrics | Stable | Enabled by default in enterprise mode and available at `/metrics`. |
+| Operations | Graceful shutdown | Stable | MCPJungle handles `SIGTERM` for clean shutdown. |
+| Operations | Running CLI from container/pod | Stable | Supported via direct execution of `/mcpjungle` in the container runtime. |
+
+## Configuration model
+
+| Area | Capability | Support level | Notes |
+|---|---|---|---|
+| CLI config | `~/.mcpjungle.conf` | Stable | Supports registry URL and access token. |
+| JSON config files | Environment variable placeholders | Stable | `${VAR_NAME}` substitution is supported across string fields. |
+| JSON config files | MCP server registration | Stable | Supported for both streamable HTTP and STDIO servers. |
+| JSON config files | MCP clients and users | Stable | Supported in enterprise workflows. |
+
+## Planning guidance
+
+For most users, the practical interpretation is:
+
+- use MCPJungle confidently for local MCP aggregation and shared team deployments
+- treat SSE support as still maturing
+- plan around current limitations in OAuth and prompts inside Tool Groups
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Core concepts" icon="diagram-project" href="/core-concepts">
+    Understand the MCPJungle operating model behind the matrix.
+  </Card>
+  <Card title="Limitations" icon="triangle-exclamation" href="/limitations">
+    Review the current gaps and constraints in more detail.
+  </Card>
+  <Card title="Governance overview" icon="lock" href="/governance/overview">
+    Understand the enterprise operating model for shared deployments.
+  </Card>
+  <Card title="Reference" icon="terminal" href="/reference/cli-overview">
+    Dive into exact commands, config files, and environment variables.
+  </Card>
+</CardGroup>
