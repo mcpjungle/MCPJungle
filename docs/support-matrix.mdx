@@ -13,33 +13,32 @@ Use it as a quick product-readiness view:
 
 ## Transports
 
-| Area | Capability | Support level | Notes |
-|---|---|---|---|
-| Upstream MCP servers | Streamable HTTP | Stable | Primary remote transport for registering MCP servers in MCPJungle. |
-| Upstream MCP servers | STDIO | Stable | Supported through config-file registration and local child-process execution. |
-| Upstream MCP servers | SSE | Beta | Support exists, but the project docs describe it as not yet mature. |
-| Client connection to MCPJungle | Streamable HTTP endpoint | Stable | Main gateway endpoint exposed at `/mcp`. |
+| Area | Capability | Support level | Notes                                                                                                                                              |
+|---|---|---|----------------------------------------------------------------------------------------------------------------------------------------------------|
+| Upstream MCP servers | Streamable HTTP | Stable | Primary remote transport for registering MCP servers in MCPJungle.                                                                                 |
+| Upstream MCP servers | STDIO | Stable | Supported through config-file registration and local child-process execution.                                                                      |
+| Upstream MCP servers | SSE | Limited | SSE is supported but no longer recommended as it is a deprecated transport.                                                                       |
+| Client connection to MCPJungle | Streamable HTTP endpoint | Stable | Main gateway endpoint exposed at `/mcp`.                                                                                                           |
 
 ## MCP surface area
 
-| Area | Capability | Support level | Notes |
-|---|---|---|---|
-| MCP objects | Tools | Stable | Core MCPJungle workflow. Tools can be listed, invoked, enabled, disabled, and grouped. |
-| MCP objects | Prompts | Stable | Prompts are supported and can be listed, retrieved, enabled, and disabled. |
-| MCP objects | Resources | Limited | Resources may be surfaced from upstream servers, but the docs and product flows are still tool-first. |
-| Group endpoints | Tool Groups | Stable | Main mechanism for exposing curated subsets of tools to specific clients. |
-| Group endpoints | Prompts inside Tool Groups | Limited | Prompts are not currently exposed through Tool Group endpoints. |
+| Area                    | Capability | Support level | Notes                                                                                                                        |
+|-------------------------|---|---|------------------------------------------------------------------------------------------------------------------------------|
+| MCP entities            | Tools | Stable | Core MCPJungle workflow. Tools can be listed, invoked, enabled, disabled, and grouped.                                       |
+| MCP entities            | Prompts | Stable | Prompts are supported and can be listed, retrieved, enabled, and disabled.                                                   |
+| MCP entities            | Resources | Beta | Some features such as tool groups may not fully support Resources yet.                                                        |
+| Group endpoints         | Tool Groups | Stable | Main mechanism for exposing curated subsets of tools to specific clients.                                                    |
 
 ## Authentication and access control
 
-| Area | Capability | Support level | Notes |
-|---|---|---|---|
-| Upstream HTTP servers | Static bearer-token auth | Stable | Supported via `--bearer-token` or JSON config. |
-| Upstream HTTP servers | Custom headers | Stable | Supported through the `headers` field in config files. |
-| Upstream HTTP servers | OAuth flow | Limited | Not currently supported. |
+| Area | Capability | Support level | Notes                                                           |
+|---|---|---|-----------------------------------------------------------------|
+| Upstream HTTP servers | Static bearer-token auth | Stable | Supported via `--bearer-token` or JSON config.                  |
+| Upstream HTTP servers | Custom headers | Stable | Supported through the `headers` field in config files.          |
+| Upstream HTTP servers | OAuth flow | Not supported | This is currently being worked on and will be available soon.      |
 | MCPJungle gateway | Enterprise-mode client authentication | Stable | MCP clients authenticate with bearer tokens in enterprise mode. |
-| MCPJungle gateway | Per-client server allow-lists | Stable | Supported through MCP client creation in enterprise mode. |
-| MCPJungle gateway | User accounts | Stable | Supported for human operators in enterprise mode. |
+| MCPJungle gateway | Per-client server allow-lists | Stable | Supported through MCP client creation in enterprise mode.       |
+| MCPJungle gateway | User accounts | Stable | Supported for human operators in enterprise mode.               |
 
 ## Deployment and runtime
 
@@ -49,43 +48,22 @@ Use it as a quick product-readiness view:
 | Shared deployment | Enterprise mode | Stable | Intended for teams and shared infrastructure. |
 | Database | SQLite | Stable | Good default for local testing and single-user workflows. |
 | Database | PostgreSQL | Stable | Recommended for serious and shared deployments. |
-| Docker runtime | Standard image | Stable | Minimal image intended for remote and production use. |
-| Docker runtime | `latest-stdio` image | Stable | Recommended when STDIO servers rely on `npx` or `uvx`. |
 | Session lifecycle | Stateless sessions | Stable | Default and preferred mode. |
 | Session lifecycle | Stateful sessions | Stable | Supported for cold-start-sensitive or sessionful upstream servers. |
 
-## Integrations
-
-| Area | Capability | Support level | Notes |
-|---|---|---|---|
-| AI clients | Claude Desktop | Stable | Supported via `mcp-remote`. |
-| AI clients | Cursor | Stable | Supported directly over HTTP. |
-| AI clients | GitHub Copilot | Stable | Supported through Copilot's MCP configuration flow. |
-
 ## Observability and operations
 
+| Area | Capability | Support level | Notes                                                                                         |
+|---|---|---|-----------------------------------------------------------------------------------------------|
+| Metrics | Prometheus-compatible OpenTelemetry metrics | Stable | Enabled by default in enterprise mode and available at `/metrics`.                            |
+| Audit Logs | Detailed audit logs for mcp interactions | Limited | This will be improved in future.                    |
+
+## Clients
+
 | Area | Capability | Support level | Notes |
 |---|---|---|---|
-| Metrics | Prometheus-compatible OpenTelemetry metrics | Stable | Enabled by default in enterprise mode and available at `/metrics`. |
-| Operations | Graceful shutdown | Stable | MCPJungle handles `SIGTERM` for clean shutdown. |
-| Operations | Running CLI from container/pod | Stable | Supported via direct execution of `/mcpjungle` in the container runtime. |
-
-## Configuration model
-
-| Area | Capability | Support level | Notes |
-|---|---|---|---|
-| CLI config | `~/.mcpjungle.conf` | Stable | Supports registry URL and access token. |
-| JSON config files | Environment variable placeholders | Stable | `${VAR_NAME}` substitution is supported across string fields. |
-| JSON config files | MCP server registration | Stable | Supported for both streamable HTTP and STDIO servers. |
-| JSON config files | MCP clients and users | Stable | Supported in enterprise workflows. |
-
-## Planning guidance
-
-For most users, the practical interpretation is:
-
-- use MCPJungle confidently for local MCP aggregation and shared team deployments
-- treat SSE support as still maturing
-- plan around current limitations in OAuth and prompts inside Tool Groups
+| MCPJungle client | CLI | Stable | Primary management interface for registering servers, managing groups, and operating MCPJungle today. |
+| MCPJungle client | Web-based GUI | Not supported | In active development and planned for release soon. |
 
 ## Related pages
 
