@@ -1,47 +1,37 @@
 ---
 title: "Core concepts"
-description: "Understand the core MCPJungle model: gateway versus CLI, upstream servers, tools, prompts, groups, session modes, and the difference between development and enterprise mode."
+description: "Understand the core concepts in mcpjungle to get the most out of it"
 ---
 
-This page gives you the operating model behind MCPJungle. Read it once before you go deep into the task guides. It will make the rest of the docs much easier to navigate.
+## Mcpjungle server
+The long-running HTTP service that you run either locally or deploy to a server.
 
-## MCPJungle in one sentence
+It exposes a REST API for managing mcpjungle registry itself and a streamable HTTP endpoint at `/mcp` for AI clients to connect to.
 
-MCPJungle is a self-hosted MCP gateway that sits between your AI clients and your upstream MCP servers.
+### Data persistence
+Mcpjungle stores all its data in a SQL database.
 
-You register servers once in MCPJungle. Your clients connect once to MCPJungle.
+By default, it uses SQLite with a local file. For production deployments, we recommend PostgreSQL.
 
-## Gateway versus CLI
+If you use the docker-compose.yaml provided in the repository, it will automatically start a PostgreSQL container and ensure connectivity.
 
-MCPJungle has two parts:
+## Mcpjungle client
+The `mcpjungle` CLI tool you run from your terminal to manage everything in the server.
 
-- **Gateway server**: The long-running HTTP service that exposes `/mcp`, stores registry state, and proxies calls to upstream MCP servers.
-- **CLI**: The `mcpjungle` binary you run from your machine to manage the gateway.
+As of today, the CLI is the primary client, with a web-based GUI in the works.
 
-The CLI is an admin and operator tool. The gateway is what your AI clients actually connect to.
+You can also build your own clients that talk to the server's REST API for custom management interfaces or automation.
 
-## Upstream MCP servers
+## Upstream MCP server
 
-An **upstream MCP server** is any MCP server you register in MCPJungle. MCPJungle currently supports two transport types:
+An **upstream MCP server** is any MCP server you add in MCPJungle.
 
-- **Streamable HTTP**: Remote or local HTTP-based MCP servers.
-- **STDIO**: Local process-based MCP servers started by MCPJungle.
-
-Each registered server becomes part of the gateway's aggregated catalog.
-
-## Tools, prompts, and resources
-
-When you register an upstream server, MCPJungle discovers what it exposes and stores that metadata.
-
-- **Tools** are callable operations.
-- **Prompts** are reusable prompt templates exposed by an MCP server.
-- **Resources** may also be surfaced depending on the upstream server.
-
-Tools and prompts are enabled by default when a server is first registered.
+This mcp server then becomes accessible to AI clients that connect to MCPJungle's gateway endpoint.
 
 ## Canonical names
 
-MCPJungle refers to tools and prompts by canonical names so they remain unique across all registered servers.
+### Tools and Prompts
+MCPJungle assigns canonical names to tools and prompts so they remain unique across all registered servers.
 
 Tool format:
 
@@ -63,29 +53,52 @@ filesystem__read_file
 huggingface__Model Details
 ```
 
-## Main gateway versus group endpoints
+AI clients can discover and use these names.
 
-The default gateway endpoint is:
+### Resources
+Each resource in mcpjungle is assigned a new, unique URI which follows the below format:
 
 ```text
-/mcp
+mcpj://res/<server-name>/<base64encode(original-resource-uri)>
 ```
 
-By default, clients connecting there can discover everything that is currently exposed by MCPJungle.
+eg-
+```text
+mcpj://res/my_files_mcp/ZmlsZTovL3NhbXBsZS50eHQ
+```
 
-If that surface area becomes too large, create a **Tool Group**. A group exposes a subset of tools at its own endpoint:
+AI clients can discover and use these URIs.
 
+## Groups
+By default, mcpjungle exposes all registered mcp servers (their tools, prompts and resources) at the main gateway endpoint `/mcp`.
+
+As you add more mcp servers, this can cause serious context overload for clients.
+
+Groups let you expose cherry-picked tools, prompts, and resources from registered servers at a separate MCP endpoint.
+
+Your client can then connect to the group's endpoint to discover and use only those tools relevant to it.
+
+A group's mcp is exposed at an endpoint of the format:
+
+Streamable http:
 ```text
 /v0/groups/{group-name}/mcp
 ```
 
-This lets you give each client a narrower, more relevant tool set.
+SSE:
+```text
+/v0/groups/{group-name}/sse
+/v0/groups/{group-name}/message
+```
 
-## Development mode versus enterprise mode
+## Development mode vs Enterprise mode
 
-MCPJungle supports two operating modes.
+MCPJungle supports 2 operating modes.
 
 ### Development mode
+When you start mcpjungle server, it runs in development mode by default.
+
+This mode is ideal for individuals running mcpjungle locally for themselves.
 
 Use development mode when:
 
@@ -96,24 +109,32 @@ Use development mode when:
 In development mode, clients connecting to `/mcp` can access all registered servers.
 
 ### Enterprise mode
+This mode is ideal for teams running shared MCP infrastructure in an enterprise environment.
 
 Use enterprise mode when:
 
-- you are running a shared deployment in an enterprise environment
-- you need authenticated client access
-- you want per-client server allow-lists
-- you want metrics enabled by default
+- you need authenticated client access to MCPs
+- you want Access Control
+- you want centralized management and governance features such as observability, audit logs, etc
 
 In enterprise mode, no MCP client can access registered servers until you create an MCP client record and give it an allow-list.
 
-This is the right fit for teams that need centralized management, collaborative control, and a shared MCP gateway.
+## Initialization
+When mcpjungle server is started for the first time, it needs to be initialized.
 
-## MCP clients and users
+If running in development mode, initialization is automatic, and you can already start using mcpjungle.
+
+If running in enterprise mode, the server must be initialized by an administrator.
+
+Once a server is initialized, you cannot change its operating mode.
+
+## MCP Clients and Users
+This concept is only relevant in enterprise mode.
 
 Enterprise mode distinguishes between two identity types:
 
-- **MCP clients**: Non-human identities for tools like Cursor, Claude bridges, Copilot, or internal agents. They authenticate to the gateway and receive access to specific servers.
-- **Users**: Human operators who use the CLI or admin API. Standard users can inspect and use MCPJungle, but write access remains restricted compared with admins.
+- **MCP clients**: Non-human identities AI clients like Cursor, Claude, Codex, custom agents, etc. They authenticate to the gateway and receive access to specific servers.
+- **Users**: Human operators who use the CLI or HTTP API. Standard users can inspect and use MCPJungle, but write access remains restricted to admins.
 
 ## Stateless versus stateful sessions
 
@@ -130,9 +151,7 @@ Think of MCPJungle as three layers:
 
 1. **Upstream servers**: The actual capabilities.
 2. **MCPJungle**: The control plane and unified gateway.
-3. **AI clients**: Claude, Cursor, Copilot, or internal agents consuming curated access.
-
-That is the core product shape: central registration, centralized exposure, and a cleaner path from local experimentation to team deployment.
+3. **AI clients**: Claude, Cursor, Copilot, or agents consuming MCPs.
 
 ## Next steps
 
