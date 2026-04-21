@@ -1,101 +1,77 @@
 ---
-title: "Get started with MCPJungle"
-description: "Start the MCPJungle gateway, register your first MCP server, and connect Claude Desktop — all in under 5 minutes."
+title: "Quickstart"
+description: "Start MCPJungle gateway, register your first MCP server, and connect a client — all in under 5 minutes."
 ---
 
-This guide walks you through the fastest path to a working MCPJungle setup: a local gateway running in Docker, a registered MCP server, and Claude Desktop connected to it.
+This quickstart guide will show you how to:
 
-<Note>
-  Before you start, verify the MCPJungle server is reachable after step 1 by running:
+1. Start the mcpjungle server locally using `docker compose`
+2. Add the [context7](https://context7.com/) MCP server in mcpjungle
+3. Connect your Claude Desktop to mcpjungle to access tools
 
-  ```bash
-  curl http://localhost:8080/health
-  ```
+## Start the server
 
-  The server is ready when this returns a `200` response.
-</Note>
+Fetch the `docker-compose.yaml` and start the mcpjungle server:
 
-<Steps>
-  <Step title="Start the gateway server">
-    Download the official Docker Compose file and start the MCPJungle server with a persistent Postgres database:
+```bash
+curl -O https://raw.githubusercontent.com/mcpjungle/MCPJungle/refs/heads/main/docker-compose.yaml
+docker compose up -d
+```
 
-    ```bash
-    curl -O https://raw.githubusercontent.com/mcpjungle/MCPJungle/refs/heads/main/docker-compose.yaml
-    docker compose up -d
-    ```
+This exposes mcpjungle's streamable http mcp server at `http://localhost:8080/mcp` by default.
 
-    This starts MCPJungle on port `8080`. The Docker Compose file is optimized for local development — the server runs in `development` mode, which requires no additional initialization.
+## Add an MCP server
 
-    <Tip>
-      If you plan to register stdio-based MCP servers that rely on `npx` or `uvx` (such as `filesystem` or `github`), use the stdio image instead:
+1. Download the `mcpjungle` CLI on your local machine either using brew or directly from the [Releases Page](https://github.com/mcpjungle/MCPJungle/releases).
 
-      ```bash
-      MCPJUNGLE_IMAGE_TAG=latest-stdio docker compose up -d
-      ```
+```bash
+brew install mcpjungle/mcpjungle/mcpjungle
+```
 
-      The stdio image is larger but includes all the tooling needed to run those servers inside the container.
-    </Tip>
-  </Step>
+2. Add the context7 MCP server to mcpjungle using the CLI:
 
-  <Step title="Install the CLI">
-    The `mcpjungle` CLI is how you register servers, manage tools, and configure the gateway from your local machine.
+```bash
+mcpjungle register --name context7 --url https://mcp.context7.com/mcp
+```
 
-    Install it with Homebrew:
+You should see output similar to this:
 
-    ```bash
-    brew install mcpjungle/mcpjungle/mcpjungle
-    ```
+<p align="center">
+  <img src="/images/register-context7.png" alt="register context7 in mcpjungle" />
+</p>
 
-    Verify the installation:
+## Connect to mcpjungle
 
-    ```bash
-    mcpjungle version
-    ```
+In your Claude Desktop, add the configuration for mcpjungle MCP server:
 
-    For other installation methods, see the [Installation](/installation) page.
-  </Step>
-
-  <Step title="Register an MCP server">
-    Add your first MCP server to the gateway. This example registers [context7](https://context7.com/), a remote MCP server that provides up-to-date library documentation:
-
-    ```bash
-    mcpjungle register --name context7 --url https://mcp.context7.com/mcp
-    ```
-
-    MCPJungle connects to the server, loads its tools, and makes them available through the gateway. You can confirm the tools are registered:
-
-    ```bash
-    mcpjungle list tools
-    ```
-  </Step>
-
-  <Step title="Connect Claude Desktop">
-    Open your Claude Desktop configuration file and add MCPJungle as an MCP server. Claude connects to the MCPJungle gateway over HTTP using the `mcp-remote` bridge:
-
-    ```json
-    {
-      "mcpServers": {
-        "mcpjungle": {
-          "command": "npx",
-          "args": [
-            "mcp-remote",
-            "http://localhost:8080/mcp",
-            "--allow-http"
-          ]
-        }
-      }
+```json
+{
+  "mcpServers": {
+    "mcpjungle": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "http://localhost:8080/mcp",
+        "--allow-http"
+      ]
     }
-    ```
+  }
+}
+```
 
-    Restart Claude Desktop to apply the configuration. Once connected, Claude can call any tool registered in MCPJungle. Try asking it:
+Once you have added the configuration, try asking Claude something simple:
 
-    ```text
-    Use context7 to get the documentation for /lodash/lodash
-    ```
+```text
+Use context7 to get the documentation for `/lodash/lodash`
+```
 
-    Claude will call the `context7__get-library-docs` tool through MCPJungle and return the Lodash documentation.
-  </Step>
-</Steps>
+Claude will then attempt to call the `context7__get-library-docs` tool via MCPJungle, which will return the documentation for the Lodash library.
+
+<p align="center">
+  <img src="/images/quickstart-claude-call-tool.png" alt="claude calls context7 tool via mcpjungle" height="400" />
+</p>
+
+You now have a working MCP setup with a single unified endpoint.
 
 ## Next steps
 
