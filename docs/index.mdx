@@ -7,6 +7,12 @@ MCPJungle aggregates multiple MCP servers into a single MCP endpoint.
 
 It acts as a gateway that your AI clients connect to, providing unified access to tools, prompts, and resources across all MCP servers.
 
+## Use Cases
+MCPJungle is primarily built for:
+
+- **Individuals** who want to use MCPs locally through one clean endpoint, no configuration hassle.
+- **Teams** that want centralized MCP management, shared access to MCPs and Governance - hosted in their own cloud.
+
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
     Start the gateway, add your first MCP server and connect Claude - in under 5 minutes.
@@ -21,12 +27,6 @@ It acts as a gateway that your AI clients connect to, providing unified access t
     Run MCPJungle locally for yourself or in enterprise mode for a shared team deployment.
   </Card>
 </CardGroup>
-
-## Use Cases
-MCPJungle is primarily built for:
-
-- **Individuals** who want to use MCPs locally through one clean endpoint, no configuration hassle.
-- **Teams** that want centralized MCP management, shared access to MCPs and Governance - hosted in their own cloud.
 
 ## Why MCPJungle?
 
@@ -51,7 +51,7 @@ MCPJungle introduces a single control layer for that sprawl.
   </Card>
 </CardGroup>
 
-## Get started in 3 steps
+## Quickstart
 
 <Steps>
   <Step title="Start the server">
@@ -61,29 +61,12 @@ MCPJungle introduces a single control layer for that sprawl.
     curl -O https://raw.githubusercontent.com/mcpjungle/MCPJungle/refs/heads/main/docker-compose.yaml
     docker compose up -d
     ```
-  </Step>
-  <Step title="Register an MCP server">
-    Use the CLI to add your first MCP server. This example uses [context7](https://context7.com/):
-
-    ```bash
-    mcpjungle register --name context7 --url https://mcp.context7.com/mcp
-    ```
-  </Step>
-  <Step title="Connect your AI client">
-    Point your MCP client at the MCPJungle gateway. For Claude Desktop:
-
-    ```json
-    {
-      "mcpServers": {
-        "mcpjungle": {
-          "command": "npx",
-          "args": ["mcp-remote", "http://localhost:8080/mcp", "--allow-http"]
-        }
-      }
-    }
-    ```
-  </Step>
+</Step>
 </Steps>
+
+<Card title="Continue with the Quickstart guide" icon="arrow-right" href="/quickstart">
+    Follow the full quickstart to install the CLI, register your first MCP server, and connect your AI client.
+</Card>
 
 ## Explore the docs
 
