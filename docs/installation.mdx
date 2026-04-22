@@ -95,13 +95,26 @@ If the following command also returns the server version, then your CLI is corre
 mcpjungle version
 ```
 
-## Config file
-The CLI also looks for a config file `.mcpjungle.conf` in your home directory. In case of a custom url, you can specify the registry url in the config file:
+## Configure a custom registry URL
 
-```yaml
-# ~/.mcpjungle.conf
-registry_url: http://my-server:9000
-```
+By default, the CLI connects to MCPJungle at `http://127.0.0.1:8080`. If your server runs on a different host or port, configure the registry URL in one of two ways:
+
+<Tabs>
+    <Tab title="--registry flag">
+        Pass the URL inline with every command:
+
+        ```bash
+        mcpjungle --registry http://my-server:9000 list tools
+        ```
+    </Tab>
+    <Tab title="Config file">
+        Create or edit `.mcpjungle.conf` in your home directory so you don't repeat the flag:
+
+        ```yaml
+        registry_url: http://my-server:9000
+        ```
+    </Tab>
+</Tabs>
 
 You have now successfully installed mcpjungle and connected the CLI to the server.
 
