@@ -41,8 +41,8 @@
           {
             "group": "Servers and Tools",
             "pages": [
-              "guides/register-servers",
-              "guides/stdio-servers",
+              "guides/register-http-servers",
+              "guides/register-stdio-servers",
               "guides/tools-and-prompts",
               "guides/tool-groups",
               "guides/session-modes"

@@ -1,11 +1,11 @@
 ---
-title: "Register STDIO-based MCP servers"
-description: "Register STDIO-based MCP servers that run as local child processes, including filesystem, GitHub, and other servers launched with npx or uvx."
+title: "Add STDIO MCP servers"
+description: "Register stdio transport-based MCP servers in mcpjungle using CLI. Expose them via the mcp gateway."
 ---
 
 MCPJungle supports MCP servers that use the [STDIO transport](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#stdio).
 
-These servers run as child processes on the same machine as the MCPJungle server and communicate through standard input and output. Common examples include `filesystem`, `time`, and `github`.
+These servers run as child processes on the same host as the MCPJungle server and communicate through standard input and output. Common examples include [filesystem](https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem) and [time](https://github.com/modelcontextprotocol/servers/tree/main/src/time).
 
 Because STDIO servers run as local processes, you must register them using a JSON config file — the CLI flags only cover Streamable HTTP registration.
 
@@ -47,6 +47,7 @@ The full set of fields for a STDIO server config:
   "description": "<description>",
   "command": "<command>",
   "args": ["<arg1>", "<arg2>"],
+  "session_mode": "stateless",
   "env": {
     "KEY": "value"
   }
@@ -56,10 +57,11 @@ The full set of fields for a STDIO server config:
 | Field         | Required | Description                                                                                    |
 | ------------- | -------- | ---------------------------------------------------------------------------------------------- |
 | `name`        | Yes      | Unique identifier. No spaces, special characters, or consecutive underscores.                  |
-| `transport`   | Yes      | Must be `"stdio"`.                                                                             |
+| `transport`   | Yes      | Must be `"stdio"`. Other possible values are `"streamable_http"` and `"sse"`.                  |
 | `description` | No       | Human-readable description surfaced in the CLI and API.                                        |
 | `command`     | Yes      | The executable to run — typically `"npx"` or `"uvx"`.                                         |
 | `args`        | No       | List of arguments passed to `command` when MCPJungle spawns the process.                      |
+| `session_mode`| No       | `stateless` (default) creates a new process/connection per tool call. `stateful` reuses a persistent session. |
 | `env`         | No       | Map of environment variables injected into the process environment at startup.                 |
 
 ## Examples
@@ -72,7 +74,8 @@ The full set of fields for a STDIO server config:
   "transport": "stdio",
   "description": "Filesystem MCP server",
   "command": "npx",
-  "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+  "session_mode": "stateless"
 }
 ```
 
@@ -83,6 +86,7 @@ The full set of fields for a STDIO server config:
   "description": "Custom uvx-based server",
   "command": "uvx",
   "args": ["my-server", "--workspace", "${WORKSPACE_ID}"],
+  "session_mode": "stateful",
   "env": {
     "API_TOKEN": "${API_TOKEN}"
   }
@@ -93,27 +97,9 @@ The full set of fields for a STDIO server config:
 
 ## Environment variable substitution
 
-Config files support `${VAR_NAME}` placeholders in any string field. The CLI resolves them from your shell environment before sending the request to MCPJungle:
+JSON config files support `${VAR_NAME}` placeholders in string fields, including command args and `env` values.
 
-```json
-{
-  "name": "my-stdio-server",
-  "transport": "stdio",
-  "command": "uvx",
-  "args": ["my-server", "--workspace", "${WORKSPACE_ID}"],
-  "env": {
-    "API_TOKEN": "${API_TOKEN}"
-  }
-}
-```
-
-Rules for substitution:
-
-- Only the `${VAR_NAME}` syntax is resolved — not `$VAR_NAME`.
-- Placeholders can appear anywhere inside a string, including as a substring.
-- Resolution runs in the CLI process, so the variable must be available in the shell where you run `mcpjungle register`.
-- If a referenced variable is not set, the command fails with an error.
-- Nested objects and string arrays are also resolved.
+See the [configuration file reference](/reference/config-file#$var_name-placeholder-substitution) for the full substitution rules and examples.
 
 ## Running in Docker: filesystem access
 
@@ -169,7 +155,7 @@ If a STDIO server fails to start or throws errors during a tool call, check the 
   <Card title="Docker deployment" icon="docker" href="/deployment/docker">
     Choose the right image and understand container filesystem access.
   </Card>
-  <Card title="Register HTTP servers" icon="server" href="/guides/register-servers">
+  <Card title="Register HTTP servers" icon="server" href="/guides/register-http-servers">
     Register remote MCP servers over streamable HTTP.
   </Card>
   <Card title="Config file reference" icon="file-code" href="/reference/config-file">

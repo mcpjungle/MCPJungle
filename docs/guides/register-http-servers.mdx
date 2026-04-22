@@ -56,7 +56,7 @@ The full config file format for a Streamable HTTP server is:
 | Field          | Required | Description                                                                                                                  |
 | -------------- | -------- |------------------------------------------------------------------------------------------------------------------------------|
 | `name`         | Yes      | Unique identifier for this server. No spaces, special characters, or consecutive underscores.                                |
-| `transport`    | Yes      | Can be either `"streamable_http"`, `"sse"` or `"stdio"`.                                                                     |
+| `transport`    | Yes      | Must be `"streamable_http"`. Other possible values are `"sse"` and `"stdio"`.                                                |
 | `description`  | No       | Human-readable description surfaced in the CLI and API.                                                                      |
 | `url`          | Yes      | The full URL of the MCP server's endpoint (e.g., `https://example.com/mcp`). Required when transport is streamable http.     |
 | `bearer_token` | No       | If set, MCPJungle adds `Authorization: Bearer <token>` to every request to this server.                                      |
@@ -103,31 +103,9 @@ For servers that need a custom `Authorization` format or additional headers, use
 
 ## Environment variable substitution
 
-Config files support `${VAR_NAME}` placeholders in any string field. The CLI resolves them from the environment before sending the request to MCPJungle:
+JSON config files support `${VAR_NAME}` placeholders in string fields, including URLs, bearer tokens, and header values.
 
-```json
-{
-  "name": "affine-main",
-  "transport": "streamable_http",
-  "description": "AFFiNE workspace MCP server",
-  "url": "https://app.affine.pro/api/workspaces/${AFFINE_WORKSPACE_ID}/mcp",
-  "bearer_token": "${AFFINE_API_TOKEN}",
-  "headers": {
-    "X-Workspace": "${AFFINE_WORKSPACE_ID}"
-  }
-}
-```
-
-<Warning>
-If a referenced environment variable is not set when you run `mcpjungle register`, the command fails with an error. Placeholders must resolve to a value at registration time.
-</Warning>
-
-Key rules for substitution:
-
-- Only the `${VAR_NAME}` syntax is recognized — not `$VAR_NAME`.
-- Placeholders can appear anywhere inside a string value, including as a substring: `"prefix-${VAR}-suffix"`.
-- Substitution runs in the CLI process, so the variable must be set in the shell where you run the command.
-- Nested objects and string arrays are also resolved.
+See the [configuration file reference](/reference/config-file#$var_name-placeholder-substitution) for the exact substitution rules and examples.
 
 ## Verify the registration
 
@@ -158,7 +136,7 @@ Deregistering removes the server and all the tools, prompts, and resources it pr
 ## Related pages
 
 <CardGroup cols={2}>
-  <Card title="STDIO servers" icon="terminal" href="/guides/stdio-servers">
+  <Card title="STDIO servers" icon="terminal" href="/guides/register-stdio-servers">
     Register local process-based MCP servers using JSON config files.
   </Card>
   <Card title="Connect Claude Desktop" icon="plug" href="/integrations/claude">
