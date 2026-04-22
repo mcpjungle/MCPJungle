@@ -32,7 +32,6 @@
           {
             "group": "Get Started",
             "pages": [
-              "introduction",
               "quickstart",
               "installation",
               "core-concepts",
