@@ -1,21 +1,19 @@
 ---
 title: "Authenticate to upstream MCP servers"
-description: "Configure static bearer tokens and custom headers for upstream streamable HTTP MCP servers registered in Mcpjungle."
+description: "Configure mcpjungle to make authenticated requests to upstream MCPs"
 ---
 
-This page is about **upstream authentication**: how Mcpjungle authenticates when it calls a registered MCP server over streamable HTTP.
-
-It is not the same as enterprise-mode client authentication to the Mcpjungle gateway itself.
+This page is about **upstream authentication**: how Mcpjungle authenticates when it calls an upstream MCP server.
 
 ## When you need this
 
-Use upstream authentication when the MCP server you are registering requires a static token or custom headers.
+Use upstream authentication when the MCP server you are registering requires some form of authentication (eg- static bearer token or custom headers).
 
 Typical examples:
 
 - SaaS-hosted MCP servers
-- internal MCP servers behind an API gateway
-- self-hosted MCP servers using static bearer-token auth
+- Internal MCP servers behind an API gateway
+- Self-hosted MCP servers using static bearer-token auth
 
 ## Bearer token via CLI flag
 
@@ -85,18 +83,42 @@ JSON config files support `${VAR_NAME}` placeholders in string fields, including
 
 Placeholder expansion happens in the CLI process before the config is sent to Mcpjungle.
 
+See the [configuration file reference](/reference/config-file#var_name-placeholder-substitution) for the full substitution rules.
+
+## STDIO servers and auth via environment variables
+
+For STDIO-based MCP servers, authentication is typically passed through environment variables in the server config.
+
+Example:
+
+```json
+{
+  "name": "my-stdio-server",
+  "transport": "stdio",
+  "command": "uvx",
+  "args": ["my-server"],
+  "env": {
+    "API_TOKEN": "${API_TOKEN}"
+  }
+}
+```
+
+Mcpjungle will start the STDIO server process with those environment variables, allowing the upstream server to read its credentials from the process environment.
+
 ## Important scope distinction
 
 Two different authentication layers can exist in the same deployment:
 
 - **Gateway authentication**: Enterprise-mode clients authenticating to Mcpjungle.
-- **Upstream authentication**: Mcpjungle authenticating to a registered HTTP MCP server.
+- **Upstream authentication**: Mcpjungle authenticating to a registered MCP server.
 
 Those are separate concerns and use different configuration points.
 
 ## Current limitation
 
-Mcpjungle does not yet support OAuth flow for upstream server authentication. Static tokens and headers are the current supported model.
+Mcpjungle does not yet support OAuth flow for upstream server authentication.
+
+Support for Oauth flows is being worked on and will soon be available.
 
 ## Related pages
 
