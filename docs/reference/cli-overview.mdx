@@ -1,5 +1,5 @@
 ---
-title: "MCPJungle CLI command reference"
+title: "Mcpjungle CLI command reference"
 description: "Complete reference for the mcpjungle binary: global flags, the ~/.mcpjungle.conf config file, and a table of every available command grouped by category."
 ---
 
@@ -11,7 +11,7 @@ These flags are accepted by every command and subcommand.
 
 | Flag | Type | Default | Description |
 |------|------|---------|-------------|
-| `--registry` | string | `http://127.0.0.1:8080` | Base URL of the MCPJungle registry server. |
+| `--registry` | string | `http://127.0.0.1:8080` | Base URL of the Mcpjungle registry server. |
 | `--help` | — | — | Print help for the current command and exit. |
 | `--version` / `-v` | — | — | Print version information and exit. |
 
@@ -32,7 +32,7 @@ access_token: your-access-token
 
 | Field | Description |
 |-------|-------------|
-| `registry_url` | URL of the MCPJungle server. Overrides the `--registry` default. |
+| `registry_url` | URL of the Mcpjungle server. Overrides the `--registry` default. |
 | `access_token` | Bearer token sent with every request. Required in enterprise mode. |
 
 The file is created automatically by `mcpjungle init-server` and `mcpjungle login`. You can also create or edit it by hand.
@@ -45,7 +45,7 @@ Commands are grouped into **Basic** (everyday operations) and **Advanced** (ente
 
 | Command | Description |
 |---------|-------------|
-| [`start`](/reference/cli-server#start) | Start the MCPJungle HTTP server and MCP gateway. |
+| [`start`](/reference/cli-server#start) | Start the Mcpjungle HTTP server and MCP gateway. |
 | [`register`](/reference/cli-tools#register) | Register an MCP server with the gateway. |
 | [`list`](/reference/cli-tools#list) | List servers, tools, prompts, resources, groups, clients, and users. |
 | [`usage`](/reference/cli-tools#usage) | Show input schema and usage information for a tool. |
@@ -68,7 +68,7 @@ Commands are grouped into **Basic** (everyday operations) and **Advanced** (ente
 
 ## Running the CLI in Docker or Kubernetes
 
-When the MCPJungle server runs in a container, you can still use the CLI from outside by pointing `--registry` at the exposed port:
+When the Mcpjungle server runs in a container, you can still use the CLI from outside by pointing `--registry` at the exposed port:
 
 ```bash
 mcpjungle --registry http://localhost:8080 list servers
@@ -83,5 +83,5 @@ mcpjungle --registry http://mcpjungle.default.svc.cluster.local:8080 list tools
 If you are running a one-off admin command from within the same pod or a sidecar, the default `http://127.0.0.1:8080` works without any extra flags.
 
 <Note>
-  The CLI binary is not included in the standard MCPJungle Docker image. Install it on your local machine or in a separate container. See the [Installation](/installation) page for options.
+  The CLI binary is not included in the standard Mcpjungle Docker image. Install it on your local machine or in a separate container. See the [Installation](/installation) page for options.
 </Note>

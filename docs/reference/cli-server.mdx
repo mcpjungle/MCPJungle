@@ -1,13 +1,13 @@
 ---
 title: "mcpjungle start — server command reference"
-description: "Reference for the start, init-server, and version commands — all flags, environment variables, and server modes for running the MCPJungle gateway."
+description: "Reference for the start, init-server, and version commands — all flags, environment variables, and server modes for running the Mcpjungle gateway."
 ---
 
-These commands operate on the MCPJungle server process itself rather than on its registry contents. `start` launches the gateway, `init-server` prepares it for enterprise use, and `version` reports what is running.
+These commands operate on the Mcpjungle server process itself rather than on its registry contents. `start` launches the gateway, `init-server` prepares it for enterprise use, and `version` reports what is running.
 
 ## `start`
 
-Starts the MCPJungle HTTP server and MCP gateway.
+Starts the Mcpjungle HTTP server and MCP gateway.
 
 ```bash
 mcpjungle start [flags]
@@ -98,7 +98,7 @@ DATABASE_URL="postgres://user:password@localhost:5432/mcpjungle" mcpjungle start
 
 ## `init-server`
 
-Initializes the MCPJungle server when running in enterprise mode. This command is run once, from your local machine, after the server has started.
+Initializes the Mcpjungle server when running in enterprise mode. This command is run once, from your local machine, after the server has started.
 
 ```bash
 mcpjungle init-server [--registry <url>]

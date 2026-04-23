@@ -1,13 +1,13 @@
 ---
 title: "Stateful & Stateless server connections"
-description: "Understand MCPJungle's two session modes, when persistent connections help, and why stateless should remain the default unless cold-start cost is a real problem."
+description: "Understand Mcpjungle's two session modes, when persistent connections help, and why stateless should remain the default unless cold-start cost is a real problem."
 ---
 
-When an MCP client calls a tool through MCPJungle, the gateway must open a connection to the upstream MCP server, execute the tool, and return the result. How MCPJungle manages that connection lifecycle is controlled by the server's **session mode**.
+When an MCP client calls a tool through Mcpjungle, the gateway must open a connection to the upstream MCP server, execute the tool, and return the result. How Mcpjungle manages that connection lifecycle is controlled by the server's **session mode**.
 
 ## Stateless mode (default)
 
-In stateless mode, MCPJungle opens a fresh connection to the upstream MCP server for every tool call. Once the call completes, the connection is closed immediately.
+In stateless mode, Mcpjungle opens a fresh connection to the upstream MCP server for every tool call. Once the call completes, the connection is closed immediately.
 
 In case of a http upstream server, this means a new HTTP request is made for each tool call.
 For a stdio server, this means a new process is spawned for each call.
@@ -49,20 +49,20 @@ With stateful mode enabled:
 A persistent connection is closed in three situations:
 
 <CardGroup cols={1}>
-  <Card title="MCPJungle server stops" icon="power-off">
-    All stateful connections are closed during graceful shutdown of the MCPJungle server process.
+  <Card title="Mcpjungle server stops" icon="power-off">
+    All stateful connections are closed during graceful shutdown of the Mcpjungle server process.
   </Card>
   <Card title="Server is deregistered" icon="trash">
     Running `mcpjungle deregister <name>` closes the connection and removes the server from the registry.
   </Card>
   <Card title="Idle timeout expires" icon="clock">
-    If `SESSION_IDLE_TIMEOUT_SEC` is set on the MCPJungle server, connections that have been idle for longer than that duration are closed automatically.
+    If `SESSION_IDLE_TIMEOUT_SEC` is set on the Mcpjungle server, connections that have been idle for longer than that duration are closed automatically.
   </Card>
 </CardGroup>
 
 ## Configuring the idle timeout
 
-The `SESSION_IDLE_TIMEOUT_SEC` environment variable controls how long MCPJungle waits before closing an idle stateful connection. Set it on the MCPJungle server before startup:
+The `SESSION_IDLE_TIMEOUT_SEC` environment variable controls how long Mcpjungle waits before closing an idle stateful connection. Set it on the Mcpjungle server before startup:
 
 ```bash
 export SESSION_IDLE_TIMEOUT_SEC=300  # close connections idle for more than 5 minutes

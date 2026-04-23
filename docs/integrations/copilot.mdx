@@ -1,13 +1,13 @@
 ---
 title: "Connect GitHub Copilot to mcpjungle"
-description: "Add MCPJungle as an MCP server in GitHub Copilot's mcp.json config and give Copilot Chat access to all your registered tools."
+description: "Add Mcpjungle as an MCP server in GitHub Copilot's mcp.json config and give Copilot Chat access to all your registered tools."
 ---
 
-GitHub Copilot supports MCP servers through a `mcp.json` configuration file in your workspace or user settings. Pointing it at MCPJungle lets Copilot Chat discover and call every tool registered in your gateway.
+GitHub Copilot supports MCP servers through a `mcp.json` configuration file in your workspace or user settings. Pointing it at Mcpjungle lets Copilot Chat discover and call every tool registered in your gateway.
 
 ## Prerequisites
 
-- MCPJungle running at `http://localhost:8080` (or your deployment URL)
+- Mcpjungle running at `http://localhost:8080` (or your deployment URL)
 - GitHub Copilot with MCP support enabled in VS Code or your editor
 
 ## Configure GitHub Copilot
@@ -19,7 +19,7 @@ Follow [GitHub's documentation on configuring MCP servers manually](https://docs
     Create or edit the `mcp.json` file in the location specified by GitHub Copilot's MCP documentation for your editor.
   </Step>
 
-  <Step title="Add MCPJungle as a server">
+  <Step title="Add Mcpjungle as a server">
     Add the following configuration:
 
     ```json
@@ -33,11 +33,11 @@ Follow [GitHub's documentation on configuring MCP servers manually](https://docs
     ```
   </Step>
 
-  <Step title="Start the MCPJungle server in Copilot">
-    After saving `mcp.json`, open Copilot Chat. You may see a **Start** button next to the MCPJungle entry — click it to establish the connection.
+  <Step title="Start the Mcpjungle server in Copilot">
+    After saving `mcp.json`, open Copilot Chat. You may see a **Start** button next to the Mcpjungle entry — click it to establish the connection.
 
     <Note>
-      If Copilot does not automatically connect to MCPJungle, look for a **Start** button in the MCP servers panel and click it manually.
+      If Copilot does not automatically connect to Mcpjungle, look for a **Start** button in the MCP servers panel and click it manually.
     </Note>
   </Step>
 
@@ -48,15 +48,15 @@ Follow [GitHub's documentation on configuring MCP servers manually](https://docs
     What MCP tools do you have access to?
     ```
 
-    Copilot will query MCPJungle and list the tools from all registered servers.
+    Copilot will query Mcpjungle and list the tools from all registered servers.
   </Step>
 </Steps>
 
 ## Enterprise mode (authentication)
 
-If your MCPJungle instance runs in enterprise mode, create a dedicated MCP client for Copilot and include its access token in the request headers.
+If your Mcpjungle instance runs in enterprise mode, create a dedicated MCP client for Copilot and include its access token in the request headers.
 
-Create the client with the MCPJungle CLI:
+Create the client with the Mcpjungle CLI:
 
 ```bash
 mcpjungle create mcp-client copilot-local --allow "server1, server2"

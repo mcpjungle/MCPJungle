@@ -1,11 +1,11 @@
 ---
 title: "Authenticate to upstream MCP servers"
-description: "Configure static bearer tokens and custom headers for upstream streamable HTTP MCP servers registered in MCPJungle."
+description: "Configure static bearer tokens and custom headers for upstream streamable HTTP MCP servers registered in Mcpjungle."
 ---
 
-This page is about **upstream authentication**: how MCPJungle authenticates when it calls a registered MCP server over streamable HTTP.
+This page is about **upstream authentication**: how Mcpjungle authenticates when it calls a registered MCP server over streamable HTTP.
 
-It is not the same as enterprise-mode client authentication to the MCPJungle gateway itself.
+It is not the same as enterprise-mode client authentication to the Mcpjungle gateway itself.
 
 ## When you need this
 
@@ -29,7 +29,7 @@ mcpjungle register \
   --bearer-token <your-hf-api-token>
 ```
 
-MCPJungle will send:
+Mcpjungle will send:
 
 ```text
 Authorization: Bearer <your-hf-api-token>
@@ -83,20 +83,20 @@ JSON config files support `${VAR_NAME}` placeholders in string fields, including
 }
 ```
 
-Placeholder expansion happens in the CLI process before the config is sent to MCPJungle.
+Placeholder expansion happens in the CLI process before the config is sent to Mcpjungle.
 
 ## Important scope distinction
 
 Two different authentication layers can exist in the same deployment:
 
-- **Gateway authentication**: Enterprise-mode clients authenticating to MCPJungle.
-- **Upstream authentication**: MCPJungle authenticating to a registered HTTP MCP server.
+- **Gateway authentication**: Enterprise-mode clients authenticating to Mcpjungle.
+- **Upstream authentication**: Mcpjungle authenticating to a registered HTTP MCP server.
 
 Those are separate concerns and use different configuration points.
 
 ## Current limitation
 
-MCPJungle does not yet support OAuth flow for upstream server authentication. Static tokens and headers are the current supported model.
+Mcpjungle does not yet support OAuth flow for upstream server authentication. Static tokens and headers are the current supported model.
 
 ## Related pages
 
@@ -105,7 +105,7 @@ MCPJungle does not yet support OAuth flow for upstream server authentication. St
     Register streamable HTTP MCP servers with CLI flags or config files.
   </Card>
   <Card title="Access control" icon="shield-halved" href="/governance/access-control">
-    Configure how MCP clients authenticate to the MCPJungle gateway itself.
+    Configure how MCP clients authenticate to the Mcpjungle gateway itself.
   </Card>
   <Card title="Clients and users" icon="users" href="/governance/clients-and-users">
     Manage human and machine identities in enterprise mode.

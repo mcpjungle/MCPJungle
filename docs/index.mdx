@@ -1,14 +1,14 @@
 ---
-title: "MCPJungle Documentation"
+title: "Mcpjungle Documentation"
 description: "Self-hosted MCP gateway. One endpoint for all your tools."
 ---
 
-MCPJungle aggregates multiple MCP servers into a single MCP endpoint.
+Mcpjungle aggregates multiple MCP servers into a single MCP endpoint.
 
 It acts as a gateway that your AI clients connect to, providing unified access to tools, prompts, and resources across all MCP servers.
 
 ## Use Cases
-MCPJungle is primarily built for:
+Mcpjungle is primarily built for:
 
 - **Individuals** who want to use MCPs locally through one clean endpoint, no configuration hassle.
 - **Teams** that want centralized MCP management, shared access to MCPs and Governance - hosted in their own cloud.
@@ -28,20 +28,20 @@ MCPJungle is primarily built for:
   </Card>
 </CardGroup>
 
-## Why MCPJungle?
+## Why Mcpjungle?
 
 Without a gateway, MCP usage does not scale cleanly.
 
 Every new MCP server means more duplicated client config, more scattered credentials, and less visibility into what tools are actually available.
 
-MCPJungle introduces a single control layer for that sprawl.
+Mcpjungle introduces a single control layer for that sprawl.
 
 <CardGroup cols={2}>
   <Card title="One endpoint for everything" icon="network-wired">
     Register any number of MCP servers. Every AI agent connects to a single `/mcp` endpoint and gets access to all tools automatically.
   </Card>
   <Card title="Self-hosted infrastructure" icon="server">
-    Run MCPJungle on your local machine or on your own remote server. Your MCP traffic, tool access, and operational data stay inside infrastructure you control.
+    Run Mcpjungle on your local machine or on your own remote server. Your MCP traffic, tool access, and operational data stay inside infrastructure you control.
   </Card>
   <Card title="Tool Groups" icon="layer-group" href="/guides/tool-groups">
     Expose curated subsets of tools to specific agents so each client only sees what it actually needs.
@@ -55,7 +55,7 @@ MCPJungle introduces a single control layer for that sprawl.
 
 <Steps>
   <Step title="Start the server">
-    Pull the Docker Compose file and start MCPJungle with a persistent Postgres database:
+    Pull the Docker Compose file and start Mcpjungle with a persistent Postgres database:
 
     ```bash
     curl -O https://raw.githubusercontent.com/mcpjungle/MCPJungle/refs/heads/main/docker-compose.yaml
@@ -75,7 +75,7 @@ MCPJungle introduces a single control layer for that sprawl.
     Register remote and STDIO-based MCP servers, curate what they expose, and manage prompts and groups.
   </Card>
   <Card title="Deploy and operate" icon="cloud" href="/deployment/production">
-    Run MCPJungle in local or enterprise mode with the right database, runtime, and observability setup.
+    Run Mcpjungle in local or enterprise mode with the right database, runtime, and observability setup.
   </Card>
   <Card title="Access and governance" icon="lock" href="/governance/overview">
     Understand enterprise mode, upstream authentication, client tokens, and user access.

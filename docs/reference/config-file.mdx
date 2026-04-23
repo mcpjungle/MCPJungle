@@ -1,9 +1,9 @@
 ---
-title: "MCPJungle CLI configuration file"
+title: "Mcpjungle CLI configuration file"
 description: "Reference for ~/.mcpjungle.conf, the YAML file the CLI reads for the registry URL and access token, plus all JSON config file formats used to register servers and create resources."
 ---
 
-The MCPJungle CLI reads a YAML configuration file at `~/.mcpjungle.conf` on startup. It stores two values: the URL of the MCPJungle server and an access token for authenticated requests. Most users never edit this file by hand — `mcpjungle init-server` and `mcpjungle login` write to it automatically.
+The Mcpjungle CLI reads a YAML configuration file at `~/.mcpjungle.conf` on startup. It stores two values: the URL of the Mcpjungle server and an access token for authenticated requests. Most users never edit this file by hand — `mcpjungle init-server` and `mcpjungle login` write to it automatically.
 
 ## Client config file (`~/.mcpjungle.conf`)
 
@@ -21,7 +21,7 @@ Both fields are optional. If either is absent the CLI falls back to its default 
 ### Supported fields
 
 <ParamField path="registry_url" type="string" default="http://127.0.0.1:8080">
-  Base URL of the MCPJungle server the CLI connects to. Set this to avoid passing `--registry` on every command.
+  Base URL of the Mcpjungle server the CLI connects to. Set this to avoid passing `--registry` on every command.
 
   ```yaml
   registry_url: http://my-server:9000
@@ -52,7 +52,7 @@ When the CLI resolves the registry URL it uses the following order, highest prio
 
 <Steps>
   <Step title="Enterprise server (admin token)">
-    After starting the server in enterprise mode, run `init-server` on the machine where you manage MCPJungle. It creates the admin user and writes both `registry_url` and `access_token` to `~/.mcpjungle.conf`:
+    After starting the server in enterprise mode, run `init-server` on the machine where you manage Mcpjungle. It creates the admin user and writes both `registry_url` and `access_token` to `~/.mcpjungle.conf`:
 
     ```bash
     mcpjungle init-server
@@ -115,11 +115,11 @@ Used with `mcpjungle register -c <file>`.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `name` | string | Yes | Unique name for this server in MCPJungle. |
+| `name` | string | Yes | Unique name for this server in Mcpjungle. |
 | `transport` | string | Yes | Must be `"streamable_http"`. |
 | `description` | string | No | Human-readable description. |
 | `url` | string | Yes | Full URL of the MCP server endpoint. |
-| `bearer_token` | string | No | If set, MCPJungle adds `Authorization: Bearer <token>` to every upstream request. |
+| `bearer_token` | string | No | If set, Mcpjungle adds `Authorization: Bearer <token>` to every upstream request. |
 | `headers` | object | No | Additional HTTP headers to forward. A `"Authorization"` entry here overrides `bearer_token`. |
 
 ### Register a STDIO server
@@ -142,7 +142,7 @@ Used with `mcpjungle register -c <file>`.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `name` | string | Yes | Unique name for this server in MCPJungle. |
+| `name` | string | Yes | Unique name for this server in Mcpjungle. |
 | `transport` | string | Yes | Must be `"stdio"`. |
 | `description` | string | No | Human-readable description. |
 | `command` | string | Yes | Executable to run the MCP server process (e.g., `"npx"`, `"uvx"`). |
@@ -204,7 +204,7 @@ Used with `mcpjungle create mcp-client --conf <file>` (enterprise mode).
 | `access_token_ref.env` | string | No | Name of an environment variable containing the token string. |
 
 <Warning>
-  When creating a client from a config file, you must supply a token via `access_token` or `access_token_ref`. MCPJungle cannot print a generated token back to the console when reading from a file.
+  When creating a client from a config file, you must supply a token via `access_token` or `access_token_ref`. Mcpjungle cannot print a generated token back to the console when reading from a file.
 </Warning>
 
 ### Create a user account
@@ -229,4 +229,4 @@ Used with `mcpjungle create user --conf <file>` (enterprise mode).
 | `access_token_ref.file` | string | No | Path to a plain-text file containing only the token string. |
 | `access_token_ref.env` | string | No | Name of an environment variable containing the token string. |
 
-The same `${VAR_NAME}` placeholder substitution applies to user config files. When using a config file you must supply a token — MCPJungle cannot print a generated one to the console.
+The same `${VAR_NAME}` placeholder substitution applies to user config files. When using a config file you must supply a token — Mcpjungle cannot print a generated one to the console.

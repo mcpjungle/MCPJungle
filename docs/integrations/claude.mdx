@@ -1,13 +1,13 @@
 ---
 title: "Connect Claude to mcpjungle"
-description: "Connect Claude Desktop to your MCPJungle gateway and give it access to all your MCP servers"
+description: "Connect Claude Desktop to your Mcpjungle gateway and give it access to all your MCP servers"
 ---
 
-Claude Desktop does not support direct HTTP MCP connections, so you connect it to MCPJungle through the `mcp-remote` bridge package. Once configured, Claude can discover and call every tool registered in your gateway from a single entry in its MCP servers config.
+Claude Desktop does not support direct HTTP MCP connections, so you connect it to Mcpjungle through the `mcp-remote` bridge package. Once configured, Claude can discover and call every tool registered in your gateway from a single entry in its MCP servers config.
 
 ## Prerequisites
 
-- MCPJungle running at `http://localhost:8080` (or your deployment URL)
+- Mcpjungle running at `http://localhost:8080` (or your deployment URL)
 - [Node.js](https://nodejs.org) installed (required to run `npx`)
 - Claude Desktop installed
 
@@ -35,7 +35,7 @@ Claude Desktop reads its MCP server configuration from a JSON file on disk.
     If the file does not exist, create it.
   </Step>
 
-  <Step title="Add MCPJungle as an MCP server">
+  <Step title="Add Mcpjungle as an MCP server">
     Add the following to `claude_desktop_config.json`:
 
     ```json
@@ -54,12 +54,12 @@ Claude Desktop reads its MCP server configuration from a JSON file on disk.
     ```
 
     <Note>
-      The `--allow-http` flag is required because `mcp-remote` enforces HTTPS by default. You need this flag when connecting to a local MCPJungle instance over plain HTTP.
+      The `--allow-http` flag is required because `mcp-remote` enforces HTTPS by default. You need this flag when connecting to a local Mcpjungle instance over plain HTTP.
     </Note>
   </Step>
 
   <Step title="Restart Claude Desktop">
-    Quit and reopen Claude Desktop. It will launch the `mcp-remote` process on startup and establish a connection to MCPJungle.
+    Quit and reopen Claude Desktop. It will launch the `mcp-remote` process on startup and establish a connection to Mcpjungle.
   </Step>
 
   <Step title="Test the connection">
@@ -69,15 +69,15 @@ Claude Desktop reads its MCP server configuration from a JSON file on disk.
     What MCP tools do you have access to?
     ```
 
-    Claude will query MCPJungle and return the full list of tools from all registered servers. You can then invoke any tool directly in the conversation.
+    Claude will query Mcpjungle and return the full list of tools from all registered servers. You can then invoke any tool directly in the conversation.
   </Step>
 </Steps>
 
 ## Enterprise mode (authentication)
 
-If your MCPJungle instance runs in enterprise mode, you must create an MCP client and pass its access token in the `Authorization` header.
+If your Mcpjungle instance runs in enterprise mode, you must create an MCP client and pass its access token in the `Authorization` header.
 
-First, create a client with the MCPJungle CLI:
+First, create a client with the Mcpjungle CLI:
 
 ```bash
 mcpjungle create mcp-client claude-desktop --allow "server1, server2"

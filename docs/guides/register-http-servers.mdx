@@ -22,7 +22,7 @@ mcpjungle register --name calculator --description "Provides some basic math too
 ```
 
 <Note>
-If MCPJungle is running inside Docker on macOS or Windows, the container cannot reach `127.0.0.1` on your host. Use `host.docker.internal` instead:
+If Mcpjungle is running inside Docker on macOS or Windows, the container cannot reach `127.0.0.1` on your host. Use `host.docker.internal` instead:
 
 ```bash
 mcpjungle register --name calculator --description "Provides some basic math tools" --url http://host.docker.internal:5000/mcp
@@ -59,7 +59,7 @@ The full config file format for a Streamable HTTP server is:
 | `transport`    | Yes      | Must be `"streamable_http"`. Other possible values are `"sse"` and `"stdio"`.                                                |
 | `description`  | No       | Human-readable description surfaced in the CLI and API.                                                                      |
 | `url`          | Yes      | The full URL of the MCP server's endpoint (e.g., `https://example.com/mcp`). Required when transport is streamable http.     |
-| `bearer_token` | No       | If set, MCPJungle adds `Authorization: Bearer <token>` to every request to this server.                                      |
+| `bearer_token` | No       | If set, Mcpjungle adds `Authorization: Bearer <token>` to every request to this server.                                      |
 | `session_mode` | No       | `stateless` (default) creates a new connection per tool call. `stateful` reuses a persistent session across tool calls.      |
 | `headers`      | No       | Map of additional HTTP headers to forward. If `Authorization` is set here, it overrides `bearer_token`.                      |
 
@@ -109,7 +109,7 @@ See the [configuration file reference](/reference/config-file#$var_name-placehol
 
 ## Verify the registration
 
-After registering a server, inspect what MCPJungle discovered:
+After registering a server, inspect what Mcpjungle discovered:
 
 ```bash
 mcpjungle list tools
@@ -121,11 +121,11 @@ mcpjungle usage deepwiki__read_wiki_structure
 mcpjungle invoke deepwiki__read_wiki_structure --input '{"repoName": "facebook/react"}'
 ```
 
-That is the quickest way to confirm both the upstream server and MCPJungle routing are working as expected.
+That is the quickest way to confirm both the upstream server and Mcpjungle routing are working as expected.
 
 ## Deregister a server
 
-To remove a server from MCPJungle:
+To remove a server from Mcpjungle:
 
 ```bash
 mcpjungle deregister deepwiki
@@ -140,7 +140,7 @@ Deregistering removes the server and all the tools, prompts, and resources it pr
     Register local process-based MCP servers using JSON config files.
   </Card>
   <Card title="Connect Claude Desktop" icon="plug" href="/integrations/claude">
-    Connect Claude Desktop to MCPJungle and start using your registered tools through one MCP endpoint.
+    Connect Claude Desktop to Mcpjungle and start using your registered tools through one MCP endpoint.
   </Card>
   <Card title="Tools and prompts" icon="toolbox" href="/guides/tools-and-prompts">
     List, invoke, enable, disable, and retrieve what registered servers expose.

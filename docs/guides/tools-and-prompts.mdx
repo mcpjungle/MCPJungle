@@ -1,9 +1,9 @@
 ---
 title: "Manage tools and prompts"
-description: "List, inspect, invoke, enable, and disable the tools and prompts exposed by the MCP servers registered in MCPJungle."
+description: "List, inspect, invoke, enable, and disable the tools and prompts exposed by the MCP servers registered in Mcpjungle."
 ---
 
-Once an MCP server is registered, MCPJungle tracks what it exposes and lets you manage that surface area without removing the server itself.
+Once an MCP server is registered, Mcpjungle tracks what it exposes and lets you manage that surface area without removing the server itself.
 
 This page covers:
 
@@ -66,7 +66,7 @@ mcpjungle invoke filesystem__read_file --group claude-tools --input '{"path": "R
 
 ## Prompts
 
-MCPJungle supports [MCP Prompts](https://modelcontextprotocol.io/specification/2025-06-18/server/prompts). If a registered server exposes prompts, MCPJungle registers them alongside that server's tools.
+Mcpjungle supports [MCP Prompts](https://modelcontextprotocol.io/specification/2025-06-18/server/prompts). If a registered server exposes prompts, Mcpjungle registers them alongside that server's tools.
 
 Prompt names follow the same canonical pattern:
 
@@ -94,12 +94,12 @@ Pass one `--arg key=value` flag per prompt argument.
 
 ## Enable and disable exposure
 
-MCPJungle lets you hide tools and prompts from clients without deleting the underlying server registration.
+Mcpjungle lets you hide tools and prompts from clients without deleting the underlying server registration.
 
 When you disable something:
 
 - it disappears from gateway discovery
-- MCP clients cannot call it through MCPJungle
+- MCP clients cannot call it through Mcpjungle
 - you can still manage it through the CLI and API
 
 All tools and prompts are enabled by default when a server is first registered.

@@ -306,7 +306,7 @@ This is the streamable HTTP MCP endpoint for the named tool group. Point an MCP 
 ```
 
 <Tip>
-  A single MCPJungle instance can serve multiple tool groups simultaneously. Create one group per client or per use-case, each with a different subset of tools, and hand out the corresponding `/v0/groups/:name/mcp` URL.
+  A single Mcpjungle instance can serve multiple tool groups simultaneously. Create one group per client or per use-case, each with a different subset of tools, and hand out the corresponding `/v0/groups/:name/mcp` URL.
 </Tip>
 
 An SSE transport alternative is also available at `/v0/groups/:name/sse` (with the companion message endpoint at `/v0/groups/:name/message`), but the streamable HTTP endpoint is preferred for new integrations.

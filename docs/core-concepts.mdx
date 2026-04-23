@@ -24,14 +24,14 @@ You can also build your own clients that talk to the server's REST API for custo
 
 ## Upstream MCP server
 
-An **upstream MCP server** is any MCP server you add in MCPJungle.
+An **upstream MCP server** is any MCP server you add in Mcpjungle.
 
-This mcp server then becomes accessible to AI clients that connect to MCPJungle's gateway endpoint.
+This mcp server then becomes accessible to AI clients that connect to Mcpjungle's gateway endpoint.
 
 ## Canonical names
 
 ### Tools and Prompts
-MCPJungle assigns canonical names to tools and prompts so they remain unique across all registered servers.
+Mcpjungle assigns canonical names to tools and prompts so they remain unique across all registered servers.
 
 Tool format:
 
@@ -95,7 +95,7 @@ SSE:
 
 ## Development mode vs Enterprise mode
 
-MCPJungle supports 2 operating modes.
+Mcpjungle supports 2 operating modes.
 
 ### Development mode
 When you start mcpjungle server, it runs in development mode by default.
@@ -135,11 +135,11 @@ This concept is only relevant in enterprise mode.
 Enterprise mode distinguishes between two identity types:
 
 - **MCP clients**: Non-human identities AI clients like Cursor, Claude, Codex, custom agents, etc. They authenticate to the gateway and receive access to specific servers.
-- **Users**: Human operators who use the CLI or HTTP API. Standard users can inspect and use MCPJungle, but write access remains restricted to admins.
+- **Users**: Human operators who use the CLI or HTTP API. Standard users can inspect and use Mcpjungle, but write access remains restricted to admins.
 
 ## Stateless versus stateful sessions
 
-For each upstream server, MCPJungle can manage connection lifecycle in one of two ways:
+For each upstream server, Mcpjungle can manage connection lifecycle in one of two ways:
 
 - **Stateless**: Open a fresh connection for each tool call, then close it.
 - **Stateful**: Keep the connection open and reuse it across calls.
@@ -148,10 +148,10 @@ Stateless is the default and should remain your first choice. Stateful is mainly
 
 ## Recommended mental model
 
-Think of MCPJungle as three layers:
+Think of Mcpjungle as three layers:
 
 1. **Upstream servers**: The actual capabilities.
-2. **MCPJungle**: The control plane and unified gateway.
+2. **Mcpjungle**: The control plane and unified gateway.
 3. **AI clients**: Claude, Cursor, Copilot, or agents consuming MCPs.
 
 ## Next steps

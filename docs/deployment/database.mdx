@@ -1,9 +1,9 @@
 ---
 title: "Configure mcpjungle's database"
-description: "Choose SQLite for local evaluation or PostgreSQL for serious deployments, and configure MCPJungle with either a full DSN or Postgres-specific environment variables."
+description: "Choose SQLite for local evaluation or PostgreSQL for serious deployments, and configure Mcpjungle with either a full DSN or Postgres-specific environment variables."
 ---
 
-MCPJungle requires a database to persist registered servers, tool groups, users, and related configuration.
+Mcpjungle requires a database to persist registered servers, tool groups, users, and related configuration.
 
 Use the database choice as a deployment signal:
 
@@ -12,18 +12,18 @@ Use the database choice as a deployment signal:
 
 ## Default: SQLite
 
-When no database configuration is provided, MCPJungle automatically creates a SQLite file named `mcpjungle.db` in the directory where the process is started:
+When no database configuration is provided, Mcpjungle automatically creates a SQLite file named `mcpjungle.db` in the directory where the process is started:
 
 ```bash
 mcpjungle start
 # Creates ./mcpjungle.db in the current directory
 ```
 
-SQLite requires no setup and works well for individuals running MCPJungle locally. It is not recommended for production or multi-user deployments.
+SQLite requires no setup and works well for individuals running Mcpjungle locally. It is not recommended for production or multi-user deployments.
 
 ## PostgreSQL
 
-MCPJungle supports PostgreSQL for serious deployments. You can configure it with either a full DSN or individual environment variables.
+Mcpjungle supports PostgreSQL for serious deployments. You can configure it with either a full DSN or individual environment variables.
 
 ### Option 1: Connection DSN
 
@@ -89,7 +89,7 @@ mcpjungle start
 
 ## Variable precedence
 
-When MCPJungle starts, it resolves the database connection in this order:
+When Mcpjungle starts, it resolves the database connection in this order:
 
 1. `DATABASE_URL` — used as-is if set
 2. `POSTGRES_HOST` (+ optional variables) — constructs a DSN if `POSTGRES_HOST` is set

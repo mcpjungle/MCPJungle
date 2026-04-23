@@ -14,7 +14,7 @@ The repository ships 2 docker compose files:
 
 ## Development mode
 
-`docker-compose.yaml` is the fastest path to a working local setup. It starts MCPJungle in development mode alongside Postgres and uses the `latest-stdio` image by default, which includes `npx` and `uvx` for common STDIO server workflows.
+`docker-compose.yaml` is the fastest path to a working local setup. It starts Mcpjungle in development mode alongside Postgres and uses the `latest-stdio` image by default, which includes `npx` and `uvx` for common STDIO server workflows.
 
 <Steps>
   <Step title="Download the compose file">
@@ -37,7 +37,7 @@ The repository ships 2 docker compose files:
 </Steps>
 
 <Note>
-If MCPJungle is running inside Docker on macOS or Windows, the container cannot reach `127.0.0.1` on your host. Use `host.docker.internal` instead when registering MCP servers that run on your host machine:
+If Mcpjungle is running inside Docker on macOS or Windows, the container cannot reach `127.0.0.1` on your host. Use `host.docker.internal` instead when registering MCP servers that run on your host machine:
 
 ```bash
 mcpjungle register --name calculator --url http://host.docker.internal:5000/mcp
@@ -47,16 +47,16 @@ mcpjungle register --name calculator --url http://host.docker.internal:5000/mcp
 <Note>
 You can also run the mcpjungle image as a standalone container instead of using the Compose files provided by the repository.
 
-Keep in mind that if you do not connect MCPJungle to a PostgreSQL database, it will create a local SQLite file inside the container.
+Keep in mind that if you do not connect Mcpjungle to a PostgreSQL database, it will create a local SQLite file inside the container.
 
 If the container is deleted, that SQLite file is deleted with it and mcpjungle's data is lost.
 
-Running MCPJungle as a standalone container without an external database is only recommended for testing and proofs of concept.
+Running Mcpjungle as a standalone container without an external database is only recommended for testing and proofs of concept.
 </Note>
 
 ## Enterprise mode
 
-`docker-compose.prod.yaml` starts MCPJungle in enterprise mode. It is intended for a shared deployment where access is authenticated and metrics are expected to be available.
+`docker-compose.prod.yaml` starts Mcpjungle in enterprise mode. It is intended for a shared deployment where access is authenticated and metrics are expected to be available.
 
 <Steps>
   <Step title="Download the compose file">
@@ -82,7 +82,7 @@ Running MCPJungle as a standalone container without an external database is only
 
 ## Choosing an image
 
-MCPJungle publishes two Docker image variants:
+Mcpjungle publishes two Docker image variants:
 
 | Image tag | Base | Includes | Size |
 |-----------|------|----------|------|
@@ -104,7 +104,7 @@ MCPJUNGLE_IMAGE_TAG=latest-stdio docker compose -f docker-compose.prod.yaml up -
 
 ## Graceful shutdown
 
-MCPJungle should be stopped cleanly so it can close active connections and flush in-flight work.
+Mcpjungle should be stopped cleanly so it can close active connections and flush in-flight work.
 
 For Compose-managed deployments, use:
 

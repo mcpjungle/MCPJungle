@@ -3,13 +3,13 @@ title: "mcpjungle register, invoke, list — tool commands"
 description: "Reference for the register, deregister, list, invoke, usage, enable, disable, and get prompt commands for managing MCP tools and servers."
 ---
 
-These commands form the day-to-day interface for managing the tools and servers registered in your MCPJungle gateway. Use them to register new upstream servers, inspect what is available, call tools directly, and control which tools are visible to MCP clients.
+These commands form the day-to-day interface for managing the tools and servers registered in your Mcpjungle gateway. Use them to register new upstream servers, inspect what is available, call tools directly, and control which tools are visible to MCP clients.
 
 ---
 
 ## `register`
 
-Registers an MCP server with the gateway. Once registered, the server's tools, prompts, and resources are immediately available through the MCPJungle proxy.
+Registers an MCP server with the gateway. Once registered, the server's tools, prompts, and resources are immediately available through the Mcpjungle proxy.
 
 ```bash
 mcpjungle register [flags]
@@ -32,7 +32,7 @@ A server name must be unique across the registry. Names must not contain whitesp
 </ParamField>
 
 <ParamField body="--bearer-token" type="string">
-  Static bearer token MCPJungle forwards to the upstream server in every request. Use this when the upstream server requires a fixed API token for authentication.
+  Static bearer token Mcpjungle forwards to the upstream server in every request. Use this when the upstream server requires a fixed API token for authentication.
 </ParamField>
 
 <ParamField body="--force" type="boolean" default="false">

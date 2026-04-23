@@ -3,11 +3,11 @@ title: "Connect Cursor to mcpjungle"
 description: "Configure Cursor to connect directly to mcpjungle over streamable HTTP and access all your registered MCP tools inside the IDE."
 ---
 
-Cursor supports the streamable HTTP MCP transport natively, so you can point it directly at the MCPJungle gateway. Once configured, Cursor's AI agent can discover and invoke every tool registered in MCPJungle.
+Cursor supports the streamable HTTP MCP transport natively, so you can point it directly at the Mcpjungle gateway. Once configured, Cursor's AI agent can discover and invoke every tool registered in Mcpjungle.
 
 ## Prerequisites
 
-- MCPJungle running at `http://localhost:8080` (or your deployment URL)
+- Mcpjungle running at `http://localhost:8080` (or your deployment URL)
 - Cursor installed
 
 ## Configure Cursor
@@ -19,7 +19,7 @@ Cursor supports the streamable HTTP MCP transport natively, so you can point it 
     Cursor stores MCP server configuration in a JSON file. You can edit it directly from the settings panel or open the file in your editor.
   </Step>
 
-  <Step title="Add MCPJungle as an MCP server">
+  <Step title="Add Mcpjungle as an MCP server">
     Add the following entry to your Cursor MCP configuration:
 
     ```json
@@ -36,7 +36,7 @@ Cursor supports the streamable HTTP MCP transport natively, so you can point it 
   </Step>
 
   <Step title="Save and reload">
-    Save the configuration. Cursor will connect to MCPJungle and load the available tools automatically.
+    Save the configuration. Cursor will connect to Mcpjungle and load the available tools automatically.
   </Step>
 
   <Step title="Test the connection">
@@ -46,15 +46,15 @@ Cursor supports the streamable HTTP MCP transport natively, so you can point it 
     What MCP tools are available?
     ```
 
-    The agent will query MCPJungle and return all tools from your registered servers.
+    The agent will query Mcpjungle and return all tools from your registered servers.
   </Step>
 </Steps>
 
 ## Enterprise mode (authentication)
 
-If your MCPJungle instance runs in enterprise mode, create a dedicated MCP client for Cursor and include its access token in the request headers.
+If your Mcpjungle instance runs in enterprise mode, create a dedicated MCP client for Cursor and include its access token in the request headers.
 
-Create the client with the MCPJungle CLI:
+Create the client with the Mcpjungle CLI:
 
 ```bash
 mcpjungle create mcp-client cursor-local --allow "server1, server2"

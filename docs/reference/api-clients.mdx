@@ -3,9 +3,9 @@ title: "REST API: MCP clients and users (enterprise)"
 description: "Enterprise-only endpoints for creating and managing MCP clients (AI agents) and human users, including bearer token issuance and role assignment."
 ---
 
-These endpoints are only available when MCPJungle runs in **enterprise mode**. In development mode they return `403 Forbidden`. All endpoints on this page also require the **admin** role.
+These endpoints are only available when Mcpjungle runs in **enterprise mode**. In development mode they return `403 Forbidden`. All endpoints on this page also require the **admin** role.
 
-MCPJungle distinguishes between two kinds of principals:
+Mcpjungle distinguishes between two kinds of principals:
 
 - **MCP clients** — AI agents or automated systems that connect to the MCP proxy. Each client has a bearer token and an allow list of servers it may access.
 - **Human users** — people who authenticate with the REST API or CLI. Users have a role (`admin` or `user`) and their own bearer token.
@@ -52,7 +52,7 @@ curl http://localhost:8080/api/v0/clients \
 </ResponseField>
 
 <ResponseField name="is_custom_access_token" type="boolean" required>
-  `true` when the token was provided by the caller at creation time; `false` when MCPJungle generated it automatically.
+  `true` when the token was provided by the caller at creation time; `false` when Mcpjungle generated it automatically.
 </ResponseField>
 
 <ResponseField name="allow_list" type="string[]" required>
@@ -80,7 +80,7 @@ Creates a new MCP client and issues it a bearer token.
 </ParamField>
 
 <ParamField body="access_token" type="string">
-  Custom bearer token to assign. If omitted, MCPJungle generates a secure token automatically. Avoid hard-coding tokens in production; use a secret manager instead.
+  Custom bearer token to assign. If omitted, Mcpjungle generates a secure token automatically. Avoid hard-coding tokens in production; use a secret manager instead.
 </ParamField>
 
 ```bash cURL
@@ -160,7 +160,7 @@ Creates a new human user and issues a bearer token. Users are assigned the `user
 </ParamField>
 
 <ParamField body="access_token" type="string">
-  Custom bearer token. If omitted, MCPJungle generates one automatically.
+  Custom bearer token. If omitted, Mcpjungle generates one automatically.
 </ParamField>
 
 ```bash cURL

@@ -1,9 +1,9 @@
 ---
-title: "MCPJungle HTTP API overview"
-description: "Base URL, authentication, access levels, and a complete map of every endpoint group and MCP proxy surface exposed by the MCPJungle gateway server."
+title: "Mcpjungle HTTP API overview"
+description: "Base URL, authentication, access levels, and a complete map of every endpoint group and MCP proxy surface exposed by the Mcpjungle gateway server."
 ---
 
-The MCPJungle server exposes two families of HTTP endpoints: a REST management API under `/api/v0` for registering servers, invoking tools, and administering the system, and a set of MCP proxy endpoints that AI agents connect to directly. All responses are JSON unless otherwise noted.
+The Mcpjungle server exposes two families of HTTP endpoints: a REST management API under `/api/v0` for registering servers, invoking tools, and administering the system, and a set of MCP proxy endpoints that AI agents connect to directly. All responses are JSON unless otherwise noted.
 
 ## Base URL
 
@@ -107,7 +107,7 @@ These endpoints implement the [Model Context Protocol](https://modelcontextproto
 GET /metrics
 ```
 
-Exposed only when MCPJungle is started with OpenTelemetry enabled. Returns Prometheus-format metrics. This endpoint is not secured by the standard bearer-token middleware — secure it at the network level if needed.
+Exposed only when Mcpjungle is started with OpenTelemetry enabled. Returns Prometheus-format metrics. This endpoint is not secured by the standard bearer-token middleware — secure it at the network level if needed.
 
 ## Error shape
 

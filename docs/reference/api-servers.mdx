@@ -1,9 +1,9 @@
 ---
 title: "REST API: MCP server management endpoints"
-description: "Register, list, enable, disable, and deregister upstream MCP servers through the MCPJungle HTTP API. Admin access required for write operations."
+description: "Register, list, enable, disable, and deregister upstream MCP servers through the Mcpjungle HTTP API. Admin access required for write operations."
 ---
 
-MCP servers are the upstream services that provide tools, prompts, and resources. MCPJungle acts as a proxy and registry for them. The endpoints below let you register new servers, control whether they are active, and inspect their stored configuration. All write operations require **admin** role.
+MCP servers are the upstream services that provide tools, prompts, and resources. Mcpjungle acts as a proxy and registry for them. The endpoints below let you register new servers, control whether they are active, and inspect their stored configuration. All write operations require **admin** role.
 
 ## `GET /api/v0/servers`
 
@@ -44,7 +44,7 @@ curl http://localhost:8080/api/v0/servers \
 ```
 
 <ResponseField name="name" type="string" required>
-  Unique name of the server within MCPJungle.
+  Unique name of the server within Mcpjungle.
 </ResponseField>
 
 <ResponseField name="transport" type="string" required>
@@ -273,5 +273,5 @@ curl http://localhost:8080/api/v0/server_configs \
 **Response `200`** — An array of `RegisterServerInput` objects. Each item has the same fields as the `POST /api/v0/servers` request body, including `bearer_token` and `headers` where applicable.
 
 <Warning>
-  This endpoint can expose upstream API tokens stored in MCPJungle. Restrict access to admin users and audit its usage in production.
+  This endpoint can expose upstream API tokens stored in Mcpjungle. Restrict access to admin users and audit its usage in production.
 </Warning>

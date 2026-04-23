@@ -3,7 +3,7 @@ title: "Enterprise CLI: clients, users, auth"
 description: "Reference for enterprise-mode CLI commands: init-server, login, create and delete MCP clients and users, token rotation, and the complete setup workflow."
 ---
 
-Enterprise mode adds authentication and access control to MCPJungle. When the server runs with `--enterprise`, every request to the MCP proxy must include a valid bearer token, and each token is scoped to a specific list of allowed servers.
+Enterprise mode adds authentication and access control to Mcpjungle. When the server runs with `--enterprise`, every request to the MCP proxy must include a valid bearer token, and each token is scoped to a specific list of allowed servers.
 
 This page documents all commands for setting up the enterprise server and managing clients, users, and authentication.
 
@@ -15,7 +15,7 @@ This page documents all commands for setting up the enterprise server and managi
 
 ## `init-server`
 
-Initializes the MCPJungle server for enterprise use. Run this once, from your local machine, after the server has started in enterprise mode.
+Initializes the Mcpjungle server for enterprise use. Run this once, from your local machine, after the server has started in enterprise mode.
 
 ```bash
 mcpjungle init-server [--registry <url>]
@@ -37,7 +37,7 @@ mcpjungle --registry http://your-server:8080 init-server
 
 ## `login`
 
-Authenticates the CLI with an MCPJungle server and persists the credentials to `~/.mcpjungle.conf`.
+Authenticates the CLI with an Mcpjungle server and persists the credentials to `~/.mcpjungle.conf`.
 
 ```bash
 mcpjungle login <access_token>
@@ -57,7 +57,7 @@ After a successful login, the CLI confirms your username and role and writes the
 
 ## `create mcp-client`
 
-Creates an authenticated MCP client that can connect to the MCPJungle MCP proxy. The client receives a bearer token it must include in the `Authorization` header of every request.
+Creates an authenticated MCP client that can connect to the Mcpjungle MCP proxy. The client receives a bearer token it must include in the `Authorization` header of every request.
 
 ```bash
 mcpjungle create mcp-client <name> [flags]
@@ -80,7 +80,7 @@ mcpjungle create mcp-client --conf <file>
 </ParamField>
 
 <ParamField body="--access-token" type="string">
-  Custom access token for the client. If not provided, MCPJungle generates a random token and prints it to stdout — copy it immediately as it is not stored in recoverable form.
+  Custom access token for the client. If not provided, Mcpjungle generates a random token and prints it to stdout — copy it immediately as it is not stored in recoverable form.
 </ParamField>
 
 <ParamField body="-c / --conf" type="string">
@@ -128,7 +128,7 @@ Alternatively, load the token from a file:
 | `access_token_ref.file` | string | No | Path to a file containing the access token. |
 
 <Note>
-  When using a config file, you must supply a custom access token via `access_token` or `access_token_ref`. MCPJungle does not auto-generate tokens from a config file.
+  When using a config file, you must supply a custom access token via `access_token` or `access_token_ref`. Mcpjungle does not auto-generate tokens from a config file.
 </Note>
 
 ### Examples
@@ -312,7 +312,7 @@ mcpjungle update user alice --access-token new-secret-token
 
 ## Enterprise setup workflow
 
-The following steps show the complete flow for setting up an enterprise MCPJungle instance from scratch.
+The following steps show the complete flow for setting up an enterprise Mcpjungle instance from scratch.
 
 <Steps>
   <Step title="Start the server in enterprise mode">

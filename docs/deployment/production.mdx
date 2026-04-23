@@ -5,9 +5,9 @@ description: "Run mcpjungle as a shared deployment in enterprise mode - for team
 
 This guide covers the production operating model for mcpjungle.
 
-When teams want shared access to MCPs in an enterprise environment, MCPJungle should run in **enterprise mode** with a dedicated PostgreSQL database
+When teams want shared access to MCPs in an enterprise environment, Mcpjungle should run in **enterprise mode** with a dedicated PostgreSQL database
 
-That is the mode intended for teams, internal platforms and organizations running MCPJungle for shared MCP access.
+That is the mode intended for teams, internal platforms and organizations running Mcpjungle for shared MCP access.
 
 If your goal is simply to use MCPs locally for yourself, development mode is usually a better fit.
 
@@ -56,11 +56,11 @@ For a shared deployment, the recommended pattern is:
 
 1. Run the standard `ghcr.io/mcpjungle/mcpjungle:latest` image.
 2. Keep the CLI installed separately on operator machines.
-3. Point MCPJungle at a separate PostgreSQL instance or cluster.
+3. Point Mcpjungle at a separate PostgreSQL instance or cluster.
 
 ## Run with Docker
 
-For production, use the standard (minimal) MCPJungle image. It is based on `distroless/base` and contains only the `mcpjungle` binary.
+For production, use the standard (minimal) Mcpjungle image. It is based on `distroless/base` and contains only the `mcpjungle` binary.
 
 Supply your database connection string with the `DATABASE_URL` environment variable:
 
@@ -74,12 +74,12 @@ docker run -d \
 ```
 
 <Tip>
-  For production, deploy a separate managed Postgres cluster and point `DATABASE_URL` at it rather than running Postgres in the same container. See [Configure MCPJungle's database](/deployment/database) for all database options.
+  For production, deploy a separate managed Postgres cluster and point `DATABASE_URL` at it rather than running Postgres in the same container. See [Configure Mcpjungle's database](/deployment/database) for all database options.
 </Tip>
 
 ## Graceful shutdown
 
-MCPJungle handles `SIGTERM` for graceful shutdown. It closes all active stateful sessions, flushes telemetry, and stops accepting new connections before exiting.
+Mcpjungle handles `SIGTERM` for graceful shutdown. It closes all active stateful sessions, flushes telemetry, and stops accepting new connections before exiting.
 
 Send `SIGTERM` to stop the server cleanly:
 

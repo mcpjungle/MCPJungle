@@ -1,12 +1,12 @@
 ---
 title: "Manage clients and users"
-description: "Manage machine identities for MCP clients and user accounts for human operators in MCPJungle enterprise mode."
+description: "Manage machine identities for MCP clients and user accounts for human operators in Mcpjungle enterprise mode."
 ---
 
 Enterprise mode separates machine identities from human identities.
 
 - **MCP clients** represent IDEs, bridges, and agents that connect to the gateway.
-- **Users** represent humans who need authenticated access to MCPJungle.
+- **Users** represent humans who need authenticated access to Mcpjungle.
 
 That separation keeps client access control clean and avoids overloading one token model for every use case.
 
@@ -31,7 +31,7 @@ See [Access control](/governance/access-control) for the main workflow.
 
 Users are human accounts for operators who need authenticated CLI or API access.
 
-Compared with admins, a standard user has a narrower permission set. They can inspect and use MCPJungle, but they do not get the same write capabilities as an admin.
+Compared with admins, a standard user has a narrower permission set. They can inspect and use Mcpjungle, but they do not get the same write capabilities as an admin.
 
 ## Create users
 
@@ -85,7 +85,7 @@ JSON config files support `${VAR_NAME}` placeholders in string values:
 }
 ```
 
-Expansion happens in the CLI process before the request is sent to MCPJungle.
+Expansion happens in the CLI process before the request is sent to Mcpjungle.
 
 ## Recommended identity model
 
@@ -110,6 +110,6 @@ That keeps auditability and token rotation manageable without introducing needle
     See the exact config schemas for clients and users.
   </Card>
   <Card title="Production deployment" icon="cloud" href="/deployment/production">
-    Initialize and operate MCPJungle correctly in enterprise mode.
+    Initialize and operate Mcpjungle correctly in enterprise mode.
   </Card>
 </CardGroup>

@@ -1,9 +1,9 @@
 ---
-title: "Monitor MCPJungle with OpenTelemetry"
-description: "Expose Prometheus-compatible OpenTelemetry metrics from MCPJungle and use them to monitor tool call volume, latency, and deployment health."
+title: "Observability with OpenTelemetry"
+description: "Use OpenTelemetry to monitor mcpjungle and all MCP interactions in your infrastructure."
 ---
 
-MCPJungle emits Prometheus-compatible metrics using OpenTelemetry and exposes them at the `/metrics` endpoint.
+Mcpjungle emits Prometheus-compatible metrics using OpenTelemetry and exposes them at the `/metrics` endpoint.
 
 This gives you a simple operational view of tool traffic and latency across your registered MCP servers.
 
@@ -27,7 +27,7 @@ mcpjungle start
 
 ## Metrics endpoint
 
-Once MCPJungle is running with telemetry enabled:
+Once Mcpjungle is running with telemetry enabled:
 
 ```bash
 curl http://localhost:8080/metrics
@@ -39,7 +39,7 @@ The response uses standard Prometheus text exposition format.
 
 | Metric | Type | Description |
 |---|---|---|
-| `mcpjungle_tool_calls_total` | Counter | Total number of tool calls handled by MCPJungle. |
+| `mcpjungle_tool_calls_total` | Counter | Total number of tool calls handled by Mcpjungle. |
 | `mcpjungle_tool_call_latency_seconds` | Histogram | Latency for tool calls, in seconds. |
 
 Both metrics include these labels:
@@ -64,7 +64,7 @@ mcpjungle_tool_call_latency_seconds_count{mcp_server_name="calculator",tool_name
 
 ## Prometheus
 
-The production Compose path ships with a Prometheus service already configured to scrape MCPJungle:
+The production Compose path ships with a Prometheus service already configured to scrape Mcpjungle:
 
 ```yaml
 scrape_configs:
@@ -85,13 +85,13 @@ Use these metrics to answer operational questions like:
 - Which upstream servers are producing the most errors?
 - Which tools have long or unstable latencies?
 
-That is enough to make MCPJungle observable in small to medium sized deployments without adding a complex control plane around it.
+That is enough to make Mcpjungle observable in small to medium sized deployments without adding a complex control plane around it.
 
 ## Related pages
 
 <CardGroup cols={2}>
   <Card title="Production deployment" icon="cloud" href="/deployment/production">
-    Run MCPJungle in enterprise mode with the right operational defaults.
+    Run Mcpjungle in enterprise mode with the right operational defaults.
   </Card>
   <Card title="Database" icon="database" href="/deployment/database">
     Back your shared deployment with PostgreSQL.

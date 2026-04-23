@@ -3,9 +3,9 @@ title: "Add STDIO MCP servers"
 description: "Register stdio transport-based MCP servers in mcpjungle using CLI. Expose them via the mcp gateway."
 ---
 
-MCPJungle supports MCP servers that use the [STDIO transport](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#stdio).
+Mcpjungle supports MCP servers that use the [STDIO transport](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#stdio).
 
-These servers run as child processes on the same host as the MCPJungle server and communicate through standard input and output. Common examples include [filesystem](https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem) and [time](https://github.com/modelcontextprotocol/servers/tree/main/src/time).
+These servers run as child processes on the same host as the Mcpjungle server and communicate through standard input and output. Common examples include [filesystem](https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem) and [time](https://github.com/modelcontextprotocol/servers/tree/main/src/time).
 
 Because STDIO servers run as local processes, you must register them using a JSON config file — the CLI flags only cover Streamable HTTP registration.
 
@@ -25,14 +25,14 @@ Because STDIO servers run as local processes, you must register them using a JSO
     }
     ```
   </Step>
-  <Step title="Register with MCPJungle">
+  <Step title="Register with Mcpjungle">
     Pass the file to the `register` command with the `-c` flag:
 
     ```bash
     mcpjungle register -c ./filesystem.json
     ```
 
-    MCPJungle spawns the process, initializes the connection, loads its tool list, and registers the server.
+    Mcpjungle spawns the process, initializes the connection, loads its tool list, and registers the server.
   </Step>
 </Steps>
 
@@ -60,7 +60,7 @@ The full set of fields for a STDIO server config:
 | `transport`   | Yes      | Must be `"stdio"`. Other possible values are `"streamable_http"` and `"sse"`.                  |
 | `description` | No       | Human-readable description surfaced in the CLI and API.                                        |
 | `command`     | Yes      | The executable to run — typically `"npx"` or `"uvx"`.                                         |
-| `args`        | No       | List of arguments passed to `command` when MCPJungle spawns the process.                      |
+| `args`        | No       | List of arguments passed to `command` when Mcpjungle spawns the process.                      |
 | `session_mode`| No       | `stateless` (default) creates a new process/connection per tool call. `stateful` reuses a persistent session. |
 | `env`         | No       | Map of environment variables injected into the process environment at startup.                 |
 
@@ -103,9 +103,9 @@ See the [configuration file reference](/reference/config-file#$var_name-placehol
 
 ## Running in Docker: filesystem access
 
-When MCPJungle runs inside a Docker container, the container process does not have access to your host filesystem by default. To use the `filesystem` MCP server from inside Docker, you need to mount the host directory you want to expose.
+When Mcpjungle runs inside a Docker container, the container process does not have access to your host filesystem by default. To use the `filesystem` MCP server from inside Docker, you need to mount the host directory you want to expose.
 
-The default `docker-compose.yaml` provided by MCPJungle mounts your current working directory as `/host` inside the container. Use `/host` as the target directory in your config:
+The default `docker-compose.yaml` provided by Mcpjungle mounts your current working directory as `/host` inside the container. Use `/host` as the target directory in your config:
 
 ```json
 {
@@ -124,13 +124,13 @@ If you need to expose a different directory, add a volume mount to your `docker-
 
 ## Using the stdio Docker image
 
-STDIO-based servers that rely on `npx` or `uvx` require those tools to be present in the MCPJungle container.
+STDIO-based servers that rely on `npx` or `uvx` require those tools to be present in the Mcpjungle container.
 
 <Warning>
 The default `mcpjungle` Docker image is minimal and does not include `npx` or `uvx`. You must use the `latest-stdio` tagged image when registering STDIO servers that use these commands.
 </Warning>
 
-Start MCPJungle with the `stdio` image using the `MCPJUNGLE_IMAGE_TAG` environment variable:
+Start Mcpjungle with the `stdio` image using the `MCPJUNGLE_IMAGE_TAG` environment variable:
 
 ```bash
 MCPJUNGLE_IMAGE_TAG=latest-stdio docker compose up -d
@@ -140,11 +140,11 @@ MCPJUNGLE_IMAGE_TAG=latest-stdio docker compose up -d
 If you are using the development `docker-compose.yaml`, the `latest-stdio` tag is already the default. You only need to set `MCPJUNGLE_IMAGE_TAG` explicitly when using `docker-compose.prod.yaml`.
 </Note>
 
-If your STDIO server depends on a tool other than `npx` or `uvx`, create a custom Docker image that builds on the MCPJungle base image and installs the additional dependency.
+If your STDIO server depends on a tool other than `npx` or `uvx`, create a custom Docker image that builds on the Mcpjungle base image and installs the additional dependency.
 
 ## Debugging STDIO servers
 
-If a STDIO server fails to start or throws errors during a tool call, check the MCPJungle server logs. The server captures `stderr` output from child processes and writes it to its own log stream, making it the primary place to diagnose STDIO server issues.
+If a STDIO server fails to start or throws errors during a tool call, check the Mcpjungle server logs. The server captures `stderr` output from child processes and writes it to its own log stream, making it the primary place to diagnose STDIO server issues.
 
 ## Related pages
 

@@ -1,9 +1,9 @@
 ---
 title: "REST API: tool management and invocation"
-description: "List, fetch, invoke, enable, and disable tools through the MCPJungle HTTP API. Also covers prompt listing, fetching, and rendering endpoints."
+description: "List, fetch, invoke, enable, and disable tools through the Mcpjungle HTTP API. Also covers prompt listing, fetching, and rendering endpoints."
 ---
 
-Tools are the callable functions that registered MCP servers expose. MCPJungle aggregates them into a single proxy surface and lets you invoke them over HTTP without speaking the MCP protocol directly. Prompts are reusable message templates — they follow the same listing and fetch patterns as tools.
+Tools are the callable functions that registered MCP servers expose. Mcpjungle aggregates them into a single proxy surface and lets you invoke them over HTTP without speaking the MCP protocol directly. Prompts are reusable message templates — they follow the same listing and fetch patterns as tools.
 
 ## Tools
 
@@ -268,7 +268,7 @@ curl -X POST http://localhost:8080/api/v0/prompts/render \
   -d '{
     "name": "myserver__summarize",
     "arguments": {
-      "text": "MCPJungle is a self-hosted MCP gateway.",
+      "text": "Mcpjungle is a self-hosted MCP gateway.",
       "language": "English"
     }
   }'
@@ -304,7 +304,7 @@ curl -X POST http://localhost:8080/api/v0/prompts/render \
       "role": "user",
       "content": {
         "type": "text",
-        "text": "Please summarize the following in English:\n\nMCPJungle is a self-hosted MCP gateway."
+        "text": "Please summarize the following in English:\n\nMcpjungle is a self-hosted MCP gateway."
       }
     }
   ]
