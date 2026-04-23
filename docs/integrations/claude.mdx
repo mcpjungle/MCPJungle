@@ -1,6 +1,6 @@
 ---
-title: "Connect Claude Desktop to MCPJungle"
-description: "Use the mcp-remote bridge to connect Claude Desktop to your MCPJungle gateway and give Claude access to all your registered MCP tools."
+title: "Connect Claude to mcpjungle"
+description: "Connect Claude Desktop to your MCPJungle gateway and give it access to all your MCP servers"
 ---
 
 Claude Desktop does not support direct HTTP MCP connections, so you connect it to MCPJungle through the `mcp-remote` bridge package. Once configured, Claude can discover and call every tool registered in your gateway from a single entry in its MCP servers config.
@@ -83,7 +83,9 @@ First, create a client with the MCPJungle CLI:
 mcpjungle create mcp-client claude-desktop --allow "server1, server2"
 ```
 
-Then pass the token to `mcp-remote` using the `--header` flag:
+This will output an access token for your client which is allowed to call tools from `server1` and `server2`.
+
+Pass the token to `mcp-remote` using the `--header` flag:
 
 ```json
 {
