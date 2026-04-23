@@ -15,9 +15,8 @@ That separation keeps client access control clean and avoids overloading one tok
 MCP clients are intended for non-human consumers of the gateway, such as:
 
 - Cursor
-- Claude via `mcp-remote`
-- GitHub Copilot
-- internal agents and services
+- Claude
+- internal or custom agents
 
 Each MCP client gets:
 
@@ -61,37 +60,20 @@ mcpjungle create user --conf /path/to/user-config.json
 
 When using a config file, provide a token explicitly.
 
-## Token supply strategies
-
-For MCP client or user config files, there are three ways to supply a token:
-
-1. `access_token`
-2. `access_token_ref.file`
-3. `access_token_ref.env`
-
-Inline tokens are acceptable for testing. For anything more serious, use file- or environment-based secrets.
+See the [configuration file reference](/reference/config-file#token-supply-strategies) for the supported token supply strategies for MCP client and user config files.
 
 ## Environment variable placeholders
 
-JSON config files support `${VAR_NAME}` placeholders in string values:
+JSON config files support `${VAR_NAME}` placeholders in string values.
 
-```json
-{
-  "name": "${MCP_CLIENT_NAME}",
-  "allowed_servers": ["${PRIMARY_SERVER}", "time"],
-  "access_token_ref": {
-    "env": "CLIENT_TOKEN_ENV_NAME"
-  }
-}
-```
-
-Expansion happens in the CLI process before the request is sent to Mcpjungle.
+See the [configuration file reference](/reference/config-file#var_name-placeholder-substitution) for the exact substitution rules and examples.
 
 ## Recommended identity model
 
 For a small to medium sized deployment:
 
 - create a small number of admin users for platform operators
+- create one user in mcpjungle for each human operator who needs CLI or API access
 - create one MCP client per consuming application or workflow
 - avoid sharing one token across multiple tools or teams
 

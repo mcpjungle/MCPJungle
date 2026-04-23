@@ -207,6 +207,16 @@ Used with `mcpjungle create mcp-client --conf <file>` (enterprise mode).
   When creating a client from a config file, you must supply a token via `access_token` or `access_token_ref`. Mcpjungle cannot print a generated token back to the console when reading from a file.
 </Warning>
 
+### Token supply strategies
+
+For MCP client and user config files, there are three ways to supply a custom token:
+
+1. `access_token`
+2. `access_token_ref.file`
+3. `access_token_ref.env`
+
+Use `access_token` only for testing or throwaway setups. For anything more serious, prefer file- or environment-based secrets.
+
 ### Create a user account
 
 Used with `mcpjungle create user --conf <file>` (enterprise mode).

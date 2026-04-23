@@ -111,6 +111,8 @@ mcpjungle create mcp-client --conf ./cursor-local.json
   When creating an MCP client from a config file, you must provide a token explicitly. Mcpjungle cannot print an auto-generated token back through the file-based workflow.
 </Warning>
 
+See the [configuration file reference](/reference/config-file#token-supply-strategies) for the supported ways to supply a custom token in config files.
+
 ## Recommended pattern
 
 For shared environments, create one MCP client per integration or workflow, not one shared token for everything.
