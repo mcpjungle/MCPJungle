@@ -1,9 +1,9 @@
 ---
-title: "Connect GitHub Copilot to MCPJungle"
+title: "Connect GitHub Copilot to mcpjungle"
 description: "Add MCPJungle as an MCP server in GitHub Copilot's mcp.json config and give Copilot Chat access to all your registered tools."
 ---
 
-GitHub Copilot supports MCP servers through a `mcp.json` configuration file in your workspace or user settings. Pointing it at MCPJungle lets Copilot Chat discover and call every tool registered in your gateway. Note that Copilot uses a `"servers"` key in this file — not `"mcpServers"` like Claude Desktop.
+GitHub Copilot supports MCP servers through a `mcp.json` configuration file in your workspace or user settings. Pointing it at MCPJungle lets Copilot Chat discover and call every tool registered in your gateway.
 
 ## Prerequisites
 
@@ -31,10 +31,6 @@ Follow [GitHub's documentation on configuring MCP servers manually](https://docs
       }
     }
     ```
-
-    <Note>
-      GitHub Copilot uses the `"servers"` key, not `"mcpServers"`. Using the wrong key will cause the configuration to be silently ignored.
-    </Note>
   </Step>
 
   <Step title="Start the MCPJungle server in Copilot">
