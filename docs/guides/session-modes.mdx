@@ -1,5 +1,5 @@
 ---
-title: "Stateful vs stateless server connections"
+title: "Stateful & Stateless server connections"
 description: "Understand MCPJungle's two session modes, when persistent connections help, and why stateless should remain the default unless cold-start cost is a real problem."
 ---
 
@@ -9,23 +9,18 @@ When an MCP client calls a tool through MCPJungle, the gateway must open a conne
 
 In stateless mode, MCPJungle opens a fresh connection to the upstream MCP server for every tool call. Once the call completes, the connection is closed immediately.
 
+In case of a http upstream server, this means a new HTTP request is made for each tool call.
+For a stdio server, this means a new process is spawned for each call.
+
 This is the default behavior and requires no configuration. It keeps memory usage predictable, avoids leaked connections, and means each tool call is fully independent of the last.
-
-```json
-{
-  "name": "calculator",
-  "transport": "streamable_http",
-  "url": "http://127.0.0.1:8000/mcp"
-}
-```
-
-No `session_mode` field is needed — `"stateless"` is assumed when the field is absent or empty.
 
 ## The cold-start problem
 
-Stateless mode introduces latency for MCP servers that take time to initialize. The most common case is STDIO-based servers: every tool call spawns a new process, the process starts up (potentially installing packages, loading models, or establishing network connections), executes the tool, and then exits.
+Stateless mode introduces latency for MCP servers that take time to initialize.
 
-If a server takes several seconds to start, each tool call incurs that startup cost. This is called the **cold-start problem**.
+The most common case is STDIO transport servers: every tool call spawns a new process, the process starts up, executes the tool, and then exits.
+
+If a server process takes several seconds to start, each tool call incurs that startup cost. This is called the **cold-start problem**.
 
 ## Stateful mode
 
