@@ -39,7 +39,7 @@ The response uses standard Prometheus text exposition format.
 
 | Metric | Type | Description |
 |---|---|---|
-| `mcpjungle_tool_calls_total` | Counter | Total number of tool calls handled by Mcpjungle. |
+| `mcpjungle_tool_calls_ratio_total` | Counter | Total number of tool calls handled by Mcpjungle. |
 | `mcpjungle_tool_call_latency_seconds` | Histogram | Latency for tool calls, in seconds. |
 
 Both metrics include these labels:
@@ -53,13 +53,13 @@ Both metrics include these labels:
 ## Example output
 
 ```text
-# HELP mcpjungle_tool_calls_total Total number of tool calls
-# TYPE mcpjungle_tool_calls_total counter
-mcpjungle_tool_calls_total{mcp_server_name="calculator",tool_name="calculator__add",outcome="success"} 42
+# HELP mcpjungle_tool_calls_ratio_total Total number of tool calls
+# TYPE mcpjungle_tool_calls_ratio_total counter
+mcpjungle_tool_calls_ratio_total{mcp_server_name="calculator",tool_name="add",outcome="success"} 42
 
 # HELP mcpjungle_tool_call_latency_seconds Latency of tool calls in seconds
 # TYPE mcpjungle_tool_call_latency_seconds histogram
-mcpjungle_tool_call_latency_seconds_count{mcp_server_name="calculator",tool_name="calculator__add",outcome="success"} 42
+mcpjungle_tool_call_latency_seconds_count{mcp_server_name="calculator",tool_name="add",outcome="success"} 42
 ```
 
 ## Prometheus
@@ -77,15 +77,8 @@ scrape_configs:
 
 If you run your own Prometheus stack, scrape the gateway's `/metrics` endpoint directly.
 
-## Recommended usage
-
-Use these metrics to answer operational questions like:
-
-- Which tools are called most often?
-- Which upstream servers are producing the most errors?
-- Which tools have long or unstable latencies?
-
-That is enough to make Mcpjungle observable in small to medium sized deployments without adding a complex control plane around it.
+## Feedback
+If you want to see more metrics or have feedback on the current ones, please share your thoughts in the [GitHub discussions](https://github.com/orgs/mcpjungle/discussions) or open an [Issue](https://github.com/mcpjungle/MCPJungle/issues).
 
 ## Related pages
 
