@@ -1,20 +1,15 @@
 ---
-title: "Deploy MCPJungle for production"
-description: "Run MCPJungle as a shared deployment in enterprise mode, initialize it safely, connect it to PostgreSQL, and understand the operational expectations for a production setup."
+title: "Deploy mcpjungle in production"
+description: "Run mcpjungle as a shared deployment in enterprise mode - for teams."
 ---
 
-This guide covers the production operating model for MCPJungle.
+This guide covers the production operating model for mcpjungle.
 
-For serious deployments, MCPJungle should run in **enterprise mode** with:
+When teams want shared access to MCPs in an enterprise environment, MCPJungle should run in **enterprise mode** with a dedicated PostgreSQL database
 
-- a dedicated PostgreSQL database
-- explicit server initialization
-- per-client authentication
-- observability enabled
+That is the mode intended for teams, internal platforms and organizations running MCPJungle for shared MCP access.
 
-That is the mode intended for teams, internal platforms, and small to medium sized organizations running MCPJungle as shared infrastructure.
-
-If your goal is simply to use MCPs locally for yourself, development mode is usually the better fit. Production and enterprise deployment are for the point where MCPJungle becomes shared infrastructure for a team.
+If your goal is simply to use MCPs locally for yourself, development mode is usually a better fit.
 
 ## Start in enterprise mode
 
@@ -41,10 +36,6 @@ You can enable enterprise mode in three ways:
   </Tab>
 </Tabs>
 
-<Note>
-  `SERVER_MODE` accepts `development` and `enterprise`. The older `production` naming has been replaced with `enterprise`.
-</Note>
-
 ## Initialize the server once
 
 After the first boot in enterprise mode, initialize the server from your client machine:
@@ -65,12 +56,11 @@ For a shared deployment, the recommended pattern is:
 
 1. Run the standard `ghcr.io/mcpjungle/mcpjungle:latest` image.
 2. Keep the CLI installed separately on operator machines.
-3. Point MCPJungle at a separate PostgreSQL instance.
-4. Keep the gateway itself stateless apart from its database dependency.
+3. Point MCPJungle at a separate PostgreSQL instance or cluster.
 
 ## Run with Docker
 
-For production, use the standard (minimal) MCPJungle image. It is based on `distroless/base` and contains only the `mcpjungle` binary — no shell, no extra tooling.
+For production, use the standard (minimal) MCPJungle image. It is based on `distroless/base` and contains only the `mcpjungle` binary.
 
 Supply your database connection string with the `DATABASE_URL` environment variable:
 
@@ -107,7 +97,7 @@ docker stop mcpjungle-server
 
 | Feature | Development mode | Enterprise mode |
 |---------|-----------------|-----------------|
-| Authentication | Disabled | Required for MCP clients |
+| Authentication | Disabled | Required for Users & MCP clients |
 | Access control (ACLs) | Disabled | Enabled |
 | OpenTelemetry metrics | Disabled (opt-in) | Enabled by default |
 | Server initialization | Automatic | Manual (`init-server`) |
