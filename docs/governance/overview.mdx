@@ -3,44 +3,38 @@ title: "Access and governance overview"
 description: "Understand Mcpjungle's enterprise operating model: authenticated clients, per-client server access, user accounts, and governance for shared deployments."
 ---
 
-Mcpjungle can be run casually by one developer or as shared infrastructure for a team. The governance model matters once you move into the second case.
+If you're an individual user running mpcjungle locally or for personal use (most likely in development mode), you can skip this section entirely.
 
-In practice, the audience split is simple:
+The Governance model is useful for organizations running mcpjungle in a shared environment in the **enterprise mode**.
 
-- individuals usually want Mcpjungle as local self-hosted infrastructure for personal MCP workflows
-- teams usually want centralized management, shared access patterns, and collaborative control over MCP usage
+In enterprise mode, organizations want:
 
-In local development mode, the gateway is intentionally simple: clients connecting to Mcpjungle can access all registered servers.
-
-In enterprise mode, the posture changes:
-
-- authenticated access is required
+- Authenticated access to MCPs
 - MCP clients must be created explicitly
-- each client receives an allow-list of servers
-- human users are separated from machine identities
-- metrics are enabled by default
+- Each client's access to MCPs is controlled through allow-lists
+- Human users are separated from machine identities
 
 ## Development mode versus enterprise mode
 
-| Capability | Development mode | Enterprise mode |
-|---|---|---|
-| Gateway authentication | Disabled | Required |
-| MCP client access control | Open access to registered servers | Explicit allow-list per client |
-| User accounts | Not needed | Supported |
-| OpenTelemetry metrics | Disabled by default | Enabled by default |
-| Server initialization | Automatic | Manual via `mcpjungle init-server` |
+| Capability | Development mode | Enterprise mode                   |
+|---|---|-----------------------------------|
+| Gateway authentication | Disabled | Required                          |
+| MCP client access control | Open access to registered servers | Explicit allow-list per client    |
+| User accounts | Not needed | Supported                         |
+| OpenTelemetry metrics | Disabled by default | Enabled by default                |
+| Server initialization | Automatic | Manual initialization by an Administrator   |
 
 ## Governance model
 
 Mcpjungle uses three main identity and access concepts in enterprise mode.
 
-### Admins
+### Administrator
 
-Admins initialize the server, register MCP servers, create clients, create users, and manage platform configuration.
+Admin initializes the server, register MCP servers, creates mcp clients, creates users, and manages platform configuration.
 
 ### MCP clients
 
-MCP clients are machine identities for agents and IDE integrations such as Cursor, Claude bridges, Copilot, or internal services.
+MCP clients are machine identities for your AI clients (agents, CLIs like claude code, IDEs like Cursor, or custom mcp clients).
 
 Each client gets:
 
