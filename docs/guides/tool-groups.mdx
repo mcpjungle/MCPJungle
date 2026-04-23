@@ -1,11 +1,15 @@
 ---
-title: "Expose tool subsets with Tool Groups"
-description: "Create named subsets of tools with their own MCP endpoint so each client only sees the tools it needs instead of the full registry surface."
+title: "Tool Groups"
+description: "Expose only a subset of all tools to clients over dedicated MCP endpoints."
 ---
 
-As you register more MCP servers, the full tool catalog can become too large for a single agent workflow. Tool Groups solve that by exposing a named subset of tools through a dedicated MCP endpoint.
+As more MCP servers are added to mcpjungle, the number of tools, prompts and resources available through the gateway mcp endpoint can quickly explode.
 
-Each client can then connect to the specific group endpoint instead of the main `/mcp` gateway.
+This can cause context overload for your clients.
+
+Mcpjungle allows you to create custom MCP endpoints that only expose cherry-picked tools to clients. These are called **Tool Groups**.
+
+Your client can then connect to the specific group endpoint instead of the main `/mcp` gateway and only see tools you want to expose to it.
 
 ## How tool groups work
 
@@ -16,6 +20,17 @@ When you create a group, MCPJungle registers a new streamable HTTP endpoint at:
 ```
 
 Point your MCP client at that URL instead of the main gateway. The client will only discover and call the tools included in that group.
+
+MCPJungle also creates SSE endpoints for the group:
+
+```text
+/v0/groups/{group-name}/sse
+/v0/groups/{group-name}/message
+```
+
+<Warning>
+  SSE is a deprecated MCP transport and its support in MCPJungle is limited. Prefer the streamable HTTP endpoint unless you specifically need SSE compatibility.
+</Warning>
 
 <Note>
   If a tool included in a group is later disabled globally or deregistered, it becomes unavailable through the group endpoint automatically. Re-enabling or re-registering the tool makes it available again without any changes to the group configuration.
@@ -107,6 +122,11 @@ Tool Group claude-tools created successfully
 It is now accessible at the following streamable http endpoint:
 
     http://127.0.0.1:8080/v0/groups/claude-tools/mcp
+
+SSE endpoints are also available:
+
+    http://127.0.0.1:8080/v0/groups/claude-tools/sse
+    http://127.0.0.1:8080/v0/groups/claude-tools/message
 ```
 
 Configure your MCP client to connect to that URL instead of `http://127.0.0.1:8080/mcp`. The client will only see the tools in the group.
@@ -154,16 +174,8 @@ These commands are useful for verifying that a group is configured correctly bef
 ## Known limitations
 
 <AccordionGroup>
-  <Accordion title="Prompts are not supported in Tool Groups">
-    [MCP Prompts](https://modelcontextprotocol.io/specification/2025-06-18/server/prompts) are not currently available through group endpoints. Clients connected to a group endpoint cannot discover or invoke prompts. This is a known issue tracked at [mcpjungle#136](https://github.com/mcpjungle/MCPJungle/issues/136).
-  </Accordion>
-  <Accordion title="Groups cannot be updated in place">
-    There is no `update group` command. To change a group's configuration, delete the group and recreate it with the updated JSON file:
-
-    ```bash
-    mcpjungle delete group claude-tools
-    mcpjungle create group -c ./claude-tools-group.json
-    ```
+  <Accordion title="Prompts & Resources are currently not supported in Tool Groups">
+    [MCP Prompts](https://modelcontextprotocol.io/specification/2025-06-18/server/prompts) and Resources are not currently available through group endpoints. Clients connected to a group endpoint cannot discover or invoke prompts. This is a known issue tracked at [mcpjungle#136](https://github.com/mcpjungle/MCPJungle/issues/136).
   </Accordion>
   <Accordion title="Enterprise mode: only admins can create groups">
     When MCPJungle runs in `enterprise` mode, only an admin account can create Tool Groups. Standard users do not have permission to create groups. Support for user-scoped groups is planned for a future release.
