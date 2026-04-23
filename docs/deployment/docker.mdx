@@ -1,25 +1,16 @@
 ---
-title: "Run MCPJungle with Docker Compose"
-description: "Use Docker Compose to run MCPJungle locally or as a shared deployment, with clear guidance on compose files, image variants, health checks, and container-side CLI usage."
+title: "Run mcpjungle with Docker Compose"
+description: "Use Docker Compose to run mcpjungle locally or as a shared deployment."
 ---
 
-Docker Compose is the recommended way to run MCPJungle.
+Docker Compose is the recommended way to run mcpjungle for individuals running it locally.
 
-The repository ships two Compose paths:
+Teams deploying mcpjungle to a remote server can also use Docker Compose with the production configuration, or choose a more customized deployment approach.
 
-- one optimized for local use by an individual
-- one optimized for a shared deployment running in enterprise mode
+The repository ships 2 docker compose files:
 
-## Choose a compose file
-
-<CardGroup cols={2}>
-  <Card title="Development" icon="laptop">
-    `docker-compose.yaml` — for individuals running MCPJungle on a local machine. Uses the `stdio` image by default and runs in development mode with no authentication required.
-  </Card>
-  <Card title="Enterprise" icon="building">
-    `docker-compose.prod.yaml` — for teams and organizations hosting MCPJungle on a remote server. Uses the standard minimal image, runs in enterprise mode, and includes Prometheus and pgAdmin.
-  </Card>
-</CardGroup>
+- [docker-compose.yaml](https://github.com/mcpjungle/MCPJungle/blob/main/docker-compose.yaml) - optimized for local for individual users
+- [docker-compose.prod.yaml](https://github.com/mcpjungle/MCPJungle/blob/main/docker-compose.prod.yaml) - optimized for a shared deployment running in enterprise mode
 
 ## Development mode
 
@@ -35,8 +26,6 @@ The repository ships two Compose paths:
     ```bash
     docker compose up -d
     ```
-
-    This brings up two containers: `mcpjungle-db` (Postgres 17) and `mcpjungle-server`. The server waits for the database health check to pass before starting.
   </Step>
   <Step title="Verify the server is running">
     ```bash
@@ -46,6 +35,24 @@ The repository ships two Compose paths:
     The server listens on port `8080` by default. You can override this with the `HOST_PORT` environment variable.
   </Step>
 </Steps>
+
+<Note>
+If MCPJungle is running inside Docker on macOS or Windows, the container cannot reach `127.0.0.1` on your host. Use `host.docker.internal` instead when registering MCP servers that run on your host machine:
+
+```bash
+mcpjungle register --name calculator --url http://host.docker.internal:5000/mcp
+```
+</Note>
+
+<Note>
+You can also run the mcpjungle image as a standalone container instead of using the Compose files provided by the repository.
+
+Keep in mind that if you do not connect MCPJungle to a PostgreSQL database, it will create a local SQLite file inside the container.
+
+If the container is deleted, that SQLite file is deleted with it and mcpjungle's data is lost.
+
+Running MCPJungle as a standalone container without an external database is only recommended for testing and proofs of concept.
+</Note>
 
 ## Enterprise mode
 
@@ -92,7 +99,7 @@ MCPJUNGLE_IMAGE_TAG=latest-stdio docker compose -f docker-compose.prod.yaml up -
 ```
 
 <Note>
-  If your stdio servers rely on tools other than `npx` or `uvx`, you need to build a custom Docker image that includes those dependencies alongside the `mcpjungle` binary.
+  If your stdio servers rely on dependencies other than `npx` or `uvx`, you need to build a custom Docker image that includes those dependencies alongside the `mcpjungle` binary.
 </Note>
 
 ## Graceful shutdown
