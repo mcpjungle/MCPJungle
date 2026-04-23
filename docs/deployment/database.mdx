@@ -1,5 +1,5 @@
 ---
-title: "Configure MCPJungle's database"
+title: "Configure mcpjungle's database"
 description: "Choose SQLite for local evaluation or PostgreSQL for serious deployments, and configure MCPJungle with either a full DSN or Postgres-specific environment variables."
 ---
 
@@ -98,7 +98,7 @@ When MCPJungle starts, it resolves the database connection in this order:
 ## Production recommendations
 
 <Tip>
-  Deploy a separate managed Postgres cluster (for example, RDS, Cloud SQL, or Supabase) and supply its endpoint via `DATABASE_URL`. Running the database in a sidecar container is acceptable for development but not recommended for production.
+  Deploy a separate Postgres cluster and supply its endpoint via `DATABASE_URL`. Running the database in a sidecar container is acceptable for development but not recommended for production.
 </Tip>
 
 The production Docker Compose file (`docker-compose.prod.yaml`) bundles a Postgres 17 container for convenience. For a real deployment, replace it with a managed database service and update the `DATABASE_URL` accordingly.
