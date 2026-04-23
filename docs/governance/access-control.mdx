@@ -29,6 +29,16 @@ Send this token in the `Authorization: Bearer {token}` HTTP header.
   If you omit `--allow`, the client is created but cannot access any registered servers.
 </Note>
 
+<Tip>
+  You can use `--allow "*"` to give an MCP client access to all registered MCP servers.
+
+  ```bash
+  mcpjungle create mcp-client cursor-local --allow "*"
+  ```
+
+  This is highly discouraged in production environments. Prefer explicit allow-lists so each client only gets access to the servers it actually needs.
+</Tip>
+
 ## Use the token from an MCP client
 
 Your MCP client or bridge must send the token in the `Authorization` header.
@@ -75,7 +85,7 @@ If you want to supply your own token instead of using a generated one:
 mcpjungle create mcp-client cursor-local --allow "calculator, github" --access-token my_custom_token
 ```
 
-This is useful when tokens are issued or tracked externally.
+This is useful when tokens are issued or tracked externally. For example, you might be managing identities and tokens through Vault or AWS KMS.
 
 ## Create a client from a config file
 
