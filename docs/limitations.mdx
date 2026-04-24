@@ -1,9 +1,11 @@
 ---
 title: "Current limitations"
-description: "Current Mcpjungle limitations and known gaps to account for when planning a deployment or integration."
+description: "Current limitations in mcpjungle and known gaps to account for when planning a deployment or integration."
 ---
 
-Mcpjungle is already useful as a serious self-hosted MCP gateway, but there are still product gaps to plan around.
+Mcpjungle currently has a few limitations to be aware of.
+
+We're actively working on some of these to address them as quickly as possible.
 
 ## OAuth for upstream authentication
 
@@ -13,36 +15,20 @@ Today, the supported model is static credentials such as:
 
 - bearer tokens
 - explicit custom headers
+- environment variables (for stdio servers)
 
 If an upstream server requires a dynamic OAuth flow, Mcpjungle is not yet the right direct integration path for that server.
 
-## Prompts in Tool Groups
+## Prompts & Resources in Tool Groups
 
-Prompts are not currently exposed through Tool Group endpoints.
+Prompts and Resources are not currently exposed through Tool Group endpoints.
 
-That means:
+The main gateway endpoint `/mcp` can surface everything.
 
-- the main gateway can surface prompts
-- group-specific endpoints currently narrow tools only
+But group-specific endpoints work well with tools only.
 
-If your workflow relies on prompts and curated endpoints at the same time, this is an important limitation to account for.
+## MCPs and Groups in enterprise mode
 
-## Group updates
+In enterprise mode, only administrators can add MCP servers and create Tool Groups at the moment.
 
-Tool Groups cannot currently be updated in place. To change one, delete it and recreate it with the new configuration.
-
-## Enterprise group creation
-
-In enterprise mode, only admins can create Tool Groups at the moment.
-
-## Planning guidance
-
-None of these limitations block the main product shape:
-
-- aggregate many MCP servers
-- expose one gateway endpoint
-- curate tool subsets
-- authenticate clients in enterprise mode
-- operate it as self-hosted infrastructure
-
-But they do affect how you plan governance and workflow design around the gateway.
+Normal users cannot yet do this.
