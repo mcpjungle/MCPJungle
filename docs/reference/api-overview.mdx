@@ -47,20 +47,14 @@ curl http://localhost:8080/api/v0/servers \
 
 ## Endpoint groups
 
-<CardGroup cols={2}>
-  <Card title="Servers" icon="server" href="/reference/api-servers">
-    Register, deregister, enable, and disable upstream MCP servers. Admin-only write operations; users can list.
-  </Card>
-  <Card title="Tools" icon="wrench" href="/reference/api-tools">
-    List, fetch, invoke, enable, and disable tools. Also covers prompt listing and rendering.
-  </Card>
-  <Card title="Tool groups" icon="layer-group" href="/reference/api-groups">
-    Create and manage named subsets of tools to expose targeted MCP surfaces to specific clients.
-  </Card>
-  <Card title="Clients and users" icon="users" href="/reference/api-clients">
-    Enterprise-only endpoints for managing MCP clients and human users, including token issuance.
-  </Card>
-</CardGroup>
+The REST API surface is organized into a few practical areas:
+
+- `Servers`: register, deregister, enable, and disable upstream MCP servers
+- `Tools, prompts, and resources`: list, inspect, invoke, and fetch content exposed through registered servers
+- `Tool groups`: create and manage curated subsets of tools for narrower MCP surfaces
+- `Clients and users`: enterprise-only identity and access management
+
+Use the CLI and governance guides for the current workflows while the API reference remains consolidated on this overview page.
 
 ## System endpoints
 
