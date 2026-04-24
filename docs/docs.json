@@ -107,11 +107,7 @@
           {
             "group": "API",
             "pages": [
-              "reference/api-overview",
-              "reference/api-servers",
-              "reference/api-tools",
-              "reference/api-groups",
-              "reference/api-clients"
+              "reference/api-overview"
             ]
           },
           {

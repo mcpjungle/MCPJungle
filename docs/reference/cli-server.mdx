@@ -27,25 +27,9 @@ The server listens on port `8080` by default and exposes the MCP proxy at `/mcp`
 
 ### Environment variables
 
-The `start` command reads the following environment variables. A `.env` file in the working directory is loaded automatically if present.
+The `start` command reads environment variables for server mode, database configuration, timeouts, and telemetry. A `.env` file in the working directory is loaded automatically if present.
 
-| Variable | Description                                                                          | Default |
-|----------|--------------------------------------------------------------------------------------|---------|
-| `PORT` | TCP port to bind to. Overridden by `--port`.                                         | `8080` |
-| `SERVER_MODE` | Server mode: `development` or `enterprise`. Overridden by `--enterprise`.            | `development` |
-| `DATABASE_URL` | Full DSN for the database connection (SQLite or Postgres).                           | SQLite file in working directory |
-| `POSTGRES_HOST` | Postgres host. When set, individual Postgres env vars are used to construct the DSN. | — |
-| `POSTGRES_PORT` | Postgres port.                                                                       | `5432` |
-| `POSTGRES_USER` | Postgres user.                                                                       | `postgres` |
-| `POSTGRES_PASSWORD` | Postgres password. Also readable from `POSTGRES_PASSWORD_FILE`.                      | — |
-| `POSTGRES_DB` | Postgres database name. Also readable from `POSTGRES_DB_FILE`.                       | `postgres` |
-| `MCP_SERVER_INIT_REQ_TIMEOUT_SEC` | Seconds to wait for an upstream MCP server to respond during registration.           | `30` |
-| `SESSION_IDLE_TIMEOUT_SEC` | Idle timeout in seconds for stateful MCP sessions.                      | `-1` (no timeout) |
-| `OTEL_ENABLED` | Enable OpenTelemetry tracing and metrics. Accepts `true`/`1` or `false`/`0`.         | `false` in dev, `true` in enterprise |
-
-<Note>
-  For `POSTGRES_PASSWORD` and `POSTGRES_DB`, you can use the `_FILE` variant (e.g., `POSTGRES_PASSWORD_FILE=/run/secrets/pg_pass`) to read the value from a file. This is useful for Docker secrets and Kubernetes secrets mounted as files.
-</Note>
+For the complete list, defaults, and `_FILE` variants, see [Environment variables](/reference/environment-variables).
 
 ### Examples
 

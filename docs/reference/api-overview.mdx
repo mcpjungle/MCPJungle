@@ -1,6 +1,6 @@
 ---
-title: "Mcpjungle HTTP API overview"
-description: "Base URL, authentication, access levels, and a complete map of every endpoint group and MCP proxy surface exposed by the Mcpjungle gateway server."
+title: "HTTP API overview"
+description: "Overview of mcpjungle server REST API and how to interact with it."
 ---
 
 The Mcpjungle server exposes two families of HTTP endpoints: a REST management API under `/api/v0` for registering servers, invoking tools, and administering the system, and a set of MCP proxy endpoints that AI agents connect to directly. All responses are JSON unless otherwise noted.
@@ -15,7 +15,9 @@ The port is `8080` by default. Every REST management endpoint is prefixed with `
 
 ## Authentication
 
-In **development mode** the server accepts all requests without credentials. In **enterprise mode** every request must carry a bearer token:
+In **development mode**, the server doesn't enforce any authentication.
+
+In **enterprise mode** every request must carry a bearer token:
 
 ```bash
 Authorization: Bearer <your-access-token>
@@ -79,10 +81,6 @@ Returns the running server version.
 ```json
 { "version": "0.4.2" }
 ```
-
-### `POST /init`
-
-One-time endpoint to initialize the server. Sets the operating mode (`dev` or `enterprise`) and creates the initial admin user in enterprise mode. Once initialized, this endpoint returns an error.
 
 ## MCP proxy endpoints
 
