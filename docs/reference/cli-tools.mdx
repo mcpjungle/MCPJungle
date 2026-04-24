@@ -1,141 +1,131 @@
 ---
-title: "mcpjungle register, invoke, list — tool commands"
-description: "Reference for the register, deregister, list, invoke, usage, enable, disable, and get prompt commands for managing MCP tools and servers."
+title: "Managing MCPs"
+description: "Reference for registering servers, listing tools, prompts and resources, invoking tools, and controlling what the gateway exposes."
 ---
 
-These commands form the day-to-day interface for managing the tools and servers registered in your Mcpjungle gateway. Use them to register new upstream servers, inspect what is available, call tools directly, and control which tools are visible to MCP clients.
+This page covers the day-to-day CLI commands used after the server is running: registering upstream MCP servers, inspecting what they expose, invoking tools, reading prompts and resources, and controlling visibility.
 
----
+Use the dedicated guides for deeper workflows:
+
+- [Register a streamable HTTP MCP server](/guides/register-http-servers)
+- [Register a stdio MCP server](/guides/register-stdio-servers)
+- [Manage tools and prompts](/guides/tools-and-prompts)
+- [Manage resources](/guides/manage-resources)
+
+<Note>
+  Treat `mcpjungle <command> --help` as the authoritative source for the currently supported flags. This page keeps the higher-value workflows and examples.
+</Note>
 
 ## `register`
 
-Registers an MCP server with the gateway. Once registered, the server's tools, prompts, and resources are immediately available through the Mcpjungle proxy.
+Registers an upstream MCP server in mcpjungle. Once registration succeeds, the server's tools, prompts, and resources become available through the gateway.
 
 ```bash
 mcpjungle register [flags]
 ```
 
-A server name must be unique across the registry. Names must not contain whitespace, special characters, or consecutive underscores (`__`).
-
-### Flags
-
-<ParamField body="--name" type="string">
-  Unique name for the MCP server. Required when not using `--conf`.
-</ParamField>
-
-<ParamField body="--url" type="string">
-  URL of a streamable HTTP MCP server, for example `http://localhost:8000/mcp`. Required for HTTP-based servers when not using `--conf`.
-</ParamField>
-
-<ParamField body="--description" type="string">
-  Optional human-readable description of the server.
-</ParamField>
-
-<ParamField body="--bearer-token" type="string">
-  Static bearer token Mcpjungle forwards to the upstream server in every request. Use this when the upstream server requires a fixed API token for authentication.
-</ParamField>
-
-<ParamField body="--force" type="boolean" default="false">
-  Deregister an existing server with the same name, then register the new one. Without this flag, registering a duplicate name returns an error.
-</ParamField>
-
-<ParamField body="-c / --conf" type="string">
-  Path to a JSON configuration file. When provided, all other flags are ignored. Required for `stdio` and `sse` transport servers.
-</ParamField>
-
-### Config file format
-
-The `--conf` flag accepts a JSON file matching the following structure. Fields not used by the chosen transport can be omitted.
-
-```json server-config.json
-{
-  "name": "my-server",
-  "transport": "streamable_http",
-  "url": "https://example.com/mcp",
-  "description": "Optional description",
-  "bearer_token": "optional-api-token",
-  "headers": {
-    "X-Custom-Header": "value"
-  },
-  "session_mode": "stateless"
-}
-```
-
-For a `stdio` server:
-
-```json filesystem-server.json
-{
-  "name": "filesystem",
-  "transport": "stdio",
-  "command": "npx",
-  "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/user"],
-  "env": {
-    "HOME": "/home/user"
-  }
-}
-```
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Unique server name. |
-| `transport` | string | Yes | `streamable_http`, `stdio`, or `sse`. |
-| `url` | string | For HTTP | URL of the HTTP MCP server. |
-| `description` | string | No | Human-readable description. |
-| `bearer_token` | string | No | Static token forwarded to the upstream server. |
-| `headers` | object | No | Additional HTTP headers forwarded to HTTP servers. If both `bearer_token` and `headers["Authorization"]` are set, the explicit header takes precedence. |
-| `command` | string | For stdio | Executable to run. |
-| `args` | array | No | Arguments passed to the command. |
-| `env` | object | No | Environment variables passed to the stdio process. |
-| `session_mode` | string | No | `stateless` (default) or `stateful`. |
-
-Values in `env` and elsewhere can reference environment variables using `${VAR_NAME}` syntax — the CLI resolves them at registration time.
-
-### Examples
-
-Register a streamable HTTP server with flags:
+For streamable HTTP servers, you can use flags directly:
 
 ```bash
 mcpjungle register --name context7 --url https://mcp.context7.com/mcp
 ```
 
-Register a server that requires an API token:
+You can also pass a static bearer token for upstream authentication:
 
 ```bash
 mcpjungle register --name github --url https://api.githubcopilot.com/mcp \
   --bearer-token ghp_your_token_here
 ```
 
-Register any server type using a config file:
+For `stdio` and `sse` servers, use a JSON config file:
 
 ```bash
-mcpjungle register --conf ./filesystem-server.json
+mcpjungle register --conf ./filesystem.json
 ```
 
----
+### Common flags
+
+<ParamField body="--name" type="string">
+  Unique server name. Required when not using `--conf`.
+</ParamField>
+
+<ParamField body="--url" type="string">
+  URL of a streamable HTTP MCP server. Required when registering an HTTP server without `--conf`.
+</ParamField>
+
+<ParamField body="--description" type="string">
+  Optional human-readable description.
+</ParamField>
+
+<ParamField body="--bearer-token" type="string">
+  Static bearer token forwarded to the upstream HTTP server.
+</ParamField>
+
+<ParamField body="--force" type="boolean" default="false">
+  Deregister an existing server with the same name, then register the new one.
+</ParamField>
+
+<ParamField body="-c / --conf" type="string">
+  Path to a JSON config file. Required for `stdio` and `sse` servers.
+</ParamField>
+
+### Minimal config examples
+
+Streamable HTTP:
+
+```json
+{
+  "name": "calculator",
+  "transport": "streamable_http",
+  "description": "Basic math tools",
+  "url": "http://127.0.0.1:8000/mcp",
+  "session_mode": "stateless"
+}
+```
+
+STDIO:
+
+```json
+{
+  "name": "filesystem",
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+  "session_mode": "stateful"
+}
+```
+
+For the full config fields, `session_mode`, environment-variable placeholders, and transport-specific notes, use:
+
+- [Register a streamable HTTP MCP server](/guides/register-http-servers)
+- [Register a stdio MCP server](/guides/register-stdio-servers)
+- [Config file reference](/reference/config-file)
+
+<Note>
+  Server names must be unique across mcpjungle and must not contain whitespace, special characters, or consecutive underscores (`__`).
+</Note>
 
 ## `deregister`
 
-Removes an MCP server from the registry, along with all of its tools, prompts, and resources.
+Removes a registered MCP server and all of its tools, prompts, and resources from the gateway.
 
 ```bash
 mcpjungle deregister <server-name>
 ```
 
-<Warning>
-  Deregistering a server immediately removes all its tools from the gateway. Any MCP client currently using those tools will receive errors. Make sure no clients depend on the server before deregistering.
-</Warning>
-
-### Example
+Example:
 
 ```bash
 mcpjungle deregister context7
 ```
 
----
+<Warning>
+  Deregistering a server removes its tools, prompts, and resources immediately. Any connected MCP client relying on them will start failing.
+</Warning>
 
 ## `list`
 
-Lists entities registered in the gateway.
+Lists the entities currently registered in mcpjungle.
 
 ```bash
 mcpjungle list <subcommand> [flags]
@@ -143,7 +133,7 @@ mcpjungle list <subcommand> [flags]
 
 ### `list servers`
 
-Lists all registered MCP servers with their transport and connection details.
+Lists registered MCP servers and their transport details.
 
 ```bash
 mcpjungle list servers
@@ -151,95 +141,89 @@ mcpjungle list servers
 
 ### `list tools`
 
-Lists available tools, optionally filtered by server or tool group.
+Lists tools across the gateway, or filters them by server or tool group.
 
 ```bash
-mcpjungle list tools [flags]
+mcpjungle list tools [--server <name>]
+mcpjungle list tools [--group <name>]
 ```
 
 <ParamField body="--server" type="string">
-  Filter tools to those provided by the specified server name.
+  Filter tools to a specific registered server.
 </ParamField>
 
 <ParamField body="--group" type="string">
-  Filter tools to those currently active in the specified tool group. Note: tools that are in the group config but have been deleted or disabled globally will not appear here. Use `get group` to see the full configured list.
+  Filter tools to those currently active in a tool group.
 </ParamField>
 
 <Note>
-  `--server` and `--group` cannot be used together.
+  `--server` and `--group` cannot be combined. `list tools --group` only shows tools that are currently active. Use `get group` to inspect the full configured group definition.
 </Note>
 
 ### `list prompts`
 
-Lists prompt templates, optionally filtered by server.
+Lists prompts across all servers or from one server.
 
 ```bash
-mcpjungle list prompts [--server <name>]
+mcpjungle list prompts
+mcpjungle list prompts --server github
 ```
-
-<ParamField body="--server" type="string">
-  Filter prompts to those from the specified server.
-</ParamField>
 
 ### `list resources`
 
-Lists resources, optionally filtered by server.
+Lists resources across all servers or from one server.
 
 ```bash
-mcpjungle list resources [--server <name>]
+mcpjungle list resources
+mcpjungle list resources --server mintlify-mcpjungle
 ```
-
-<ParamField body="--server" type="string">
-  Filter resources to those from the specified server.
-</ParamField>
 
 ### `list groups`
 
-Lists all tool groups. For detailed group configuration, use [`get group`](#get-group).
+Lists tool groups.
 
 ```bash
 mcpjungle list groups
 ```
 
-### Examples
+### Common examples
 
 ```bash
-# List all tools across all servers
+# List all tools
 mcpjungle list tools
 
-# List tools from a specific server
+# List tools from one server
 mcpjungle list tools --server github
 
-# List tools visible through a tool group
-mcpjungle list tools --group my-agent-group
+# List tools currently active in a group
+mcpjungle list tools --group engineering-tools
 
-# List all prompts
-mcpjungle list prompts
+# List prompts from one server
+mcpjungle list prompts --server github
+
+# List resources from one server
+mcpjungle list resources --server mintlify-mcpjungle
 ```
-
----
 
 ## `usage`
 
-Displays the name, description, and full input schema for a registered tool. Use this to understand what parameters a tool accepts before invoking it.
+Shows the input schema for a tool before you invoke it.
 
 ```bash
 mcpjungle usage <tool-name>
 ```
 
-### Example
+Example:
 
 ```bash
 mcpjungle usage github__create_issue
 ```
 
-Output includes each input parameter's type, whether it is required or optional, and any constraints from the tool's JSON schema.
-
----
+The output includes the tool description, argument types, required fields, and any JSON-schema constraints exposed by the upstream MCP server.
 
 ## `invoke`
 
-Calls a registered tool and prints its response.
+Calls a tool directly through mcpjungle.
 
 ```bash
 mcpjungle invoke <tool-name> [flags]
@@ -248,136 +232,94 @@ mcpjungle invoke <tool-name> [flags]
 ### Flags
 
 <ParamField body="--input" type="string" default="{}">
-  JSON object of input parameters to pass to the tool. Must be valid JSON.
+  JSON object of input arguments passed to the tool.
 </ParamField>
 
 <ParamField body="--group" type="string">
-  Invoke the tool within a specific tool group's context. The tool must be included in the group, otherwise the command returns an error.
+  Invoke the tool within a tool group's context. The tool must be available in that group.
 </ParamField>
 
 ### Examples
 
-Invoke a tool with no input:
-
 ```bash
+# Invoke a tool with no input
 mcpjungle invoke github__list_repos
-```
 
-Invoke a tool with parameters:
-
-```bash
+# Invoke a tool with JSON input
 mcpjungle invoke github__create_issue \
-  --input '{"owner": "myorg", "repo": "myrepo", "title": "Bug report", "body": "Details here"}'
-```
+  --input '{"owner": "myorg", "repo": "myrepo", "title": "Bug report"}'
 
-Invoke a tool within a group context:
-
-```bash
+# Invoke within a tool group
 mcpjungle invoke github__create_issue \
   --input '{"owner": "myorg", "repo": "myrepo", "title": "Bug"}' \
   --group engineering-tools
 ```
 
-Text responses are printed to stdout. Image and audio responses are saved to the current working directory. Embedded resource content is displayed inline or saved as a file depending on content type.
-
----
+Text responses are printed to stdout. If the response contains images, audio, or binary resources, the CLI may save files in the current working directory.
 
 ## `enable`
 
-Enables one or more tools, prompts, or an entire server globally. Enabled entities are visible and callable by MCP clients.
+Enables tools, prompts, or an entire server globally.
 
 ```bash
 mcpjungle enable <subcommand> <name>
 ```
 
-### Subcommands
+Supported forms:
 
-| Subcommand | Argument | Description |
-|-----------|----------|-------------|
-| `enable tool <name>` | Tool name or server name | Enable a specific tool, or all tools from a server. |
-| `enable prompt <name>` | Prompt name or server name | Enable a specific prompt, or all prompts from a server. |
-| `enable server <name>` | Server name | Enable all tools and prompts from a server. |
+- `mcpjungle enable tool <name>`
+- `mcpjungle enable prompt <name>`
+- `mcpjungle enable server <name>`
 
-### Examples
+Examples:
 
 ```bash
-# Enable a specific tool
 mcpjungle enable tool github__create_issue
-
-# Enable all tools from a server
 mcpjungle enable tool github
-
-# Enable all prompts from a server
 mcpjungle enable prompt github
-
-# Enable all tools and prompts from a server at once
 mcpjungle enable server github
 ```
 
 <Note>
-  The legacy form `mcpjungle enable <name>` (without a subcommand) is still accepted for backward compatibility but is deprecated. Use `enable tool <name>` or `enable server <name>` instead.
+  The legacy form `mcpjungle enable <name>` still works for backward compatibility, but `enable tool <name>` or `enable server <name>` is preferred.
 </Note>
-
----
 
 ## `disable`
 
-Disables one or more tools, prompts, or an entire server globally. Disabled entities are hidden from MCP clients and cannot be called.
+Disables tools, prompts, or an entire server globally.
 
 ```bash
 mcpjungle disable <subcommand> <name>
 ```
 
-### Subcommands
+Supported forms:
 
-| Subcommand | Argument | Description |
-|-----------|----------|-------------|
-| `disable tool <name>` | Tool name or server name | Disable a specific tool, or all tools from a server. |
-| `disable prompt <name>` | Prompt name or server name | Disable a specific prompt, or all prompts from a server. |
-| `disable server <name>` | Server name | Disable all tools and prompts from a server. |
+- `mcpjungle disable tool <name>`
+- `mcpjungle disable prompt <name>`
+- `mcpjungle disable server <name>`
 
-### Examples
+Examples:
 
 ```bash
-# Disable a specific tool
 mcpjungle disable tool github__delete_repo
-
-# Disable all tools from a server
 mcpjungle disable tool github
-
-# Disable all tools and prompts from a server at once
+mcpjungle disable prompt github
 mcpjungle disable server github
 ```
 
 <Note>
-  The legacy form `mcpjungle disable <name>` (without a subcommand) is still accepted for backward compatibility but is deprecated. Use `disable tool <name>` or `disable server <name>` instead.
+  The legacy form `mcpjungle disable <name>` still works for backward compatibility, but only maps to tool disabling behavior.
 </Note>
-
----
 
 ## `get prompt`
 
-Retrieves a rendered prompt template from a registered MCP server, with optional argument substitution.
+Retrieves a prompt template and optionally renders it with arguments.
 
 ```bash
 mcpjungle get prompt <prompt-name> [--arg key=value ...]
 ```
 
-### Flags
-
-<ParamField body="--arg" type="key=value">
-  An argument to pass to the prompt template. Can be specified multiple times for prompts that accept several arguments.
-</ParamField>
-
-### Examples
-
-Retrieve a prompt with no arguments:
-
-```bash
-mcpjungle get prompt github__code-review
-```
-
-Retrieve a prompt with arguments:
+Example:
 
 ```bash
 mcpjungle get prompt github__code-review \
@@ -385,4 +327,25 @@ mcpjungle get prompt github__code-review \
   --arg language="python"
 ```
 
-The output shows each generated message with its role (`user` or `assistant`) and content, as returned by the upstream MCP server.
+The output shows the generated structured messages returned by the upstream MCP server.
+
+## `get resource`
+
+Retrieves resource metadata, or reads the resource contents.
+
+```bash
+mcpjungle get resource <uri>
+mcpjungle get resource --read <uri>
+```
+
+Examples:
+
+```bash
+# View metadata
+mcpjungle get resource mcpj://res/mintlify-mcpjungle/bWludGxpZnk6Ly9za2lsbHMvbWNwanVuZ2xl
+
+# Read the contents
+mcpjungle get resource --read mcpj://res/mintlify-mcpjungle/bWludGxpZnk6Ly9za2lsbHMvbWNwanVuZ2xl
+```
+
+With `--read`, text content is printed inline. Blob content may be decoded and written to a file in the current working directory.

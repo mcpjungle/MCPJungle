@@ -1,6 +1,6 @@
 ---
-title: "mcpjungle start — server command reference"
-description: "Reference for the start, init-server, and version commands — all flags, environment variables, and server modes for running the Mcpjungle gateway."
+title: "Starting the server"
+description: "Starting and initializing the mcpjungle server"
 ---
 
 These commands operate on the Mcpjungle server process itself rather than on its registry contents. `start` launches the gateway, `init-server` prepares it for enterprise use, and `version` reports what is running.
@@ -23,10 +23,6 @@ The server listens on port `8080` by default and exposes the MCP proxy at `/mcp`
 
 <ParamField body="--enterprise" type="boolean" default="false">
   Start the server in enterprise mode, which enables access control, authenticated clients, and user management. Equivalent to setting `SERVER_MODE=enterprise`. When using this flag on a fresh database, the server will print a reminder to run `init-server` before it can be used.
-</ParamField>
-
-<ParamField body="--prod" type="boolean" default="false">
-  Deprecated alias for `--enterprise`. Use `--enterprise` instead.
 </ParamField>
 
 ### Environment variables

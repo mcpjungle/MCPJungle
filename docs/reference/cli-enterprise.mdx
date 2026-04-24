@@ -1,78 +1,67 @@
 ---
-title: "Enterprise CLI: clients, users, auth"
-description: "Reference for enterprise-mode CLI commands: init-server, login, create and delete MCP clients and users, token rotation, and the complete setup workflow."
+title: "Enterprise operations"
+description: "Reference for enterprise-mode CLI commands: initialization, login, MCP clients, users, and token rotation."
 ---
 
-Enterprise mode adds authentication and access control to Mcpjungle. When the server runs with `--enterprise`, every request to the MCP proxy must include a valid bearer token, and each token is scoped to a specific list of allowed servers.
+Enterprise mode adds authentication and access control to mcpjungle. These commands are used to bootstrap an enterprise deployment and manage who or what can connect to it.
 
-This page documents all commands for setting up the enterprise server and managing clients, users, and authentication.
+Use the governance guides for the full operational model:
+
+- [Access control](/governance/access-control)
+- [Manage clients and users](/governance/clients-and-users)
+- [Config file reference](/reference/config-file)
 
 <Info>
-  All commands on this page require the server to be running in enterprise mode (`mcpjungle start --enterprise`). They return errors when issued against a development-mode server.
+  Commands on this page require the server to be running in enterprise mode with `mcpjungle start --enterprise`.
 </Info>
 
----
+<Note>
+  Treat `mcpjungle <command> --help` as the authoritative source for current flags. This page keeps the important setup flow, examples, and config patterns.
+</Note>
 
 ## `init-server`
 
-Initializes the Mcpjungle server for enterprise use. Run this once, from your local machine, after the server has started in enterprise mode.
-
-```bash
-mcpjungle init-server [--registry <url>]
-```
-
-`init-server` creates the first admin user, generates the admin access token, and saves both the server URL and token to `~/.mcpjungle.conf`. After this command, your CLI is authenticated as admin and all subsequent commands work without explicit credentials.
-
-<Warning>
-  Run this command exactly once on a fresh server. Re-running it on an already-initialized server returns an error. Store the admin access token securely — it is the only credential that can manage the enterprise server.
-</Warning>
-
-### Example
+Initializes a fresh enterprise server.
 
 ```bash
 mcpjungle --registry http://your-server:8080 init-server
 ```
 
----
+Run this once against a new enterprise deployment. It creates the first admin user, generates the admin access token, and stores the server URL and token in `~/.mcpjungle.conf`.
+
+<Warning>
+  This is a one-time bootstrap step. Store the generated admin credentials securely.
+</Warning>
 
 ## `login`
 
-Authenticates the CLI with an Mcpjungle server and persists the credentials to `~/.mcpjungle.conf`.
+Stores an existing access token in `~/.mcpjungle.conf` so the CLI can authenticate future requests.
 
 ```bash
-mcpjungle login <access_token>
+mcpjungle login <access-token>
 ```
 
-When a non-admin user is created by an administrator, the admin shares the access token with them. The user then runs `login` to store the token locally. After logging in, the user can run CLI commands without passing the token manually.
-
-### Example
+Example:
 
 ```bash
 mcpjungle login eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
-After a successful login, the CLI confirms your username and role and writes the token to the config file.
-
----
+This is what regular users run after an administrator creates their account and shares a token with them.
 
 ## `create mcp-client`
 
-Creates an authenticated MCP client that can connect to the Mcpjungle MCP proxy. The client receives a bearer token it must include in the `Authorization` header of every request.
+Creates an authenticated MCP client identity.
 
 ```bash
 mcpjungle create mcp-client <name> [flags]
-# or
 mcpjungle create mcp-client --conf <file>
 ```
 
-### Flags
+Common flags:
 
 <ParamField body="--allow" type="string">
-  Comma-separated list of MCP server names this client is allowed to access. Use `"*"` to grant access to all servers. Defaults to empty (no access).
-
-  ```bash
-  --allow "github, jira, slack"
-  ```
+  Comma-separated allow list of MCP server names. Example: `--allow "github,jira"`.
 </ParamField>
 
 <ParamField body="--description" type="string">
@@ -80,22 +69,28 @@ mcpjungle create mcp-client --conf <file>
 </ParamField>
 
 <ParamField body="--access-token" type="string">
-  Custom access token for the client. If not provided, Mcpjungle generates a random token and prints it to stdout — copy it immediately as it is not stored in recoverable form.
+  Custom token for the client. If omitted, the server generates one and prints it once.
 </ParamField>
 
 <ParamField body="-c / --conf" type="string">
-  Path to a JSON configuration file. When provided, all other flags are ignored.
+  Path to a JSON config file. When provided, the CLI ignores the other flags.
 </ParamField>
 
-<Warning>
-  Using `--allow "*"` grants the client access to all MCP servers, including any that are registered later. This is strongly discouraged in production. Always specify the minimum set of servers the client needs.
-</Warning>
+Examples:
 
-### Client config file format
+```bash
+# Let mcpjungle generate the token
+mcpjungle create mcp-client claude-desktop --allow "github,jira"
 
-Use a configuration file to manage client definitions in version control. The `access_token_ref` field loads the token from an environment variable or file at creation time, avoiding hard-coded secrets.
+# Supply your own token
+mcpjungle create mcp-client my-agent \
+  --allow "github" \
+  --access-token my-custom-token
+```
 
-```json claude-client.json
+Config file example:
+
+```json
 {
   "name": "claude-desktop",
   "description": "Claude Desktop on Alice's machine",
@@ -106,9 +101,9 @@ Use a configuration file to manage client definitions in version control. The `a
 }
 ```
 
-Alternatively, load the token from a file:
+You can also load the token from a file:
 
-```json claude-client.json
+```json
 {
   "name": "claude-desktop",
   "allowed_servers": ["github", "jira"],
@@ -118,115 +113,76 @@ Alternatively, load the token from a file:
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Unique client name. |
-| `description` | string | No | Human-readable description. |
-| `allowed_servers` | array | No | List of server names the client can access. Use `["*"]` for all servers. |
-| `access_token` | string | No | Hard-coded access token. Not recommended in production. |
-| `access_token_ref.env` | string | No | Environment variable name that holds the access token. |
-| `access_token_ref.file` | string | No | Path to a file containing the access token. |
-
 <Note>
-  When using a config file, you must supply a custom access token via `access_token` or `access_token_ref`. Mcpjungle does not auto-generate tokens from a config file.
+  When creating a client from `--conf`, you must provide a custom token via `access_token` or `access_token_ref`.
 </Note>
 
-### Examples
+<Tip>
+  `--allow "*"` gives the client access to all registered MCP servers, including future ones. This is convenient for testing and strongly discouraged in production.
+</Tip>
 
-Create a client with auto-generated token:
-
-```bash
-mcpjungle create mcp-client claude-desktop --allow "github, jira"
-```
-
-Create a client from a config file:
-
-```bash
-mcpjungle create mcp-client --conf ./claude-client.json
-```
-
----
+For token supply options and placeholder handling, see [Config file reference](/reference/config-file).
 
 ## `list mcp-clients`
 
-Lists all MCP clients registered in the gateway, including their names, descriptions, and allowed server lists.
+Lists registered MCP clients and their allow lists.
 
 ```bash
 mcpjungle list mcp-clients
 ```
 
----
-
-## `delete mcp-client`
-
-Deletes an MCP client and immediately revokes its access token. Any requests using the deleted client's token will be rejected.
-
-```bash
-mcpjungle delete mcp-client <name>
-```
-
-### Example
-
-```bash
-mcpjungle delete mcp-client claude-desktop
-```
-
----
-
 ## `update mcp-client`
 
-Updates the access token of an existing MCP client. Use this to rotate a client's credentials.
+Rotates the access token of an existing MCP client.
 
 ```bash
 mcpjungle update mcp-client <name> --access-token <new-token>
 ```
 
-### Flags
-
-<ParamField body="--access-token" type="string" required>
-  The new access token for the client.
-</ParamField>
-
-### Example
+Example:
 
 ```bash
 mcpjungle update mcp-client claude-desktop --access-token new-secret-token
 ```
 
----
+Currently this command updates the token only.
+
+## `delete mcp-client`
+
+Deletes an MCP client and immediately revokes its token.
+
+```bash
+mcpjungle delete mcp-client <name>
+```
+
+Example:
+
+```bash
+mcpjungle delete mcp-client claude-desktop
+```
 
 ## `create user`
 
-Creates a standard user account. Users can list and view MCP servers and tools, check tool usage, and invoke tools. They cannot manage servers, clients, or other users.
+Creates a standard user account for a human operator.
 
 ```bash
 mcpjungle create user <username> [flags]
-# or
 mcpjungle create user --conf <file>
 ```
 
-After creation, the CLI prints the user's access token and the `login` command they should run:
+Examples:
 
-```text
-User 'alice' created successfully
-The user should now run the following command to log into mcpjungle:
+```bash
+# Let mcpjungle generate the token
+mcpjungle create user alice
 
-    mcpjungle login <access-token>
+# Supply your own token
+mcpjungle create user alice --access-token alice-custom-token
 ```
 
-### Flags
+Config file example:
 
-<ParamField body="--access-token" type="string">
-  Custom access token for the user. If not provided, a random token is generated and printed to stdout.
-</ParamField>
-
-<ParamField body="-c / --conf" type="string">
-  Path to a JSON configuration file. When provided, all other flags are ignored.
-</ParamField>
-
-### User config file format
-
-```json alice.json
+```json
 {
   "name": "alice",
   "access_token_ref": {
@@ -235,84 +191,55 @@ The user should now run the following command to log into mcpjungle:
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Username (unique). |
-| `access_token` | string | No | Hard-coded access token. Not recommended in production. |
-| `access_token_ref.env` | string | No | Environment variable name that holds the access token. |
-| `access_token_ref.file` | string | No | Path to a file containing the access token. |
+When user creation succeeds, the CLI prints the `mcpjungle login <token>` command that the user should run locally.
 
 <Note>
-  When using a config file, you must supply a custom access token via `access_token` or `access_token_ref`.
+  When creating a user from `--conf`, you must provide a custom token via `access_token` or `access_token_ref`.
 </Note>
 
-### Examples
-
-Create a user with auto-generated token:
-
-```bash
-mcpjungle create user alice
-```
-
-Create a user from a config file:
-
-```bash
-mcpjungle create user --conf ./alice.json
-```
-
----
+For token supply options and placeholder handling, see [Config file reference](/reference/config-file).
 
 ## `list users`
 
-Lists all users in the gateway. Admin users are shown with an `[ADMIN]` label.
+Lists all users in the enterprise deployment.
 
 ```bash
 mcpjungle list users
 ```
 
----
-
-## `delete user`
-
-Deletes a user and immediately revokes their access token.
-
-```bash
-mcpjungle delete user <username>
-```
-
-### Example
-
-```bash
-mcpjungle delete user alice
-```
-
----
+Admin accounts are shown with an `[ADMIN]` marker.
 
 ## `update user`
 
-Updates the access token of an existing user. Use this to rotate credentials.
+Rotates the access token of an existing user.
 
 ```bash
 mcpjungle update user <username> --access-token <new-token>
 ```
 
-### Flags
-
-<ParamField body="--access-token" type="string" required>
-  The new access token for the user.
-</ParamField>
-
-### Example
+Example:
 
 ```bash
 mcpjungle update user alice --access-token new-secret-token
 ```
 
----
+Currently this command updates the token only.
 
-## Enterprise setup workflow
+## `delete user`
 
-The following steps show the complete flow for setting up an enterprise Mcpjungle instance from scratch.
+Deletes a user and revokes their access token immediately.
+
+```bash
+mcpjungle delete user <username>
+```
+
+Example:
+
+```bash
+mcpjungle delete user alice
+```
+
+## Typical setup flow
 
 <Steps>
   <Step title="Start the server in enterprise mode">
@@ -321,38 +248,28 @@ The following steps show the complete flow for setting up an enterprise Mcpjungl
     ```
   </Step>
 
-  <Step title="Initialize the server (one-time)">
-    From your local machine, run `init-server` to create the admin account and save credentials:
-
+  <Step title="Initialize the server once">
     ```bash
     mcpjungle --registry http://your-server:8080 init-server
     ```
-
-    Your `~/.mcpjungle.conf` is now populated with the admin token.
   </Step>
 
-  <Step title="Register your MCP servers">
+  <Step title="Register upstream MCP servers">
     ```bash
     mcpjungle register --name github --url https://api.githubcopilot.com/mcp \
       --bearer-token ghp_your_token
     ```
   </Step>
 
-  <Step title="Create MCP clients for your agents">
+  <Step title="Create MCP clients for agents and apps">
     ```bash
-    mcpjungle create mcp-client my-agent --allow "github"
-    # Copy the printed access token
+    mcpjungle create mcp-client claude-desktop --allow "github"
     ```
-
-    Configure your AI client to connect to `http://your-server:8080/mcp` with the token in the `Authorization: Bearer <token>` header.
   </Step>
 
-  <Step title="Create user accounts for team members">
+  <Step title="Create user accounts for operators">
     ```bash
     mcpjungle create user alice
-    # Share the printed login command with Alice
     ```
-
-    Alice runs the printed `mcpjungle login <token>` command on her machine.
   </Step>
 </Steps>
