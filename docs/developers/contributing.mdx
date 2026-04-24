@@ -1,0 +1,119 @@
+---
+title: "Contributing"
+description: "Contribution guidelines for code, docs, and product feedback in mcpjungle."
+---
+
+We welcome contributions to mcpjungle.
+
+If you want to contribute code, docs, bug reports, or product ideas, this page covers the expected workflow and standards.
+
+## Getting started
+
+1. Fork the repository on GitHub.
+2. Clone your fork locally:
+
+```bash
+git clone https://github.com/YOUR-USERNAME/MCPJungle.git
+cd MCPJungle
+```
+
+3. Add the upstream repository:
+
+```bash
+git remote add upstream https://github.com/mcpjungle/MCPJungle.git
+```
+
+4. Create a branch for your changes:
+
+```bash
+git checkout -b feature/your-feature-name
+```
+
+## Before making significant changes
+
+Before opening a large or significant pull request:
+
+1. Open a GitHub Discussion first to align on the direction.
+2. Avoid sending large amounts of unreviewed AI-generated code.
+
+For any code you generate with AI tools, make sure you:
+
+1. Run it and confirm it behaves correctly.
+2. Run tests and confirm they pass.
+3. Review it yourself and reduce it where possible.
+
+## Making changes
+
+### Coding standards
+
+- Follow [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments)
+- Format Go code with `gofmt`
+- Run `go vet` where appropriate
+- Ensure tests pass with `go test ./...`
+- Add tests for new behavior
+- Update docs for any change to APIs, CLI behavior, or user-facing features
+
+### Documentation
+
+- Update documentation for any change to APIs, CLIs, or user-facing features
+- Add examples for new features where useful
+- Update the README when needed
+- Add comments only where they help explain non-obvious logic
+
+## Pull request process
+
+1. Update your fork from upstream:
+
+```bash
+git fetch upstream
+git rebase upstream/main
+```
+
+2. Push your branch:
+
+```bash
+git push origin feature/your-feature-name
+```
+
+3. Open a pull request to the main repository.
+4. Write a clear PR description.
+5. Address review comments if maintainers request changes.
+
+If you need to update your PR:
+
+```bash
+git add .
+git commit -m "address review comments"
+git push origin feature/your-feature-name
+```
+
+## Dependency policy
+
+- `go.mod` and `go.sum` are the source of truth for dependencies
+- `vendor/` is not committed
+- For offline builds, you may run `go mod vendor` locally, but do not commit the result
+- CI and Docker builds should use module-aware mode and the Go proxy
+
+## Releases
+
+Only maintainers create releases.
+
+Current release expectations:
+
+1. Releases are cut from `main`
+2. A tag is created for the release
+3. Artifacts are built and published with goreleaser
+
+## Community
+
+- Use [GitHub Issues](https://github.com/mcpjungle/MCPJungle/issues) for bugs and trackable work
+- Use [GitHub Discussions](https://github.com/mcpjungle/MCPJungle/discussions) for proposals and broader questions
+- Join [Discord](https://discord.gg/CapV4Z3krk) for quick discussion
+
+## Development guide
+
+For local setup, builds, testing, database workflows, and deeper implementation details, see the [Development guide](/developers/development).
+
+## License
+
+By contributing to this project, you agree that your contributions are licensed under the project's license.

@@ -1,0 +1,214 @@
+---
+title: "Development guide"
+description: "Development setup, build and test workflows, architecture orientation, and release operations for mcpjungle contributors."
+---
+
+This guide covers development setup and technical workflows for contributors and maintainers.
+
+## Principles
+
+Mcpjungle follows minimalism.
+
+When implementing a feature or fixing an issue, prefer the least amount of change required to ship something that works well without breaking other behavior. Improvements beyond that should be guided by user feedback, not by the urge to add complexity.
+
+## Architecture overview
+
+Mcpjungle consists of several main components:
+
+- **CLI**: command-line interface for managing MCP servers and tools in `cmd/`
+- **HTTP API**: REST API for management workflows in `internal/api/`
+- **MCP proxy server**: MCP protocol handling in `internal/service/mcp/`
+- **Database layer**: SQLite and PostgreSQL persistence in `internal/db/`
+
+## Codebase entry points
+
+Good places to orient yourself:
+
+- [CLI commands](https://github.com/mcpjungle/MCPJungle/tree/main/cmd)
+- [HTTP API server](https://github.com/mcpjungle/MCPJungle/blob/main/internal/api/server.go)
+- [MCP proxy server](https://github.com/mcpjungle/MCPJungle/blob/main/internal/service/mcp/proxy.go)
+
+## Building and testing
+
+### Local development build
+
+```bash
+# Single binary for your current system
+goreleaser build --single-target --clean --snapshot
+
+# Test the full release assets (binaries and docker image) without publishing
+goreleaser release --clean --snapshot --skip publish
+
+# Binaries for all supported platforms
+goreleaser release --snapshot --clean
+```
+
+### Running tests
+
+```bash
+# Run all tests
+go test ./...
+
+# Run tests with coverage
+go test -cover ./...
+
+# Run a specific package
+go test ./internal/service/mcp
+
+# Run the sanity test script
+./scripts/test-mcpjungle.sh
+```
+
+### Linting
+
+Mcpjungle uses `golangci-lint`.
+
+```bash
+golangci-lint run
+golangci-lint run --fix
+```
+
+See the [golangci-lint installation docs](https://golangci-lint.run/docs/welcome/install/) if needed.
+
+## Development environment setup
+
+### Prerequisites
+
+- Go 1.21 or later
+- Docker and Docker Compose
+- SQLite3 for local development
+- Node.js if you want to use MCP Inspector
+
+### Quick start
+
+```bash
+git clone https://github.com/mcpjungle/MCPJungle.git
+cd MCPJungle
+
+docker-compose up -d
+
+goreleaser build --single-target --clean --snapshot
+```
+
+## Database development
+
+### SQLite
+
+When running with SQLite, you can inspect the local database using `sqlite3`:
+
+```bash
+sqlite3 mcpjungle.db
+
+.tables
+SELECT * FROM mcp_servers;
+SELECT * FROM tools;
+```
+
+For backward compatibility, Mcpjungle still reads existing `mcp.db` files if they exist, but new databases are created as `mcpjungle.db`.
+
+### PostgreSQL
+
+When running with Docker Compose, you can inspect PostgreSQL through pgAdmin:
+
+1. Open `http://localhost:5050`
+2. Log in with username `admin@admin.com` and password `admin`
+3. Add a database server with:
+   - Host: `db`
+   - Port: `5432`
+   - Username: `mcpjungle`
+   - Password: `mcpjungle`
+   - Database: `mcpjungle`
+
+## MCP server testing
+
+MCP Inspector is useful when testing and debugging MCP interactions:
+
+```bash
+npx @modelcontextprotocol/inspector
+```
+
+## Docker filesystem access
+
+When running Mcpjungle in Docker, the filesystem MCP server needs special configuration to access the host machine filesystem. The Compose files mount the host filesystem at `/host` inside the container.
+
+### Key points
+
+1. The host filesystem is mounted at `/host` inside the container
+2. Use `/host` as the root path in the filesystem MCP server config
+3. The mount is read-only by default for safety
+
+### Example filesystem MCP configuration
+
+```json
+{
+  "name": "filesystem",
+  "transport": "stdio",
+  "description": "filesystem mcp server",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "/host"]
+}
+```
+
+### Mounting specific directories
+
+Instead of mounting everything, you can narrow the volume mounts in `docker-compose.yaml`:
+
+```yaml
+volumes:
+  - ${HOME}:/host/home:ro
+  - /path/to/your/project:/host/project:ro
+  - /tmp:/host/tmp:rw
+```
+
+Then update the filesystem server config accordingly:
+
+```json
+{
+  "name": "filesystem",
+  "transport": "stdio",
+  "description": "filesystem mcp server",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "/host/home"]
+}
+```
+
+## Release process
+
+### Creating a release
+
+1. Create and push a tag:
+
+```bash
+git tag -a 0.1.0 -m "Release version 0.1.0"
+git push origin 0.1.0
+```
+
+2. Release with goreleaser:
+
+```bash
+export GITHUB_TOKEN="<your GH token>"
+echo $GITHUB_TOKEN | docker login ghcr.io -u <your-github-username> --password-stdin
+
+goreleaser release --clean
+```
+
+This publishes release artifacts and the Homebrew distribution.
+
+## Troubleshooting
+
+Common issues:
+
+1. Build failures: check Go version and dependencies
+2. Database connection problems: verify PostgreSQL or SQLite access
+3. MCP registration failures: verify the upstream server is reachable
+4. Docker filesystem access issues: verify the `/host` mount
+
+## Getting help
+
+- Check [GitHub Issues](https://github.com/mcpjungle/MCPJungle/issues)
+- Join [Discord](https://discord.gg/CapV4Z3krk)
+- Open a GitHub Discussion for design or workflow questions
+
+## Contribution guide
+
+For workflow and contribution expectations, see the [Contributing guide](/developers/contributing).

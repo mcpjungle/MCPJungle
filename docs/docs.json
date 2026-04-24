@@ -81,6 +81,13 @@
             "pages": [
               "limitations"
             ]
+          },
+          {
+            "group": "Developers",
+            "pages": [
+              "developers/contributing",
+              "developers/development"
+            ]
           }
         ]
       },
