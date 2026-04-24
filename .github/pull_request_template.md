@@ -6,7 +6,7 @@
 
 Please check all boxes before requesting review:
 
-- [ ] I have read and followed the [contribution guidelines](https://github.com/mcpjungle/MCPJungle/blob/main/CONTRIBUTION.md).
+- [ ] I have read and followed the [contribution guidelines](https://docs.mcpjungle.com/developers/contributing).
 - [ ] This PR addresses an existing issue or a concluded discussion.
 - [ ] If there was no existing issue/discussion, I opened one first to align with maintainers before submitting this PR.
 - [ ] I confirmed the issue/discussion priority with maintainers and understand low-priority items may receive limited attention.

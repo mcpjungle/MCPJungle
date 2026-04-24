@@ -17,7 +17,7 @@ Mcpjungle consists of several main components:
 
 - **CLI**: command-line interface for managing MCP servers and tools in `cmd/`
 - **HTTP API**: REST API for management workflows in `internal/api/`
-- **MCP proxy server**: MCP protocol handling in `internal/service/mcp/`
+- **MCP Gateway server**: MCP protocol handling in `internal/service/mcp/`
 - **Database layer**: SQLite and PostgreSQL persistence in `internal/db/`
 
 ## Codebase entry points
@@ -121,7 +121,7 @@ When running with Docker Compose, you can inspect PostgreSQL through pgAdmin:
 
 ## MCP server testing
 
-MCP Inspector is useful when testing and debugging MCP interactions:
+[MCP Inspector](https://github.com/modelcontextprotocol/inspector) is useful when testing and debugging MCP interactions:
 
 ```bash
 npx @modelcontextprotocol/inspector

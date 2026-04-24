@@ -7,34 +7,12 @@ We welcome contributions to mcpjungle.
 
 If you want to contribute code, docs, bug reports, or product ideas, this page covers the expected workflow and standards.
 
-## Getting started
-
-1. Fork the repository on GitHub.
-2. Clone your fork locally:
-
-```bash
-git clone https://github.com/YOUR-USERNAME/MCPJungle.git
-cd MCPJungle
-```
-
-3. Add the upstream repository:
-
-```bash
-git remote add upstream https://github.com/mcpjungle/MCPJungle.git
-```
-
-4. Create a branch for your changes:
-
-```bash
-git checkout -b feature/your-feature-name
-```
-
 ## Before making significant changes
 
 Before opening a large or significant pull request:
 
-1. Open a GitHub Discussion first to align on the direction.
-2. Avoid sending large amounts of unreviewed AI-generated code.
+1. Open a GitHub Discussion or Issue first to align on the direction.
+2. Avoid sending large amounts of code in a single PR.
 
 For any code you generate with AI tools, make sure you:
 
@@ -43,15 +21,6 @@ For any code you generate with AI tools, make sure you:
 3. Review it yourself and reduce it where possible.
 
 ## Making changes
-
-### Coding standards
-
-- Follow [Go Code Review Comments](https://go.dev/wiki/CodeReviewComments)
-- Format Go code with `gofmt`
-- Run `go vet` where appropriate
-- Ensure tests pass with `go test ./...`
-- Add tests for new behavior
-- Update docs for any change to APIs, CLI behavior, or user-facing features
 
 ### Documentation
 
@@ -96,13 +65,14 @@ git push origin feature/your-feature-name
 
 ## Releases
 
-Only maintainers create releases.
+Only repository owners create releases.
 
 Current release expectations:
 
 1. Releases are cut from `main`
 2. A tag is created for the release
 3. Artifacts are built and published with goreleaser
+4. Each release includes a changelog of merged PRs since the last release
 
 ## Community
 
