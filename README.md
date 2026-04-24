@@ -5,6 +5,10 @@
   Self-hosted MCP Gateway for your private AI agents
 </p>
 <p align="center">
+  <a href="https://docs.mcpjungle.com" style="text-decoration: none;">
+    <img src="https://img.shields.io/badge/Documentation-docs.mcpjungle.com-blue?style=flat-square&logo=book" alt="Documentation" style="max-width: 100%;">
+  </a>
+
   <a href="https://discord.gg/CapV4Z3krk" style="text-decoration: none;">
     <img src="https://img.shields.io/badge/Discord-MCPJungle-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord" style="max-width: 100%;">
   </a>
@@ -19,6 +23,10 @@ MCPJungle is an open source, self-hosted Gateway for all your [Model Context Pro
 ![diagram](./assets/mcpjungle-diagram/mcpjungle-diagram.png)
 
 <p align="center">MCPJungle is the only MCP Server your AI agents need to connect to!</p>
+
+> [!NOTE]
+> Mcpjungle documentation now lives at [docs.mcpjungle.com](https://docs.mcpjungle.com).
+> Please prefer the docs site over this README for the latest guides, reference, and operational details.
 
 # Who should use MCPJungle?
 1. **Developers** using MCP Clients like Claude & Cursor that need to access MCP servers for tool-calling
