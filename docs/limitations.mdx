@@ -17,7 +17,22 @@ Today, the supported model is static credentials such as:
 - explicit custom headers
 - environment variables (for stdio servers)
 
-If an upstream server requires a dynamic OAuth flow, Mcpjungle is not yet the right direct integration path for that server.
+We're working on adding complete support for these in the coming weeks.
+
+## OAuth, SSO and OIDC for downstream clients
+
+Mcpjungle also does not yet support OAuth, single sign-on, or OpenID Connect for downstream clients connecting to the Mcpjungle gateway itself.
+
+Today, the supported model for downstream client authentication is a static access token.
+
+Clients can use either:
+
+- auto-generated tokens created by Mcpjungle
+- custom tokens supplied by operators
+
+If you want stronger external control over token lifecycle, you can manage custom tokens outside Mcpjungle using tools such as Vault or AWS KMS and then supply those tokens to Mcpjungle clients.
+
+We're working on adding complete support for these in the coming weeks.
 
 ## Prompts & Resources in Tool Groups
 
