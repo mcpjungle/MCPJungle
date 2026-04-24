@@ -33,19 +33,19 @@ The server listens on port `8080` by default and exposes the MCP proxy at `/mcp`
 
 The `start` command reads the following environment variables. A `.env` file in the working directory is loaded automatically if present.
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | TCP port to bind to. Overridden by `--port`. | `8080` |
-| `SERVER_MODE` | Server mode: `development` or `enterprise`. Overridden by `--enterprise`. | `development` |
-| `DATABASE_URL` | Full DSN for the database connection (SQLite or Postgres). | SQLite file in working directory |
+| Variable | Description                                                                          | Default |
+|----------|--------------------------------------------------------------------------------------|---------|
+| `PORT` | TCP port to bind to. Overridden by `--port`.                                         | `8080` |
+| `SERVER_MODE` | Server mode: `development` or `enterprise`. Overridden by `--enterprise`.            | `development` |
+| `DATABASE_URL` | Full DSN for the database connection (SQLite or Postgres).                           | SQLite file in working directory |
 | `POSTGRES_HOST` | Postgres host. When set, individual Postgres env vars are used to construct the DSN. | — |
-| `POSTGRES_PORT` | Postgres port. | `5432` |
-| `POSTGRES_USER` | Postgres user. | `postgres` |
-| `POSTGRES_PASSWORD` | Postgres password. Also readable from `POSTGRES_PASSWORD_FILE`. | — |
-| `POSTGRES_DB` | Postgres database name. Also readable from `POSTGRES_DB_FILE`. | `postgres` |
-| `MCP_SERVER_INIT_REQ_TIMEOUT_SEC` | Seconds to wait for an upstream MCP server to respond during registration. | `30` |
-| `SESSION_IDLE_TIMEOUT_SEC` | Idle timeout in seconds for stateful MCP sessions. Set to `0` for no timeout. | `-1` (no timeout) |
-| `OTEL_ENABLED` | Enable OpenTelemetry tracing and metrics. Accepts `true`/`1` or `false`/`0`. | `false` in dev, `true` in enterprise |
+| `POSTGRES_PORT` | Postgres port.                                                                       | `5432` |
+| `POSTGRES_USER` | Postgres user.                                                                       | `postgres` |
+| `POSTGRES_PASSWORD` | Postgres password. Also readable from `POSTGRES_PASSWORD_FILE`.                      | — |
+| `POSTGRES_DB` | Postgres database name. Also readable from `POSTGRES_DB_FILE`.                       | `postgres` |
+| `MCP_SERVER_INIT_REQ_TIMEOUT_SEC` | Seconds to wait for an upstream MCP server to respond during registration.           | `30` |
+| `SESSION_IDLE_TIMEOUT_SEC` | Idle timeout in seconds for stateful MCP sessions.                      | `-1` (no timeout) |
+| `OTEL_ENABLED` | Enable OpenTelemetry tracing and metrics. Accepts `true`/`1` or `false`/`0`.         | `false` in dev, `true` in enterprise |
 
 <Note>
   For `POSTGRES_PASSWORD` and `POSTGRES_DB`, you can use the `_FILE` variant (e.g., `POSTGRES_PASSWORD_FILE=/run/secrets/pg_pass`) to read the value from a file. This is useful for Docker secrets and Kubernetes secrets mounted as files.
@@ -77,23 +77,6 @@ Start with a Postgres database:
 DATABASE_URL="postgres://user:password@localhost:5432/mcpjungle" mcpjungle start
 ```
 
-### Server modes
-
-<Tabs>
-  <Tab title="Development mode (default)">
-    Development mode is designed for individual use. The server initializes itself automatically on first startup — no admin token or `init-server` step is needed. Access control is not enforced, meaning any client that can reach the server can call any tool.
-
-    This mode is appropriate for local development and single-user deployments.
-  </Tab>
-  <Tab title="Enterprise mode">
-    Enterprise mode enables access control. Each MCP client must present a bearer token, and each token is scoped to a specific list of allowed servers. Users are separately managed and authenticated.
-
-    When starting in enterprise mode for the first time, the server does not initialize automatically. You must run `mcpjungle init-server` to complete setup and obtain the admin access token.
-
-    Enterprise mode also enables OpenTelemetry telemetry by default.
-  </Tab>
-</Tabs>
-
 ---
 
 ## `init-server`
@@ -106,17 +89,11 @@ mcpjungle init-server [--registry <url>]
 
 `init-server` creates the admin user, generates the admin access token, and saves both the registry URL and token to `~/.mcpjungle.conf`. After running this command, your CLI is authenticated as admin.
 
-<Warning>
-  Run `init-server` only once. Re-running it on an already-initialized server will return an error. The admin access token is only displayed once — save it immediately.
-</Warning>
-
 ### Example
 
 ```bash
 mcpjungle --registry http://your-server:8080 init-server
 ```
-
-After this command completes, `~/.mcpjungle.conf` is written with your credentials and subsequent commands work without the `--registry` flag.
 
 ---
 
@@ -137,9 +114,3 @@ Server URL:  http://127.0.0.1:8080
 ```
 
 If the server is unreachable (for example, when running the CLI without a local server), the server version line is replaced with a message indicating the version could not be retrieved.
-
-You can also use the root-level `--version` flag for a condensed output:
-
-```bash
-mcpjungle --version
-```

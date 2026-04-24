@@ -1,9 +1,11 @@
 ---
-title: "Mcpjungle CLI command reference"
-description: "Complete reference for the mcpjungle binary: global flags, the ~/.mcpjungle.conf config file, and a table of every available command grouped by category."
+title: "CLI command reference"
+description: "Information about how to use the mcpjungle CLI"
 ---
 
-The `mcpjungle` binary serves two roles: it runs the gateway server and acts as a client for managing everything registered in that server. Every subcommand talks to the registry over HTTP, so you can run the CLI on any machine that can reach the server — your laptop, a CI runner, or inside the same container.
+The `mcpjungle` binary serves two roles: it runs the gateway server and acts as a client for managing everything in that server.
+
+Every subcommand talks to the registry over HTTP, so you can run the CLI on any machine that can reach the server — your laptop, a CI runner, or inside the same container.
 
 ## Global flags
 
@@ -13,75 +15,23 @@ These flags are accepted by every command and subcommand.
 |------|------|---------|-------------|
 | `--registry` | string | `http://127.0.0.1:8080` | Base URL of the Mcpjungle registry server. |
 | `--help` | — | — | Print help for the current command and exit. |
-| `--version` / `-v` | — | — | Print version information and exit. |
 
 The `--registry` flag precedence order is: explicit flag value → `registry_url` in the config file → built-in default.
 
-<Tip>
-  If you set `--registry` explicitly but your config file does not yet have a `registry_url` entry, the CLI prints a tip reminding you to persist the URL. Use `mcpjungle login` or manually edit `~/.mcpjungle.conf` to avoid passing the flag every time.
-</Tip>
-
 ## Config file
 
-The CLI reads `~/.mcpjungle.conf` on startup. The file is YAML and supports two fields:
+On startup, the CLI attempts to read `.mcpjungle.conf` in your home directory.
+
+The file is YAML and contains the following fields:
 
 ```yaml ~/.mcpjungle.conf
 registry_url: http://your-server:8080
 access_token: your-access-token
 ```
 
-| Field | Description |
-|-------|-------------|
-| `registry_url` | URL of the Mcpjungle server. Overrides the `--registry` default. |
-| `access_token` | Bearer token sent with every request. Required in enterprise mode. |
+| Field | Description                                                                                    |
+|-------|------------------------------------------------------------------------------------------------|
+| `registry_url` | URL of the Mcpjungle server. Overrides the `--registry` default.                               |
+| `access_token` | Auth token that represents the user, sent with every CLI request. Required in enterprise mode only. |
 
-The file is created automatically by `mcpjungle init-server` and `mcpjungle login`. You can also create or edit it by hand.
-
-## Available commands
-
-Commands are grouped into **Basic** (everyday operations) and **Advanced** (enterprise and power-user features).
-
-### Basic commands
-
-| Command | Description |
-|---------|-------------|
-| [`start`](/reference/cli-server#start) | Start the Mcpjungle HTTP server and MCP gateway. |
-| [`register`](/reference/cli-tools#register) | Register an MCP server with the gateway. |
-| [`list`](/reference/cli-tools#list) | List servers, tools, prompts, resources, groups, clients, and users. |
-| [`usage`](/reference/cli-tools#usage) | Show input schema and usage information for a tool. |
-| [`invoke`](/reference/cli-tools#invoke) | Call a registered tool and print its output. |
-| [`deregister`](/reference/cli-tools#deregister) | Remove an MCP server from the registry. |
-| [`version`](/reference/cli-server#version) | Print CLI and server version information. |
-
-### Advanced commands
-
-| Command | Description |
-|---------|-------------|
-| [`get`](/reference/cli-tools#get-prompt) | Retrieve a prompt template or tool group details. |
-| [`disable`](/reference/cli-tools#disable) | Disable tools, prompts, or entire servers globally. |
-| [`enable`](/reference/cli-tools#enable) | Re-enable previously disabled tools, prompts, or servers. |
-| [`create`](/reference/cli-enterprise#create) | Create tool groups, MCP clients, or users. |
-| [`delete`](/reference/cli-enterprise#delete) | Delete tool groups, MCP clients, or users. |
-| [`update`](/reference/cli-enterprise#update) | Update tool groups, MCP client tokens, or user tokens. |
-| [`init-server`](/reference/cli-enterprise#init-server) | Initialize the server in enterprise mode (one-time setup). |
-| [`login`](/reference/cli-enterprise#login) | Authenticate and store your access token locally. |
-
-## Running the CLI in Docker or Kubernetes
-
-When the Mcpjungle server runs in a container, you can still use the CLI from outside by pointing `--registry` at the exposed port:
-
-```bash
-mcpjungle --registry http://localhost:8080 list servers
-```
-
-Inside a Kubernetes cluster, target the service DNS name:
-
-```bash
-mcpjungle --registry http://mcpjungle.default.svc.cluster.local:8080 list tools
-```
-
-If you are running a one-off admin command from within the same pod or a sidecar, the default `http://127.0.0.1:8080` works without any extra flags.
-
-<Note>
-  The CLI binary is not included in the standard Mcpjungle Docker image. Install it on your local machine or in a separate container. See the [Installation](/installation) page for options.
-</Note>
+In enterprise mode, this file gets created automatically when you initialise mcpjungle or login using your CLI.
