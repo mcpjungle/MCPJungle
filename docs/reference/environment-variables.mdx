@@ -168,16 +168,18 @@ When the server starts it resolves the database connection in this order:
 ## Docker
 
 <ParamField path="MCPJUNGLE_IMAGE_TAG" type="string" default="latest">
-  Docker image tag used when pulling `ghcr.io/mcpjungle/mcpjungle` in the provided Docker Compose files. Set this to `latest-stdio` to use the larger image that bundles `npx` and `uvx` runtimes needed for STDIO-based MCP servers.
+  Docker image tag used when pulling `ghcr.io/mcpjungle/mcpjungle` in the provided Docker Compose files.
+
+  Set this when you want to lock your mcpjungle deployment to a specific version when using one of the provided docker compose files.
 
   ```bash
-  MCPJUNGLE_IMAGE_TAG=latest-stdio docker compose up -d
+  MCPJUNGLE_IMAGE_TAG=0.4.0-stdio docker compose up -d
   ```
 
   | Tag | Description |
   |---|---|
-  | `latest` | Minimal image — MCPJungle binary only. Recommended for production. |
-  | `latest-stdio` | Includes `node`, `npx`, and `uvx`. Required if you register STDIO servers that rely on those runtimes. |
+  | `latest` | Minimal image — MCPJungle binary only. Recommended for production. Default in `docker-compose.prod.yaml`. |
+  | `latest-stdio` | Includes `node`, `npx`, and `uvx`. Required if you register STDIO servers that rely on those runtimes. Default in `docker-compose.yaml` |
 </ParamField>
 
 ---
