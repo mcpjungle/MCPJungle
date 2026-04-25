@@ -24,10 +24,6 @@ It acts as a gateway that your AI clients connect to, providing unified access t
 
 ![diagram](./assets/mcpjungle-diagram/april-2026/mcpjungle-diagram.png)
 
-> [!NOTE]
-> Mcpjungle documentation now lives at [docs.mcpjungle.com](https://docs.mcpjungle.com).
-> Please prefer the docs site over this README for the latest guides, reference, and operational details.
-
 ## Why MCPJungle?
 
 Without a gateway, MCP usage does not scale:
@@ -42,6 +38,10 @@ MCPJungle introduces a single control layer:
 - 🎯 One MCP endpoint for all your servers
 - 🧰 Unified access to tools, prompts, and resources
 - 🛡️ Centralized discovery, access control, and observability
+
+> [!NOTE]
+> Mcpjungle documentation now lives at [docs.mcpjungle.com](https://docs.mcpjungle.com).
+> Please prefer the docs site over this README for the latest guides, reference, and operational details.
 
 ## Quickstart
 
@@ -106,6 +106,33 @@ Claude will then attempt to call the `context7__get-library-docs` tool via MCPJu
 You now have a working MCP setup with a single unified endpoint!
 
 Next, explore the complete documentation at [docs.mcpjungle.com](https://docs.mcpjungle.com/).
+
+# 📋 Table of Contents
+
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Server](#server)
+    - [Running mcpjungle server inside Docker](#running-inside-docker)
+    - [Running mcpjungle server directly on the host machine](#running-directly-on-host)
+    - [Shutting down the server](#shutting-down)
+  - [Client](#client)
+    - [Adding Streamable HTTP-based MCP servers](#registering-streamable-http-based-servers)
+    - [Adding STDIO-based MCP servers](#registering-stdio-based-servers)
+    - [Removing MCP servers](#deregistering-mcp-servers)
+    - [Custom URL for server](#configuring-a-custom-registry-url)
+  - [Cold-start problem & Stateful Connections](#cold-start-problem--stateful-connections)
+  - [Connect to mcpjungle from Claude](#claude)
+  - [Connect to mcpjungle from Cursor](#cursor)
+  - [Connect to mcpjungle from Copilot](#copilot)
+  - [Enabling/Disabling Tools globally](#enablingdisabling-tools)
+  - [Prompts](#prompts)
+  - [Tool Groups](#tool-groups)
+  - [Authentication](#authentication)
+  - [Enterprise features](#enterprise-features-)
+    - [Access Control](#access-control)
+    - [OpenTelemetry](#opentelemetry)
+- [Limitations](#current-limitations-)
+- [Contributing](#contributing-)
 
 # Installation
 MCPJungle is shipped as a stand-alone binary.
