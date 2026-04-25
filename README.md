@@ -20,7 +20,7 @@ MCPJungle is an open source, self-hosted Gateway for all your [Model Context Pro
 
 🤖 MCP Clients use it to discover and consume all these tools from a single "Gateway" MCP Server.
 
-![diagram](./assets/mcpjungle-diagram/mcpjungle-diagram.png)
+![diagram](./assets/mcpjungle-diagram/april-2026/mcpjungle-diagram.png)
 
 <p align="center">MCPJungle is the only MCP Server your AI agents need to connect to!</p>
 

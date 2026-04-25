@@ -1,0 +1,236 @@
+<svg width="1600" height="1000" viewBox="0 0 1600 1000" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="1000" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF8E8"/>
+      <stop offset="1" stop-color="#F7F1DF"/>
+    </linearGradient>
+
+    <linearGradient id="jungleBox" x1="390" y1="380" x2="1210" y2="760" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#063F24"/>
+      <stop offset="1" stop-color="#021F14"/>
+    </linearGradient>
+
+    <linearGradient id="iconCircle" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#7ED957"/>
+      <stop offset="1" stop-color="#0B4F2A"/>
+    </linearGradient>
+
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#0B1F14" flood-opacity="0.15"/>
+    </filter>
+
+    <filter id="greenGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="10" flood-color="#1F8A4C" flood-opacity="0.35"/>
+    </filter>
+
+    <style>
+      .title { font-family: Inter, Arial, sans-serif; font-size: 48px; font-weight: 800; fill: #05381F; }
+      .subtitle { font-family: Inter, Arial, sans-serif; font-size: 25px; font-weight: 400; fill: #25332D; }
+      .section { font-family: Inter, Arial, sans-serif; font-size: 18px; font-weight: 800; letter-spacing: 2.5px; fill: #2F7A3B; }
+      .label { font-family: Inter, Arial, sans-serif; font-size: 20px; font-weight: 600; fill: #121A16; }
+      .small { font-family: Inter, Arial, sans-serif; font-size: 16px; font-weight: 400; fill: #121A16; }
+      .whiteTitle { font-family: Inter, Arial, sans-serif; font-size: 56px; font-weight: 800; fill: white; }
+      .greenText { fill: #5BC451; }
+      .boxTitle { font-family: Inter, Arial, sans-serif; font-size: 22px; font-weight: 800; fill: white; }
+      .boxText { font-family: Inter, Arial, sans-serif; font-size: 16px; font-weight: 400; fill: white; }
+      .featureIcon { stroke: white; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+      .connector { stroke: #26783E; stroke-width: 4; stroke-dasharray: 2 10; stroke-linecap: round; }
+      .arrow { stroke: #26783E; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+
+    <marker id="arrowHead" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#26783E"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="1000" fill="url(#bg)"/>
+
+  <!-- Header -->
+  <text x="800" y="86" text-anchor="middle" class="title">One MCP endpoint. All your tools.</text>
+  <text x="800" y="126" text-anchor="middle" class="subtitle">MCPJungle is a self-hosted gateway that aggregates multiple MCP servers</text>
+  <text x="800" y="158" text-anchor="middle" class="subtitle">and exposes a single unified MCP endpoint.</text>
+
+  <!-- Clients section -->
+  <line x1="250" y1="205" x2="650" y2="205" stroke="#2F7A3B" stroke-width="2" opacity="0.55"/>
+  <line x1="950" y1="205" x2="1350" y2="205" stroke="#2F7A3B" stroke-width="2" opacity="0.55"/>
+  <text x="800" y="213" text-anchor="middle" class="section">AI AGENTS / MCP CLIENTS</text>
+
+  <!-- Top client boxes -->
+  <g filter="url(#softShadow)">
+    <rect x="225" y="238" width="140" height="110" rx="14" fill="#FFFDF7" stroke="#E6DDC7" stroke-width="2"/>
+    <text x="295" y="307" text-anchor="middle" font-family="Inter, Arial" font-size="42" fill="#E36C2E">✹</text>
+    <text x="295" y="332" text-anchor="middle" class="label">Claude</text>
+
+    <rect x="415" y="238" width="140" height="110" rx="14" fill="#FFFDF7" stroke="#E6DDC7" stroke-width="2"/>
+    <rect x="470" y="263" width="40" height="40" rx="4" fill="#3E4544"/>
+    <path d="M470 263L510 283L470 303Z" fill="#1F2424"/>
+    <path d="M510 263L470 283L510 303Z" fill="#B5BCB8"/>
+    <text x="485" y="332" text-anchor="middle" class="label">Cursor</text>
+
+    <rect x="605" y="238" width="140" height="110" rx="14" fill="#FFFDF7" stroke="#E6DDC7" stroke-width="2"/>
+    <text x="675" y="303" text-anchor="middle" font-family="Inter, Arial" font-size="44" fill="#1C6D38">🤖</text>
+    <text x="675" y="332" text-anchor="middle" class="label">AI Agents</text>
+
+    <rect x="795" y="238" width="140" height="110" rx="14" fill="#FFFDF7" stroke="#E6DDC7" stroke-width="2"/>
+    <rect x="855" y="264" width="40" height="34" rx="5" fill="#1C6D38"/>
+    <path d="M866 273L877 281L866 289" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="881" y1="290" x2="893" y2="290" stroke="white" stroke-width="4" stroke-linecap="round"/>
+    <text x="865" y="332" text-anchor="middle" class="label">CLI Tools</text>
+
+    <rect x="985" y="238" width="140" height="110" rx="14" fill="#FFFDF7" stroke="#E6DDC7" stroke-width="2"/>
+    <text x="1055" y="304" text-anchor="middle" font-family="Inter, Arial" font-size="46" fill="#21723C">⌘</text>
+    <text x="1055" y="332" text-anchor="middle" class="label">IDE / Plugins</text>
+
+    <rect x="1175" y="238" width="140" height="110" rx="14" fill="#FFFDF7" stroke="#E6DDC7" stroke-width="2"/>
+    <g fill="#21723C">
+      <circle cx="1225" cy="268" r="6"/><circle cx="1245" cy="268" r="6"/><circle cx="1265" cy="268" r="6"/>
+      <circle cx="1225" cy="288" r="6"/><circle cx="1245" cy="288" r="6"/><circle cx="1265" cy="288" r="6"/>
+      <circle cx="1225" cy="308" r="6"/><circle cx="1245" cy="308" r="6"/><circle cx="1265" cy="308" r="6"/>
+    </g>
+    <text x="1245" y="332" text-anchor="middle" class="label">Custom Clients</text>
+  </g>
+
+  <!-- Client connector bus -->
+  <path class="connector" d="M295 348 V390 H1245 V348"/>
+  <path class="arrow" d="M800 390 V430" marker-end="url(#arrowHead)"/>
+
+  <!-- Side cards -->
+  <g filter="url(#softShadow)">
+    <rect x="70" y="500" width="240" height="150" rx="14" fill="#FFFDF7" stroke="#E6DDC7" stroke-width="2"/>
+    <rect x="90" y="545" width="46" height="58" rx="8" fill="#135C30"/>
+    <path d="M101 545 V530 C101 514 125 514 125 530 V545" stroke="#135C30" stroke-width="10" stroke-linecap="round"/>
+    <text x="155" y="548" class="label">Single MCP</text>
+    <text x="155" y="577" class="label">Endpoint</text>
+    <rect x="155" y="600" width="115" height="40" rx="9" fill="#E0EFD4"/>
+    <text x="212" y="626" text-anchor="middle" font-family="Inter, Arial" font-size="20" font-weight="700" fill="#14532D">/mcp</text>
+
+    <rect x="1290" y="500" width="240" height="150" rx="14" fill="#FFFDF7" stroke="#E6DDC7" stroke-width="2"/>
+    <g stroke="#135C30" stroke-width="6" stroke-linecap="round">
+      <rect x="1315" y="538" width="46" height="16" rx="4"/>
+      <rect x="1315" y="565" width="46" height="16" rx="4"/>
+      <rect x="1315" y="592" width="46" height="16" rx="4"/>
+      <circle cx="1352" cy="546" r="1" fill="#135C30"/>
+      <circle cx="1352" cy="573" r="1" fill="#135C30"/>
+      <circle cx="1352" cy="600" r="1" fill="#135C30"/>
+    </g>
+    <text x="1380" y="548" class="label">Self-hosted</text>
+    <text x="1380" y="578" class="small">You own your data.</text>
+    <text x="1380" y="604" class="small">Deploy anywhere.</text>
+  </g>
+
+  <!-- Side arrows -->
+  <path class="arrow" d="M310 575 H390" marker-end="url(#arrowHead)"/>
+  <path class="arrow" d="M1290 575 H1210" marker-end="url(#arrowHead)"/>
+
+  <!-- Main MCPJungle box -->
+  <g filter="url(#greenGlow)">
+    <rect x="390" y="410" width="820" height="335" rx="18" fill="url(#jungleBox)" stroke="#2BA84A" stroke-width="3"/>
+  </g>
+
+  <!-- Simple decorative foliage inside main box -->
+  <g opacity="0.17" fill="#8FD16A">
+    <circle cx="430" cy="460" r="42"/><circle cx="460" cy="486" r="35"/><circle cx="485" cy="448" r="28"/>
+    <circle cx="1130" cy="480" r="46"/><circle cx="1090" cy="500" r="36"/><circle cx="1168" cy="520" r="38"/>
+    <path d="M430 710 C480 660 520 610 545 500 C490 560 455 620 430 710Z"/>
+    <path d="M1120 710 C1080 635 1040 585 990 520 C1045 555 1105 620 1120 710Z"/>
+  </g>
+
+  <!-- Logo approximation and product title -->
+  <rect x="560" y="445" width="90" height="90" rx="10" fill="#285D2D" opacity="0.9"/>
+  <text x="605" y="516" text-anchor="middle" font-family="Inter, Arial" font-size="82" font-weight="900" fill="#93C95E">M</text>
+
+  <text x="695" y="505" class="whiteTitle">MCP<tspan class="greenText">Jungle</tspan></text>
+  <text x="696" y="545" font-family="Inter, Arial" font-size="28" font-weight="700" fill="white">Unified MCP Gateway</text>
+
+  <!-- Features -->
+  <g>
+    <circle cx="495" cy="600" r="30" fill="url(#iconCircle)"/>
+    <circle cx="489" cy="594" r="12" class="featureIcon"/>
+    <line x1="498" y1="603" x2="510" y2="615" class="featureIcon"/>
+    <text x="495" y="655" text-anchor="middle" class="boxTitle">Discovery</text>
+    <text x="495" y="682" text-anchor="middle" class="boxText">Auto-discover tools,</text>
+    <text x="495" y="706" text-anchor="middle" class="boxText">prompts, and resources</text>
+
+    <line x1="590" y1="585" x2="590" y2="720" stroke="white" stroke-opacity="0.35" stroke-width="1"/>
+
+    <circle cx="680" cy="600" r="30" fill="url(#iconCircle)"/>
+    <path d="M680 580 L700 589 V605 C700 620 690 628 680 633 C670 628 660 620 660 605 V589 Z" class="featureIcon"/>
+    <text x="680" y="655" text-anchor="middle" class="boxTitle">Access Control</text>
+    <text x="680" y="682" text-anchor="middle" class="boxText">Centralized auth,</text>
+    <text x="680" y="706" text-anchor="middle" class="boxText">permissions, and policy</text>
+
+    <line x1="775" y1="585" x2="775" y2="720" stroke="white" stroke-opacity="0.35" stroke-width="1"/>
+
+    <circle cx="865" cy="600" r="30" fill="url(#iconCircle)"/>
+    <rect x="850" y="610" width="6" height="12" fill="white"/>
+    <rect x="862" y="600" width="6" height="22" fill="white"/>
+    <rect x="874" y="590" width="6" height="32" fill="white"/>
+    <text x="865" y="655" text-anchor="middle" class="boxTitle">Observability</text>
+    <text x="865" y="682" text-anchor="middle" class="boxText">Metrics, logs, and</text>
+    <text x="865" y="706" text-anchor="middle" class="boxText">insights in one place</text>
+
+    <line x1="960" y1="585" x2="960" y2="720" stroke="white" stroke-opacity="0.35" stroke-width="1"/>
+
+    <circle cx="1050" cy="600" r="30" fill="url(#iconCircle)"/>
+    <path d="M1050 581 V619 M1032 600 H1068 M1038 589 L1050 581 L1062 589 M1038 611 L1050 619 L1062 611" class="featureIcon"/>
+    <text x="1050" y="655" text-anchor="middle" class="boxTitle">Routing &amp; Proxy</text>
+    <text x="1050" y="682" text-anchor="middle" class="boxText">Smart routing and</text>
+    <text x="1050" y="706" text-anchor="middle" class="boxText">protocol handling</text>
+  </g>
+
+  <!-- Down connector -->
+  <path class="connector" d="M800 745 V800 H1355"/>
+  <path class="connector" d="M800 800 H245"/>
+  <g class="arrow">
+    <path d="M245 800 V840" marker-end="url(#arrowHead)"/>
+    <path d="M435 800 V840" marker-end="url(#arrowHead)"/>
+    <path d="M625 800 V840" marker-end="url(#arrowHead)"/>
+    <path d="M815 800 V840" marker-end="url(#arrowHead)"/>
+    <path d="M1005 800 V840" marker-end="url(#arrowHead)"/>
+    <path d="M1195 800 V840" marker-end="url(#arrowHead)"/>
+    <path d="M1355 800 V840" marker-end="url(#arrowHead)"/>
+  </g>
+
+  <!-- Server boxes -->
+  <g filter="url(#softShadow)">
+    <rect x="165" y="850" width="160" height="82" rx="12" fill="#FFFDF7" stroke="#E6DDC7" stroke-width="2"/>
+    <circle cx="205" cy="890" r="19" fill="#207640"/>
+    <text x="205" y="897" text-anchor="middle" font-family="Inter, Arial" font-size="20" font-weight="800" fill="white">C7</text>
+    <text x="235" y="882" class="small">Context7</text>
+    <text x="235" y="908" font-family="Inter, Arial" font-size="14" fill="#121A16">MCP Server</text>
+
+    <rect x="355" y="850" width="160" height="82" rx="12" fill="#FFFDF7" stroke="#E6DDC7" stroke-width="2"/>
+    <text x="395" y="898" text-anchor="middle" font-family="Inter, Arial" font-size="42" fill="#1F2328">●</text>
+    <text x="425" y="882" class="small">GitHub</text>
+    <text x="425" y="908" font-family="Inter, Arial" font-size="14" fill="#121A16">MCP Server</text>
+
+    <rect x="545" y="850" width="160" height="82" rx="12" fill="#FFFDF7" stroke="#E6DDC7" stroke-width="2"/>
+    <text x="585" y="898" text-anchor="middle" font-family="Inter, Arial" font-size="36" fill="#E01E5A">●</text>
+    <text x="615" y="882" class="small">Slack</text>
+    <text x="615" y="908" font-family="Inter, Arial" font-size="14" fill="#121A16">MCP Server</text>
+
+    <rect x="735" y="850" width="160" height="82" rx="12" fill="#FFFDF7" stroke="#E6DDC7" stroke-width="2"/>
+    <text x="775" y="900" text-anchor="middle" font-family="Inter, Arial" font-size="44" font-weight="800" fill="#6069B2">S</text>
+    <text x="805" y="882" class="small">Stripe</text>
+    <text x="805" y="908" font-family="Inter, Arial" font-size="14" fill="#121A16">MCP Server</text>
+
+    <rect x="925" y="850" width="160" height="82" rx="12" fill="#FFFDF7" stroke="#E6DDC7" stroke-width="2"/>
+    <text x="965" y="898" text-anchor="middle" font-family="Inter, Arial" font-size="38" fill="#336791">🐘</text>
+    <text x="995" y="882" class="small">Postgres</text>
+    <text x="995" y="908" font-family="Inter, Arial" font-size="14" fill="#121A16">MCP Server</text>
+
+    <rect x="1115" y="850" width="160" height="82" rx="12" fill="#FFFDF7" stroke="#E6DDC7" stroke-width="2"/>
+    <text x="1155" y="898" text-anchor="middle" font-family="Inter, Arial" font-size="38" fill="#207640">◇</text>
+    <text x="1185" y="882" class="small">Your MCP</text>
+    <text x="1185" y="908" font-family="Inter, Arial" font-size="14" fill="#121A16">Server</text>
+
+    <rect x="1305" y="850" width="160" height="82" rx="12" fill="#FFFDF7" stroke="#5BAB5F" stroke-width="2" stroke-dasharray="4 8"/>
+    <text x="1345" y="900" text-anchor="middle" font-family="Inter, Arial" font-size="42" fill="#207640">+</text>
+    <text x="1385" y="882" class="small">Any MCP</text>
+    <text x="1385" y="908" font-family="Inter, Arial" font-size="14" fill="#121A16">Server</text>
+  </g>
+
+  <line x1="250" y1="970" x2="650" y2="970" stroke="#2F7A3B" stroke-width="2" opacity="0.55"/>
+  <line x1="950" y1="970" x2="1350" y2="970" stroke="#2F7A3B" stroke-width="2" opacity="0.55"/>
+  <text x="800" y="979" text-anchor="middle" class="section">MCP SERVERS</text>
+</svg>
