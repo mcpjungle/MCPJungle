@@ -129,29 +129,11 @@ npx @modelcontextprotocol/inspector
 
 ## Docker filesystem access
 
-When running Mcpjungle in Docker, the filesystem MCP server needs special configuration to access the host machine filesystem. The Compose files mount the host filesystem at `/host` inside the container.
+For normal usage, the canonical explanation lives in [Register a stdio MCP server](/guides/register-stdio-servers#running-in-docker-filesystem-access).
 
-### Key points
+For contributors changing the local Docker setup itself, the only thing to keep in mind is that the Compose files mount host paths inside the container and the filesystem MCP config must match those mount points.
 
-1. The host filesystem is mounted at `/host` inside the container
-2. Use `/host` as the root path in the filesystem MCP server config
-3. The mount is read-only by default for safety
-
-### Example filesystem MCP configuration
-
-```json
-{
-  "name": "filesystem",
-  "transport": "stdio",
-  "description": "filesystem mcp server",
-  "command": "npx",
-  "args": ["-y", "@modelcontextprotocol/server-filesystem", "/host"]
-}
-```
-
-### Mounting specific directories
-
-Instead of mounting everything, you can narrow the volume mounts in `docker-compose.yaml`:
+For example, you can narrow the volume mounts in `docker-compose.yaml`:
 
 ```yaml
 volumes:

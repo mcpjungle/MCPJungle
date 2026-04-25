@@ -64,10 +64,6 @@ Common flags:
   Comma-separated allow list of MCP server names. Example: `--allow "github,jira"`.
 </ParamField>
 
-<ParamField body="--description" type="string">
-  Optional description of the client.
-</ParamField>
-
 <ParamField body="--access-token" type="string">
   Custom token for the client. If omitted, the server generates one and prints it once.
 </ParamField>
@@ -123,33 +119,9 @@ You can also load the token from a file:
 
 For token supply options and placeholder handling, see [Config file reference](/reference/config-file).
 
-## `list mcp-clients`
-
-Lists registered MCP clients and their allow lists.
-
-```bash
-mcpjungle list mcp-clients
-```
-
-## `update mcp-client`
-
-Rotates the access token of an existing MCP client.
-
-```bash
-mcpjungle update mcp-client <name> --access-token <new-token>
-```
-
-Example:
-
-```bash
-mcpjungle update mcp-client claude-desktop --access-token new-secret-token
-```
-
-Currently this command updates the token only.
-
 ## `delete mcp-client`
 
-Deletes an MCP client and immediately revokes its token.
+Deletes an MCP client and immediately revokes its access to the mcp gateway.
 
 ```bash
 mcpjungle delete mcp-client <name>
@@ -199,35 +171,9 @@ When user creation succeeds, the CLI prints the `mcpjungle login <token>` comman
 
 For token supply options and placeholder handling, see [Config file reference](/reference/config-file).
 
-## `list users`
-
-Lists all users in the enterprise deployment.
-
-```bash
-mcpjungle list users
-```
-
-Admin accounts are shown with an `[ADMIN]` marker.
-
-## `update user`
-
-Rotates the access token of an existing user.
-
-```bash
-mcpjungle update user <username> --access-token <new-token>
-```
-
-Example:
-
-```bash
-mcpjungle update user alice --access-token new-secret-token
-```
-
-Currently this command updates the token only.
-
 ## `delete user`
 
-Deletes a user and revokes their access token immediately.
+Deletes a user and revokes their access to mcpjungle immediately.
 
 ```bash
 mcpjungle delete user <username>

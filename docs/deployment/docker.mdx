@@ -45,6 +45,10 @@ mcpjungle register --name calculator --url http://host.docker.internal:5000/mcp
 </Note>
 
 <Note>
+If you plan to run the `filesystem` stdio MCP server from inside the container, see [Register a stdio MCP server](/guides/register-stdio-servers#running-in-docker-filesystem-access) for the required `/host` mount pattern and config example.
+</Note>
+
+<Note>
 You can also run the mcpjungle image as a standalone container instead of using the Compose files provided by the repository.
 
 Keep in mind that if you do not connect Mcpjungle to a PostgreSQL database, it will create a local SQLite file inside the container.

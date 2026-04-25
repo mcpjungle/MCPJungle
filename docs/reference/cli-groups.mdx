@@ -62,14 +62,6 @@ After creation, mcpjungle serves the group on:
   SSE support exists for compatibility, but it is a deprecated transport with limited support in mcpjungle. Prefer the streamable HTTP endpoint.
 </Warning>
 
-## `list groups`
-
-Lists all tool groups.
-
-```bash
-mcpjungle list groups
-```
-
 Use `get group` for the full configuration and endpoint URLs.
 
 ## `get group`
@@ -79,15 +71,6 @@ Shows the stored definition of a tool group and the endpoint URLs it exposes.
 ```bash
 mcpjungle get group <name>
 ```
-
-The output includes:
-
-- name and description
-- streamable HTTP endpoint
-- SSE endpoints
-- `included_tools`
-- `included_servers`
-- `excluded_tools`
 
 Example:
 
@@ -134,6 +117,11 @@ mcpjungle delete group engineering-tools
 ```
 
 Deleting a group does not delete the underlying tools or servers. It only removes the group definition and its dedicated endpoints.
+
+<Warning>
+    As soon as you delete a group, its MCP endpoint is no longer available.
+    Any mcp clients still relying on this endpoint will no longer be able to access it.
+</Warning>
 
 ## Related commands
 
