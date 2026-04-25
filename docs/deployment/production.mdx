@@ -38,17 +38,12 @@ You can enable enterprise mode in three ways:
 
 ## Initialize the server once
 
-After the first boot in enterprise mode, initialize the server from your client machine:
+After the first boot in enterprise mode, run `mcpjungle init-server` once from your client machine to create the initial admin identity and authenticate your CLI.
 
-```bash
-mcpjungle init-server
-```
+For the exact bootstrap flow and command details, see:
 
-This creates an admin user and writes its API access token to `~/.mcpjungle.conf` on your local machine. All subsequent CLI commands that require authentication will read from this file automatically.
-
-<Warning>
-  The admin token is only displayed once. Store it securely. If you lose it, you will need to reset the server.
-</Warning>
+- [Access and governance overview](/governance/overview)
+- [Enterprise operations](/reference/cli-enterprise)
 
 ## Recommended runtime pattern
 

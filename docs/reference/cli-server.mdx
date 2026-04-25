@@ -61,13 +61,15 @@ DATABASE_URL="postgres://user:password@localhost:5432/mcpjungle" mcpjungle start
 
 ## `init-server`
 
-Initializes the Mcpjungle server when running in enterprise mode. This command is run once, from your local machine, after the server has started.
+Initializes the Mcpjungle server when running in enterprise mode. Run it once, from your local machine, after the server has started.
 
 ```bash
 mcpjungle init-server [--registry <url>]
 ```
 
-`init-server` creates the admin user, generates the admin access token, and saves both the registry URL and token to `~/.mcpjungle.conf`. After running this command, your CLI is authenticated as admin.
+`init-server` creates the first admin user and stores the registry URL and token in `~/.mcpjungle.conf`, authenticating your CLI as admin.
+
+For the full enterprise bootstrap flow, see [Enterprise operations](/reference/cli-enterprise) and [Access and governance overview](/governance/overview).
 
 ### Example
 

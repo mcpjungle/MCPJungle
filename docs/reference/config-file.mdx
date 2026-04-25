@@ -50,25 +50,14 @@ When the CLI resolves the registry URL it uses the following order, highest prio
 
 ### Populating the file automatically
 
-<Steps>
-  <Step title="Enterprise server (admin token)">
-    After starting the server in enterprise mode, run `init-server` on the machine where you manage Mcpjungle. It creates the admin user and writes both `registry_url` and `access_token` to `~/.mcpjungle.conf`:
+`~/.mcpjungle.conf` is usually created or updated in one of two ways:
 
-    ```bash
-    mcpjungle init-server
-    ```
-  </Step>
-  <Step title="User login (user token)">
-    When an admin creates a user account, they share the access token with the new user. The user runs `login` with the token as a positional argument to store it in their own `~/.mcpjungle.conf`:
+- `mcpjungle init-server` writes the initial admin credentials during enterprise bootstrap
+- `mcpjungle login <user-token>` stores a user token for later authenticated CLI use
 
-    ```bash
-    mcpjungle --registry http://my-server:9000 login <user-token>
-    ```
-  </Step>
-  <Step title="Manual edit">
-    You can create or edit the file directly in any text editor. Make sure the values are valid YAML strings.
-  </Step>
-</Steps>
+You can also edit the file manually if needed.
+
+For the enterprise bootstrap flow and login workflow, see [Enterprise operations](/reference/cli-enterprise).
 
 ---
 
