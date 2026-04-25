@@ -1,12 +1,16 @@
 <h1 align="center">
-  :deciduous_tree: MCPJungle :deciduous_tree:
+  MCPJungle
 </h1>
 <p align="center">
-  Self-hosted MCP Gateway for your private AI agents
+  <strong>Self-hosted MCP gateway. One endpoint for all your tools.</strong>
 </p>
 <p align="center">
   <a href="https://docs.mcpjungle.com" style="text-decoration: none;">
     <img src="https://img.shields.io/badge/Documentation-docs.mcpjungle.com-blue?style=flat-square&logo=book" alt="Documentation" style="max-width: 100%;">
+  </a>
+
+  <a href="https://github.com/mcpjungle/mcpjungle/pkgs/container/mcpjungle" style="text-decoration: none;">
+    <img src="https://img.shields.io/badge/GHCR-available-green.svg?style=flat-square&logo=github" alt="GHCR" style="max-width: 100%;">
   </a>
 
   <a href="https://discord.gg/CapV4Z3krk" style="text-decoration: none;">
@@ -14,81 +18,65 @@
   </a>
 </p>
 
-MCPJungle is an open source, self-hosted Gateway for all your [Model Context Protocol](https://modelcontextprotocol.io/introduction) Servers.
+MCPJungle aggregates multiple MCP servers into a single MCP endpoint.
 
-🧑‍💻 Developers use it to register & manage MCP servers and the tools they provide from a central place.
-
-🤖 MCP Clients use it to discover and consume all these tools from a single "Gateway" MCP Server.
+It acts as a gateway that your AI clients connect to, providing unified access to tools, prompts, and resources across all MCP servers.
 
 ![diagram](./assets/mcpjungle-diagram/april-2026/mcpjungle-diagram.png)
-
-<p align="center">MCPJungle is the only MCP Server your AI agents need to connect to!</p>
 
 > [!NOTE]
 > Mcpjungle documentation now lives at [docs.mcpjungle.com](https://docs.mcpjungle.com).
 > Please prefer the docs site over this README for the latest guides, reference, and operational details.
 
-# Who should use MCPJungle?
-1. **Developers** using MCP Clients like Claude & Cursor that need to access MCP servers for tool-calling
-2. **Developers** building production-grade AI Agents that need to access MCP servers with built-in security, privacy and Access Control.
-3. **Organisations** wanting to view & manage all MCP client-server interactions from a central place. Hosted in their own datacenter 🔒
+## Why MCPJungle?
 
-# 📋 Table of Contents
+Without a gateway, MCP usage does not scale:
 
-- [Quick Start guide](#quickstart-guide)
-- [Installation](#installation)
-- [Usage](#usage)
-  - [Server](#server)
-    - [Running mcpjungle server inside Docker](#running-inside-docker)
-    - [Running mcpjungle server directly on the host machine](#running-directly-on-host)
-    - [Shutting down the server](#shutting-down)
-  - [Client](#client)
-    - [Adding Streamable HTTP-based MCP servers](#registering-streamable-http-based-servers)
-    - [Adding STDIO-based MCP servers](#registering-stdio-based-servers)
-    - [Removing MCP servers](#deregistering-mcp-servers)
-    - [Custom URL for server](#configuring-a-custom-registry-url)
-  - [Cold-start problem & Stateful Connections](#cold-start-problem--stateful-connections)
-  - [Connect to mcpjungle from Claude](#claude)
-  - [Connect to mcpjungle from Cursor](#cursor)
-  - [Connect to mcpjungle from Copilot](#copilot)
-  - [Enabling/Disabling Tools globally](#enablingdisabling-tools)
-  - [Prompts](#prompts)
-  - [Tool Groups](#tool-groups)
-  - [Authentication](#authentication)
-  - [Enterprise features](#enterprise-features-)
-    - [Access Control](#access-control)
-    - [OpenTelemetry](#opentelemetry)
-- [Limitations](#current-limitations-)
-- [Contributing](#contributing-)
+- 🔗 Clients must connect to each MCP server separately
+- 🧩 Tools and resources are scattered across servers
+- 🔐 Access control is duplicated and inconsistent
+- 👁️ No centralized visibility into available tools
 
-# Quickstart guide
+MCPJungle introduces a single control layer:
+
+- 🎯 One MCP endpoint for all your servers
+- 🧰 Unified access to tools, prompts, and resources
+- 🛡️ Centralized discovery, access control, and observability
+
+## Quickstart
+
 This quickstart guide will show you how to:
-1. Start the MCPJungle server locally using `docker compose`
-2. Register a simple MCP server in mcpjungle
-3. Connect your Claude to mcpjungle to access your MCP tools
+1. Start the mcpjungle server locally using `docker compose`
+2. Add an MCP server in mcpjungle
+3. Connect your Claude Desktop to mcpjungle to access your MCP tools
 
-## Start the server
+### Start the server
+Fetch the `docker-compose.yaml` and start the mcpjungle server:
 ```bash
 curl -O https://raw.githubusercontent.com/mcpjungle/MCPJungle/refs/heads/main/docker-compose.yaml
 docker compose up -d
 ```
 
-## Register MCP servers
-Download the `mcpjungle` CLI on your local machine either using brew or directly from the [Releases Page](https://github.com/mcpjungle/MCPJungle/releases).
+This exposes mcpjungle's streamable http mcp server at `http://localhost:8080/mcp` by default.
+
+### Add an MCP server
+1. Download the `mcpjungle` CLI on your local machine either using brew or directly from the [Releases Page](https://github.com/mcpjungle/MCPJungle/releases).
 ```bash
 brew install mcpjungle/mcpjungle/mcpjungle
 ```
 
-The CLI lets you manage everything in mcpjungle.
-
-Next, lets add an MCP server to mcpjungle using the CLI. For this example, we'll use [context7](https://context7.com/).
+ 2. Add the [context7](https://context7.com/) MCP server to mcpjungle using the CLI:
 ```bash
 mcpjungle register --name context7 --url https://mcp.context7.com/mcp
 ```
 
-## Connect to mcpjungle
+You should see output similar to this:
 
-Use the following configuration for your Claude MCP servers config:
+![register-context7](./assets/register-context7.png)
+
+### Connect to mcpjungle
+
+In your Claude Desktop, add the configuration for mcpjungle MCP server:
 ```json
 {
   "mcpServers": {
@@ -104,7 +92,7 @@ Use the following configuration for your Claude MCP servers config:
 }
 ```
 
-Once mcpjungle is added as an MCP to your Claude, try asking it the following:
+Once you have added the configuration, try asking claude something simple: 
 ```text
 Use context7 to get the documentation for `/lodash/lodash`
 ```
@@ -115,11 +103,9 @@ Claude will then attempt to call the `context7__get-library-docs` tool via MCPJu
   <img src="./assets/quickstart-claude-call-tool.png" alt="claude calls context7 tool via mcpjungle" height="400">
 </p>
 
-Congratulations! 🎉
+You now have a working MCP setup with a single unified endpoint!
 
-You have successfully registered a remote MCP server in MCPJungle and called one of its tools via Claude
-
-You can now proceed to play around with the mcpjungle and explore the documentation & CLI for more details.
+Next, explore the complete documentation at [docs.mcpjungle.com](https://docs.mcpjungle.com/).
 
 # Installation
 MCPJungle is shipped as a stand-alone binary.
