@@ -107,6 +107,11 @@ You now have a working MCP setup with a single unified endpoint!
 
 Next, explore the complete documentation at [docs.mcpjungle.com](https://docs.mcpjungle.com/).
 
+---
+
+<details>
+<summary>Legacy README reference</summary>
+
 # 📋 Table of Contents
 
 - [Installation](#installation)
@@ -973,3 +978,5 @@ We welcome contributions from the community!
 - **For development setup and technical details**, see [DEVELOPMENT.md](./DEVELOPMENT.md)
 
 Join our [Discord community](https://discord.gg/CapV4Z3krk) to connect with other contributors and maintainers.
+
+</details>
