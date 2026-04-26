@@ -5,9 +5,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/glebarez/sqlite"
+	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
+	"github.com/mcpjungle/mcpjungle/internal/telemetry"
 	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 	"gorm.io/datatypes"
@@ -140,15 +141,48 @@ func TestValidGroupNameConsistency(t *testing.T) {
 
 func setupInMemoryDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	db, err := testhelpers.CreateTestDB()
 	if err != nil {
 		t.Fatalf("failed to open in-memory db: %v", err)
 	}
-	// AutoMigrate the model.ToolGroup so tests can create records.
-	if err := db.AutoMigrate(&model.ToolGroup{}); err != nil {
-		t.Fatalf("failed to migrate ToolGroup: %v", err)
+	if err := db.AutoMigrate(&model.McpServer{}, &model.Tool{}, &model.ToolGroup{}, &model.Prompt{}, &model.Resource{}); err != nil {
+		t.Fatalf("failed to migrate test models: %v", err)
 	}
 	return db
+}
+
+func newTestMCPService(t *testing.T, db *gorm.DB) *mcp.MCPService {
+	t.Helper()
+
+	proxyServer := server.NewMCPServer(
+		"test proxy",
+		"0.0.1",
+		server.WithResourceCapabilities(false, false),
+		server.WithToolCapabilities(true),
+		server.WithPromptCapabilities(true),
+		server.WithToolFilter(mcp.ProxyToolFilter),
+	)
+	sseProxyServer := server.NewMCPServer(
+		"test sse proxy",
+		"0.0.1",
+		server.WithResourceCapabilities(false, false),
+		server.WithToolCapabilities(true),
+		server.WithPromptCapabilities(true),
+		server.WithToolFilter(mcp.ProxyToolFilter),
+	)
+
+	svc, err := mcp.NewMCPService(&mcp.ServiceConfig{
+		DB:                      db,
+		McpProxyServer:          proxyServer,
+		SseMcpProxyServer:       sseProxyServer,
+		Metrics:                 telemetry.NewNoopCustomMetrics(),
+		McpServerInitReqTimeout: 10,
+	})
+	if err != nil {
+		t.Fatalf("failed to create MCP service: %v", err)
+	}
+
+	return svc
 }
 
 func TestResolveEffectiveTools_GroupNotFound(t *testing.T) {
@@ -223,5 +257,97 @@ func TestCreateToolGroup_EmptyResolvedToolsReturnsInvalidInput(t *testing.T) {
 	err := s.CreateToolGroup(&model.ToolGroup{Name: "empty-group"})
 	if !errors.Is(err, apierrors.ErrInvalidInput) {
 		t.Fatalf("expected ErrInvalidInput, got: %v", err)
+	}
+}
+
+func TestNewToolGroupService_DegradedPersistedGroupDoesNotFailStartup(t *testing.T) {
+	db := setupInMemoryDB(t)
+
+	validServer, err := model.NewStdioServer("valid-server", "Valid server", "echo", nil, nil, "")
+	if err != nil {
+		t.Fatalf("failed to create valid server model: %v", err)
+	}
+	if err := db.Create(validServer).Error; err != nil {
+		t.Fatalf("failed to persist valid server: %v", err)
+	}
+
+	validTool := model.Tool{
+		ServerID:    validServer.ID,
+		Name:        "sum",
+		Description: "adds numbers",
+		InputSchema: []byte(`{"type":"object"}`),
+		Enabled:     true,
+	}
+	if err := db.Create(&validTool).Error; err != nil {
+		t.Fatalf("failed to persist valid tool: %v", err)
+	}
+
+	validGroup := model.ToolGroup{
+		Name:            "valid-group",
+		IncludedServers: datatypes.JSON([]byte(`["valid-server"]`)),
+	}
+	degradedGroup := model.ToolGroup{
+		Name:            "degraded-group",
+		IncludedServers: datatypes.JSON([]byte(`["missing-server"]`)),
+	}
+	if err := db.Create(&validGroup).Error; err != nil {
+		t.Fatalf("failed to persist valid group: %v", err)
+	}
+	if err := db.Create(&degradedGroup).Error; err != nil {
+		t.Fatalf("failed to persist degraded group: %v", err)
+	}
+
+	mcpService := newTestMCPService(t, db)
+
+	svc, err := NewToolGroupService(db, mcpService)
+	if err != nil {
+		t.Fatalf("expected degraded persisted group not to fail startup, got: %v", err)
+	}
+
+	validProxy, ok := svc.GetToolGroupMCPServer("valid-group")
+	if !ok {
+		t.Fatal("expected valid group MCP proxy to be initialized")
+	}
+	validTools := validProxy.ListTools()
+	if len(validTools) != 1 {
+		t.Fatalf("expected valid group proxy to expose 1 tool, got %d", len(validTools))
+	}
+	if _, ok := validTools["valid-server__sum"]; !ok {
+		t.Fatalf("expected valid group proxy to expose valid-server__sum, got keys %v", reflect.ValueOf(validTools).MapKeys())
+	}
+
+	degradedProxy, ok := svc.GetToolGroupMCPServer("degraded-group")
+	if !ok {
+		t.Fatal("expected degraded group MCP proxy to be initialized")
+	}
+	if len(degradedProxy.ListTools()) != 0 {
+		t.Fatalf("expected degraded group proxy to expose 0 tools, got %d", len(degradedProxy.ListTools()))
+	}
+
+	degradedSSEProxy, ok := svc.GetToolGroupSseMCPServer("degraded-group")
+	if !ok {
+		t.Fatal("expected degraded group SSE MCP proxy to be initialized")
+	}
+	if len(degradedSSEProxy.ListTools()) != 0 {
+		t.Fatalf("expected degraded group SSE proxy to expose 0 tools, got %d", len(degradedSSEProxy.ListTools()))
+	}
+}
+
+func TestCreateToolGroup_InvalidIncludedServerStillFailsFast(t *testing.T) {
+	db := setupInMemoryDB(t)
+	s := &ToolGroupService{
+		db:         db,
+		mcpService: newTestMCPService(t, db),
+	}
+
+	err := s.CreateToolGroup(&model.ToolGroup{
+		Name:            "invalid-server-group",
+		IncludedServers: datatypes.JSON([]byte(`["missing-server"]`)),
+	})
+	if err == nil {
+		t.Fatal("expected create tool group to fail for missing included server")
+	}
+	if !testhelpers.Contains(err.Error(), "failed to resolve effective tools") {
+		t.Fatalf("expected create error to mention failed resolution, got: %v", err)
 	}
 }

@@ -4,6 +4,7 @@ package toolgroup
 import (
 	"errors"
 	"fmt"
+	"log"
 	"regexp"
 	"sort"
 	"sync"
@@ -358,14 +359,26 @@ func (s *ToolGroupService) initToolGroupMCPServers() error {
 	}
 
 	for _, group := range groups {
-		toolNames, err := group.ResolveEffectiveTools(s.mcpService)
-		if err != nil {
-			return fmt.Errorf("failed to resolve effective tools for group %s: %w", group.Name, err)
-		}
-		// TODO: Log a warning if a group has no tools, ie, len(toolNames) == 0
-
 		mcpServer := s.newMCPServer(group.Name)
 		sseMcpServer := s.newSseMCPServer(group.Name)
+
+		toolNames, err := group.ResolveEffectiveTools(s.mcpService)
+		if err != nil {
+			// If resolution of any server or specific tool fails for a group, the error is logged and
+			// the group is added as an empty MCP server to the proxy.
+			// This is not ideal, but it ensures that mcpjungle server startup doesn't fail.
+			// TODO: Change design to include all other servers & tools that were resolved.
+			// See https://github.com/mcpjungle/MCPJungle/issues/233
+			log.Printf(
+				"[ERROR] failed to resolve effective tools for tool group %s during startup; the tool group will be initialized as empty: %v",
+				group.Name,
+				err,
+			)
+			s.addToolGroupMCPServer(group.Name, mcpServer)
+			s.addToolGroupSseMCPServer(group.Name, sseMcpServer)
+			continue
+		}
+		// TODO: Log a warning if a group has no tools, ie, len(toolNames) == 0
 
 		for _, name := range toolNames {
 			tool, exists := s.mcpService.GetToolInstance(name)
