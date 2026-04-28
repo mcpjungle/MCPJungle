@@ -1,11 +1,13 @@
 ---
 title: "Mcpjungle Documentation"
-description: "Self-hosted MCP gateway. One endpoint for all your tools."
+description: "Run all your MCP servers behind one endpoint"
 ---
 
-Mcpjungle aggregates multiple MCP servers into a single MCP endpoint.
+Mcpjungle is a self-hosted MCP gateway for developers and teams who want to manage multiple MCP servers without scattered client configurations, duplicated setup, or inconsistent access control.
 
-It acts as a gateway that your AI clients connect to, providing unified access to tools, prompts, and resources across all MCP servers.
+Instead of wiring every MCP server into every AI client, register your servers once in Mcpjungle and let Claude, Cursor, Codex, or your own agents connect to a single MCP endpoint.
+
+Use it locally to keep your personal MCP setup clean, or run it as shared infrastructure for a team with centralized discovery, access control, and observability.
 
 <p align="center">
   <img src="/images/mcpjungle-diagram-april-2026.png" alt="mcpjungle product diagram" />
@@ -14,8 +16,8 @@ It acts as a gateway that your AI clients connect to, providing unified access t
 ## Use Cases
 Mcpjungle is primarily built for:
 
-- **Individuals** who want to use MCPs locally through one clean endpoint, no configuration hassle.
-- **Teams** that want centralized MCP management, shared access to MCPs and Governance - hosted in their own cloud.
+- **Developers** who want one clean local MCP endpoint instead of per-client server configuration.
+- **Teams** who want shared MCP infrastructure with centralized discovery, access control, and observability.
 
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
@@ -38,26 +40,34 @@ Mcpjungle is primarily built for:
 
 ## Why Mcpjungle?
 
-Without a gateway, MCP usage does not scale cleanly.
+MCP is powerful, but managing many MCP servers gets messy fast.
 
-Every new MCP server means more duplicated client config, more scattered credentials, and less visibility into what tools are actually available.
+Without a gateway:
 
-Mcpjungle introduces a single control layer for that sprawl.
+- Every client needs its own MCP server configuration.
+- Tools, prompts, and resources are scattered across different servers.
+- Access control is duplicated or missing.
+- Teams have no shared view of available MCP tools.
+- Local setups become hard to reproduce.
+
+Mcpjungle gives you a single control point:
 
 <CardGroup cols={2}>
   <Card title="One endpoint for everything" icon="network-wired">
-    Register any number of MCP servers. Every AI agent connects to a single `/mcp` endpoint and gets access to all tools automatically.
+    Register your MCP servers once. Every AI client and agent connects to a single `/mcp` endpoint.
   </Card>
   <Card title="Self-hosted infrastructure" icon="server">
-    Run Mcpjungle on your local machine or on your own remote server. Your MCP traffic, tool access, and operational data stay inside infrastructure you control.
+    Run Mcpjungle locally for yourself or on your own infrastructure for a team. Your MCP traffic, tool access, and operational data stay inside infrastructure you control.
   </Card>
   <Card title="Tool Groups" icon="layer-group" href="/guides/tool-groups">
-    Expose curated subsets of tools to specific agents so each client only sees what it actually needs.
+    Expose curated subsets of tools so each client only sees the tools it actually needs.
   </Card>
   <Card title="Access Control" icon="shield-halved" href="/governance/access-control">
     In enterprise mode, issue per-client tokens and explicitly control which MCP servers each client can reach.
   </Card>
 </CardGroup>
+
+Start with a local setup. Scale to a shared team gateway when you need it.
 
 ## Quickstart
 

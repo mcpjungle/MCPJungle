@@ -2,7 +2,7 @@
   MCPJungle
 </h1>
 <p align="center">
-  <strong>Self-hosted MCP gateway. One endpoint for all your tools.</strong>
+  <strong>Run all your MCP servers behind one endpoint</strong>
 </p>
 <p align="center">
   <a href="https://docs.mcpjungle.com" style="text-decoration: none;">
@@ -18,33 +18,38 @@
   </a>
 </p>
 
-MCPJungle aggregates multiple MCP servers into a single MCP endpoint.
+MCPJungle is a self-hosted MCP gateway for developers and teams who want to manage multiple MCP servers without scattered client configurations, duplicated setup, or inconsistent access control.
 
-It acts as a gateway that your AI clients connect to, providing unified access to tools, prompts, and resources across all MCP servers.
-
-Use mcpjungle locally as a single MCP endpoint for your own tools, or run it as shared MCP infrastructure for your team.
+Use it **locally** to keep your personal MCP setup clean, or run it as **shared infrastructure** for a team with centralized discovery, access control, and observability.
 
 ![diagram](./assets/mcpjungle-diagram/april-2026/mcpjungle-diagram.png)
 
+Instead of wiring every MCP server into every AI client, register your servers once in MCPJungle and let Claude, Cursor, Codex, or your own Agents connect to a single MCP endpoint.
+
 ## Why MCPJungle?
 
-Without a gateway, MCP usage does not scale:
+MCP is powerful, but managing many MCP servers gets messy fast.
 
-- 🔗 Clients must connect to each MCP server separately
-- 🧩 Tools and resources are scattered across servers
-- 🔐 Access control is duplicated and inconsistent
-- 👁️ No centralized visibility into available tools
+Without a gateway:
 
-MCPJungle introduces a single control layer:
+- 🔌 Every client needs its own MCP server configuration
+- 🧩 Tools, prompts, and resources are scattered across different servers
+- 🔐 Access control is duplicated or missing
+- 👥 Teams have no shared view of available MCP tools
+- 🛠️ Local setups become hard to reproduce
 
-- 🎯 One MCP endpoint for all your servers
-- 🧰 Unified access to tools, prompts, and resources
-- 🛡️ Centralized discovery, access control, and observability
+MCPJungle gives you a single control point:
 
-It starts as a simple local setup for individual users, and scales into a shared, governed deployment when teams need it.
+- 🌐 One MCP endpoint for Claude, Cursor, Copilot, and custom agents
+- 🗂️ One place to register and manage MCP servers
+- 🔎 Unified discovery for tools, prompts, and resources
+- 🎛️ Optional tool groups to expose only the tools a client should see
+- 📊 Simple access-control and observability hooks for shared deployments
+
+Start with a local setup. Scale to a shared team gateway when you need it.
 
 > [!NOTE]
-> Mcpjungle documentation now lives at [docs.mcpjungle.com](https://docs.mcpjungle.com).
+> Mcpjungle documentation has a new home: [https://docs.mcpjungle.com](https://docs.mcpjungle.com).
 > 
 > Please prefer the docs site over this README for the latest guides, reference, and operational details.
 > 
