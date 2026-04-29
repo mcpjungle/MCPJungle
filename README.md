@@ -117,7 +117,7 @@ Claude will then attempt to call the `context7__get-library-docs` tool via MCPJu
 
 You now have a working MCP setup with a single unified endpoint!
 
-Next, explore the complete documentation at [docs.mcpjungle.com](https://docs.mcpjungle.com/).
+Next, explore the complete documentation at [docs.mcpjungle.com](https://docs.mcpjungle.com/) and the [public roadmap](https://docs.mcpjungle.com/roadmap).
 
 ---
 
