@@ -246,6 +246,7 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 	adminAPI := apiV0.Group("/", s.requireAdminUser())
 	{
 		adminAPI.POST("/servers", s.registerServerHandler())
+		adminAPI.POST("/upstream_oauth/sessions/:id/complete", s.completeUpstreamOAuthSessionHandler())
 		adminAPI.DELETE("/servers/:name", s.deregisterServerHandler())
 		adminAPI.POST("/servers/:name/enable", s.enableServerHandler())
 		adminAPI.POST("/servers/:name/disable", s.disableServerHandler())

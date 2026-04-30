@@ -44,7 +44,7 @@ func TestRegisterServer(t *testing.T) {
 			// Return success response
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
-			_ = json.NewEncoder(w).Encode(expectedServer)
+			_ = json.NewEncoder(w).Encode(types.RegisterServerResult{Server: expectedServer})
 		}))
 		defer server.Close()
 
@@ -60,14 +60,17 @@ func TestRegisterServer(t *testing.T) {
 			t.Fatalf("Unexpected error: %v", err)
 		}
 
-		if response.Name != expectedServer.Name {
-			t.Errorf("Expected Name %s, got %s", expectedServer.Name, response.Name)
+		if response.Server == nil {
+			t.Fatal("Expected server payload in registration result")
 		}
-		if response.Transport != expectedServer.Transport {
-			t.Errorf("Expected Transport %s, got %s", expectedServer.Transport, response.Transport)
+		if response.Server.Name != expectedServer.Name {
+			t.Errorf("Expected Name %s, got %s", expectedServer.Name, response.Server.Name)
 		}
-		if response.Command != expectedServer.Command {
-			t.Errorf("Expected Command %s, got %s", expectedServer.Command, response.Command)
+		if response.Server.Transport != expectedServer.Transport {
+			t.Errorf("Expected Transport %s, got %s", expectedServer.Transport, response.Server.Transport)
+		}
+		if response.Server.Command != expectedServer.Command {
+			t.Errorf("Expected Command %s, got %s", expectedServer.Command, response.Server.Command)
 		}
 	})
 
@@ -80,7 +83,7 @@ func TestRegisterServer(t *testing.T) {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
-			_ = json.NewEncoder(w).Encode(expectedServer)
+			_ = json.NewEncoder(w).Encode(types.RegisterServerResult{Server: expectedServer})
 		}))
 		defer server.Close()
 
@@ -142,6 +145,74 @@ func TestRegisterServer(t *testing.T) {
 			t.Errorf("Expected error to contain 'failed to send request', got %s", err.Error())
 		}
 	})
+
+	t.Run("authorization required response", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusAccepted)
+			_ = json.NewEncoder(w).Encode(types.RegisterServerResult{
+				AuthorizationRequired: &types.UpstreamOAuthAuthorizationRequired{
+					SessionID:        "session-123",
+					AuthorizationURL: "https://example.com/authorize",
+				},
+			})
+		}))
+		defer server.Close()
+
+		client := NewClient(server.URL, "test-token", &http.Client{})
+		response, err := client.RegisterServer(&types.RegisterServerInput{
+			Name:      "todoist",
+			Transport: "streamable_http",
+			URL:       "https://ai.todoist.net/mcp",
+		}, false)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if response.AuthorizationRequired == nil {
+			t.Fatal("Expected authorization_required payload")
+		}
+		if response.AuthorizationRequired.SessionID != "session-123" {
+			t.Fatalf("Expected session id session-123, got %s", response.AuthorizationRequired.SessionID)
+		}
+	})
+}
+
+func TestCompleteUpstreamOAuthSession(t *testing.T) {
+	t.Parallel()
+
+	expectedServer := &types.McpServer{
+		Name:      "todoist",
+		Transport: "streamable_http",
+		URL:       "https://ai.todoist.net/mcp",
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST method, got %s", r.Method)
+		}
+		if !strings.HasSuffix(r.URL.Path, "/upstream_oauth/sessions/session-123/complete") {
+			t.Errorf("Unexpected path %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(types.RegisterServerResult{Server: expectedServer})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "test-token", &http.Client{})
+	response, err := client.CompleteUpstreamOAuthSession("session-123", &types.CompleteUpstreamOAuthSessionInput{
+		Code:  "auth-code",
+		State: "oauth-state",
+	})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if response.Server == nil {
+		t.Fatal("Expected completed registration server payload")
+	}
+	if response.Server.Name != expectedServer.Name {
+		t.Fatalf("Expected server %s, got %s", expectedServer.Name, response.Server.Name)
+	}
 }
 
 func TestListServers(t *testing.T) {

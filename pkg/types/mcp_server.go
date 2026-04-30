@@ -82,6 +82,20 @@ type RegisterServerInput struct {
 
 	// SessionMode controls how mcpjungle manages connections to this MCP server.
 	SessionMode string `json:"session_mode,omitempty"`
+
+	// OAuthRedirectURI is the redirect URI used if the upstream server requires OAuth.
+	// This is usually provided by the registering client, e.g. a localhost callback
+	// owned by the CLI or a public callback owned by the gateway.
+	OAuthRedirectURI string `json:"oauth_redirect_uri,omitempty"`
+
+	// OAuthClientID is an optional pre-registered OAuth client ID for the upstream server.
+	OAuthClientID string `json:"oauth_client_id,omitempty"`
+
+	// OAuthClientSecret is an optional pre-registered OAuth client secret.
+	OAuthClientSecret string `json:"oauth_client_secret,omitempty"`
+
+	// OAuthScopes is an optional list of OAuth scopes to request during authorization.
+	OAuthScopes []string `json:"oauth_scopes,omitempty"`
 }
 
 // ServerMetadata represents the server metadata response

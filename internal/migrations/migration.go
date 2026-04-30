@@ -34,5 +34,11 @@ func Migrate(db *gorm.DB) error {
 	if err := db.AutoMigrate(&model.Resource{}); err != nil {
 		return fmt.Errorf("auto‑migration failed for Resource model: %v", err)
 	}
+	if err := db.AutoMigrate(&model.UpstreamOAuthPendingSession{}); err != nil {
+		return fmt.Errorf("auto-migration failed for UpstreamOAuthPendingSession model: %v", err)
+	}
+	if err := db.AutoMigrate(&model.UpstreamOAuthToken{}); err != nil {
+		return fmt.Errorf("auto-migration failed for UpstreamOAuthToken model: %v", err)
+	}
 	return nil
 }

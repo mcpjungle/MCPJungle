@@ -96,6 +96,10 @@ Used with `mcpjungle register -c <file>`.
   "description": "Provides basic math tools",
   "url": "http://127.0.0.1:8000/mcp",
   "bearer_token": "<optional bearer token>",
+  "oauth_redirect_uri": "http://127.0.0.1:8085/oauth/callback",
+  "oauth_client_id": "<optional pre-registered client id>",
+  "oauth_client_secret": "<optional client secret>",
+  "oauth_scopes": ["mcp.read"],
   "headers": {
     "<custom-header>": "<value>"
   }
@@ -109,7 +113,15 @@ Used with `mcpjungle register -c <file>`.
 | `description` | string | No | Human-readable description. |
 | `url` | string | Yes | Full URL of the MCP server endpoint. |
 | `bearer_token` | string | No | If set, Mcpjungle adds `Authorization: Bearer <token>` to every upstream request. |
+| `oauth_redirect_uri` | string | No | Redirect URI used if the upstream MCP server requires OAuth during registration. |
+| `oauth_client_id` | string | No | Optional pre-registered OAuth client ID. |
+| `oauth_client_secret` | string | No | Optional OAuth client secret paired with `oauth_client_id`. |
+| `oauth_scopes` | string array | No | Optional list of scopes to request during upstream OAuth authorization. |
 | `headers` | object | No | Additional HTTP headers to forward. A `"Authorization"` entry here overrides `bearer_token`. |
+
+<Note>
+  For interactive CLI use, you usually do not need to set `oauth_redirect_uri` manually. Mcpjungle can provision a localhost callback automatically when the upstream MCP server actually requires OAuth.
+</Note>
 
 ### Register a STDIO server
 

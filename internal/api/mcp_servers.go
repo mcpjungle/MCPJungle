@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
@@ -112,12 +113,39 @@ func (s *Server) registerServerHandler() gin.HandlerFunc {
 			}
 		}
 
-		if err := s.mcpService.RegisterMcpServer(c, server); err != nil {
+		initiatedBy := ""
+		if authenticatedUser, exists := c.Get("user"); exists {
+			if u, ok := authenticatedUser.(*model.User); ok {
+				initiatedBy = u.Username
+			}
+		}
+
+		if err := s.mcpService.RegisterMcpServerWithOAuthSupport(c, &input, server, force, initiatedBy); err != nil {
+			var oauthErr *mcp.UpstreamOAuthAuthorizationPendingError
+			if errors.As(err, &oauthErr) {
+				c.JSON(http.StatusAccepted, types.RegisterServerResult{
+					AuthorizationRequired: &types.UpstreamOAuthAuthorizationRequired{
+						SessionID:        oauthErr.SessionID,
+						AuthorizationURL: oauthErr.AuthorizationURL,
+						ExpiresAt:        oauthErr.ExpiresAt,
+					},
+				})
+				return
+			}
 			handleServiceError(c, err)
 			return
 		}
 
-		c.JSON(http.StatusCreated, server)
+		c.JSON(http.StatusCreated, types.RegisterServerResult{Server: &types.McpServer{
+			Name:        server.Name,
+			Transport:   string(server.Transport),
+			Description: server.Description,
+			SessionMode: string(server.SessionMode),
+			URL:         input.URL,
+			Command:     input.Command,
+			Args:        input.Args,
+			Env:         input.Env,
+		}})
 	}
 }
 
@@ -132,6 +160,52 @@ func parseForceQueryParam(c *gin.Context) (bool, error) {
 	}
 
 	return force, nil
+}
+
+func (s *Server) completeUpstreamOAuthSessionHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionID := c.Param("id")
+
+		var input types.CompleteUpstreamOAuthSessionInput
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		server, err := s.mcpService.CompleteUpstreamOAuthSession(c, sessionID, input.Code, input.State)
+		if err != nil {
+			handleServiceError(c, err)
+			return
+		}
+
+		resp := &types.McpServer{
+			Name:        server.Name,
+			Transport:   string(server.Transport),
+			Description: server.Description,
+			SessionMode: string(server.SessionMode),
+		}
+		switch server.Transport {
+		case types.TransportStreamableHTTP:
+			conf, confErr := server.GetStreamableHTTPConfig()
+			if confErr == nil {
+				resp.URL = conf.URL
+			}
+		case types.TransportStdio:
+			conf, confErr := server.GetStdioConfig()
+			if confErr == nil {
+				resp.Command = conf.Command
+				resp.Args = conf.Args
+				resp.Env = conf.Env
+			}
+		case types.TransportSSE:
+			conf, confErr := server.GetSSEConfig()
+			if confErr == nil {
+				resp.URL = conf.URL
+			}
+		}
+
+		c.JSON(http.StatusCreated, types.RegisterServerResult{Server: resp})
+	}
 }
 
 func (s *Server) deregisterServerHandler() gin.HandlerFunc {
@@ -315,6 +389,16 @@ func (s *Server) getServerConfigsHandler() gin.HandlerFunc {
 				}
 				servers[i].URL = conf.URL
 				servers[i].BearerToken = conf.BearerToken
+			}
+
+			if oauthToken, err := s.mcpService.GetUpstreamOAuthToken(record.Name); err == nil {
+				servers[i].OAuthRedirectURI = oauthToken.RedirectURI
+				servers[i].OAuthClientID = oauthToken.ClientID
+				servers[i].OAuthClientSecret = oauthToken.ClientSecret
+				scopes, scopeErr := mcp.ScopesFromJSONForAPI(oauthToken.Scopes)
+				if scopeErr == nil {
+					servers[i].OAuthScopes = scopes
+				}
 			}
 		}
 

@@ -17,8 +17,8 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
-	"net/http/httptest"
 	"os/exec"
 	"testing"
 
@@ -69,7 +69,7 @@ type renderedPromptResult struct {
 
 // e2eEnv holds a running MCPJungle httptest server and associated tokens.
 type e2eEnv struct {
-	ts         *httptest.Server
+	baseURL    string
 	adminToken string // populated only in enterprise mode
 	userToken  string // populated only in enterprise mode (regular user)
 }
@@ -84,7 +84,7 @@ func (e *e2eEnv) do(t *testing.T, method, path string, body any, token string) *
 		require.NoError(t, err)
 		reqBody = bytes.NewReader(b)
 	}
-	req, err := http.NewRequest(method, e.ts.URL+path, reqBody)
+	req, err := http.NewRequest(method, e.baseURL+path, reqBody)
 	require.NoError(t, err)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
@@ -175,9 +175,17 @@ func setupE2EServer(t *testing.T, mode model.ServerMode) *e2eEnv {
 		t.Fatalf("unsupported server mode: %s", mode)
 	}
 
-	ts := httptest.NewServer(apiServer.Router())
-	t.Cleanup(ts.Close)
-	env.ts = ts
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	httpServer := &http.Server{Handler: apiServer.Router()}
+	go func() {
+		_ = httpServer.Serve(listener)
+	}()
+	t.Cleanup(func() {
+		_ = httpServer.Close()
+	})
+	env.baseURL = "http://" + listener.Addr().String()
 
 	return env
 }
@@ -254,7 +262,7 @@ func newMCPProxyClient(t *testing.T, env *e2eEnv, clientToken string) *client.Cl
 			"Authorization": "Bearer " + clientToken,
 		}))
 	}
-	c, err := client.NewStreamableHttpClient(env.ts.URL+"/mcp", opts...)
+	c, err := client.NewStreamableHttpClient(env.baseURL+"/mcp", opts...)
 	require.NoError(t, err)
 	_, err = c.Initialize(context.Background(), mcp.InitializeRequest{
 		Params: mcp.InitializeParams{
@@ -281,7 +289,7 @@ func newGroupMCPClient(t *testing.T, env *e2eEnv, groupName string, token string
 		}))
 	}
 	c, err := client.NewStreamableHttpClient(
-		env.ts.URL+"/v0/groups/"+groupName+"/mcp",
+		env.baseURL+"/v0/groups/"+groupName+"/mcp",
 		opts...,
 	)
 	require.NoError(t, err)

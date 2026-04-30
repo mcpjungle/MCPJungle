@@ -11,7 +11,7 @@ import (
 )
 
 // RegisterServer registers a new MCP server with the registry.
-func (c *Client) RegisterServer(server *types.RegisterServerInput, force bool) (*types.McpServer, error) {
+func (c *Client) RegisterServer(server *types.RegisterServerInput, force bool) (*types.RegisterServerResult, error) {
 	u, _ := c.constructAPIEndpoint("/servers")
 	if force {
 		parsedURL, err := url.Parse(u)
@@ -41,15 +41,52 @@ func (c *Client) RegisterServer(server *types.RegisterServerInput, force bool) (
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted {
+		return nil, c.parseErrorResponse(resp)
+	}
+
+	var result types.RegisterServerResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+	return &result, nil
+}
+
+// CompleteUpstreamOAuthSession finalizes a pending upstream OAuth registration
+// after the operator has approved the authorization request in the browser.
+func (c *Client) CompleteUpstreamOAuthSession(sessionID string, input *types.CompleteUpstreamOAuthSessionInput) (*types.RegisterServerResult, error) {
+	u, err := c.constructAPIEndpoint("/upstream_oauth/sessions/" + sessionID + "/complete")
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct completion endpoint: %w", err)
+	}
+
+	body, err := json.Marshal(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize OAuth completion payload: %w", err)
+	}
+
+	req, err := c.newRequest(http.MethodPost, u, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request to %s: %w", u, err)
+	}
+	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusCreated {
 		return nil, c.parseErrorResponse(resp)
 	}
 
-	var registeredServer types.McpServer
-	if err := json.NewDecoder(resp.Body).Decode(&registeredServer); err != nil {
+	var result types.RegisterServerResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
-	return &registeredServer, nil
+
+	return &result, nil
 }
 
 // ListServers fetches the list of registered servers.

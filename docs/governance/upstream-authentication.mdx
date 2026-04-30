@@ -7,13 +7,14 @@ This page is about **upstream authentication**: how Mcpjungle authenticates when
 
 ## When you need this
 
-Use upstream authentication when the MCP server you are registering requires some form of authentication (eg- static bearer token or custom headers).
+Use upstream authentication when the MCP server you are registering requires some form of authentication (eg- static bearer token, custom headers, or OAuth).
 
 Typical examples:
 
 - SaaS-hosted MCP servers
 - Internal MCP servers behind an API gateway
 - Self-hosted MCP servers using static bearer-token auth
+- Hosted MCP servers that require OAuth approval during registration
 
 ## Bearer token via CLI flag
 
@@ -65,6 +66,48 @@ If the upstream server expects a non-standard authorization format or additional
 
 If you set both `bearer_token` and `headers.Authorization`, the explicit header value should be treated as the more specific configuration.
 
+## Upstream OAuth during registration
+
+Mcpjungle now supports OAuth flows for upstream HTTP MCP servers.
+
+The simplest path is interactive CLI registration:
+
+```bash
+mcpjungle register --name todoist --url https://ai.todoist.net/mcp
+```
+
+If the upstream MCP server requires OAuth:
+
+1. Mcpjungle first tries a normal unauthenticated registration.
+2. If the upstream server responds with `401` and advertises OAuth, the CLI opens your browser.
+3. You approve the OAuth request.
+4. Mcpjungle stores the resulting token and completes server registration.
+
+## OAuth fields in config files
+
+You can also configure the upstream OAuth flow explicitly in the server JSON config:
+
+```json
+{
+  "name": "todoist",
+  "transport": "streamable_http",
+  "url": "https://ai.todoist.net/mcp",
+  "oauth_redirect_uri": "http://127.0.0.1:8085/oauth/callback",
+  "oauth_client_id": "<optional pre-registered client id>",
+  "oauth_client_secret": "<optional client secret>",
+  "oauth_scopes": ["mcp.read"]
+}
+```
+
+Field meanings:
+
+- `oauth_redirect_uri`: callback URI used during the upstream OAuth flow
+- `oauth_client_id`: optional pre-registered OAuth client ID
+- `oauth_client_secret`: optional client secret associated with `oauth_client_id`
+- `oauth_scopes`: optional scopes to request during authorization
+
+If `oauth_client_id` is omitted, Mcpjungle attempts dynamic client registration when the upstream authorization server supports it.
+
 ## Environment variable placeholders
 
 JSON config files support `${VAR_NAME}` placeholders in string fields, including `bearer_token` and header values:
@@ -114,11 +157,13 @@ Two different authentication layers can exist in the same deployment:
 
 Those are separate concerns and use different configuration points.
 
-## Current limitation
+## Current limitations
 
-Mcpjungle does not yet support OAuth flow for upstream server authentication.
+Current upstream OAuth support is intentionally narrow:
 
-Support for Oauth flows is being worked on and will soon be available.
+- it currently applies to HTTP-based upstream MCP servers
+- the stored upstream token is gateway-scoped, not per downstream user
+- token/client secrets are persisted in the Mcpjungle database and should be treated as sensitive operator data
 
 ## Related pages
 
@@ -133,6 +178,6 @@ Support for Oauth flows is being worked on and will soon be available.
     Manage human and machine identities in enterprise mode.
   </Card>
   <Card title="Limitations" icon="triangle-exclamation" href="/limitations">
-    Review current gaps, including OAuth support.
+    Review the remaining OAuth constraints and other current gaps.
   </Card>
 </CardGroup>

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 
+	mcpgotransport "github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
@@ -17,6 +18,52 @@ import (
 // Tool registration is required, while prompt/resource registration is on best-effort basis.
 // Registered tools, prompts and resources are also added to the MCP proxy server.
 func (m *MCPService) RegisterMcpServer(ctx context.Context, s *model.McpServer) error {
+	return m.registerMcpServer(ctx, s)
+}
+
+// RegisterMcpServerWithOAuthSupport attempts to register a server immediately and,
+// if upstream OAuth authorization is required, persists a pending auth session that
+// can be completed later.
+func (m *MCPService) RegisterMcpServerWithOAuthSupport(
+	ctx context.Context,
+	input *types.RegisterServerInput,
+	s *model.McpServer,
+	force bool,
+	initiatedBy string,
+) error {
+	err := m.registerMcpServerWithStoredAuth(ctx, s, false)
+	if err == nil {
+		return nil
+	}
+
+	if s.Transport != types.TransportStreamableHTTP && s.Transport != types.TransportSSE {
+		return err
+	}
+
+	if !errors.Is(err, mcpgotransport.ErrUnauthorized) {
+		return err
+	}
+
+	if input.OAuthRedirectURI == "" {
+		return fmt.Errorf(
+			"upstream server requires OAuth authorization, but oauth_redirect_uri was not provided: %w",
+			apierrors.ErrInvalidInput,
+		)
+	}
+
+	return m.bootstrapUpstreamOAuth(ctx, input, s, force, initiatedBy)
+}
+
+// registerMcpServer contains the plain registration flow used once upstream
+// authentication has already been satisfied.
+func (m *MCPService) registerMcpServer(ctx context.Context, s *model.McpServer) error {
+	return m.registerMcpServerWithStoredAuth(ctx, s, true)
+}
+
+// registerMcpServerWithStoredAuth performs the core registration flow and lets
+// the caller choose whether any previously stored upstream OAuth credentials
+// should be attached to the initial upstream connection attempt.
+func (m *MCPService) registerMcpServerWithStoredAuth(ctx context.Context, s *model.McpServer, useStoredAuth bool) error {
 	if err := validateServerName(s.Name); err != nil {
 		return err
 	}
@@ -41,7 +88,12 @@ func (m *MCPService) RegisterMcpServer(ctx context.Context, s *model.McpServer) 
 		}
 	}
 
-	mcpClient, err := newMcpServerSession(ctx, s, m.mcpServerInitReqTimeoutSec)
+	var authDB *gorm.DB
+	if useStoredAuth {
+		authDB = m.db
+	}
+
+	mcpClient, err := createMcpServerConnectionWithDB(ctx, authDB, s, m.mcpServerInitReqTimeoutSec)
 	if err != nil {
 		return err
 	}
@@ -104,6 +156,12 @@ func (m *MCPService) DeregisterMcpServer(name string) error {
 	}
 	if err := m.db.Unscoped().Delete(s).Error; err != nil {
 		return fmt.Errorf("failed to deregister server %s: %w", name, err)
+	}
+	if err := m.db.Unscoped().Where("server_name = ?", name).Delete(&model.UpstreamOAuthToken{}).Error; err != nil {
+		return fmt.Errorf("failed to remove upstream OAuth tokens for server %s: %w", name, err)
+	}
+	if err := m.db.Unscoped().Where("server_name = ?", name).Delete(&model.UpstreamOAuthPendingSession{}).Error; err != nil {
+		return fmt.Errorf("failed to remove pending upstream OAuth sessions for server %s: %w", name, err)
 	}
 
 	// Close any stateful session associated with this server

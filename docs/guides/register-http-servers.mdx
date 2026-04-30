@@ -46,6 +46,10 @@ The full config file format for a Streamable HTTP server is:
   "description": "Deepwiki MCP Server",
   "url": "https://mcp.deepwiki.com/mcp",
   "bearer_token": "<optional bearer token>",
+  "oauth_redirect_uri": "http://127.0.0.1:38291/oauth/callback",
+  "oauth_client_id": "<optional pre-registered client id>",
+  "oauth_client_secret": "<optional pre-registered client secret>",
+  "oauth_scopes": ["mcp.read"],
   "session_mode": "stateless",
   "headers": {
     "<custom-header>": "<value>"
@@ -60,6 +64,10 @@ The full config file format for a Streamable HTTP server is:
 | `description`  | No       | Human-readable description surfaced in the CLI and API.                                                                      |
 | `url`          | Yes      | The full URL of the MCP server's endpoint (e.g., `https://example.com/mcp`). Required when transport is streamable http.     |
 | `bearer_token` | No       | If set, Mcpjungle adds `Authorization: Bearer <token>` to every request to this server.                                      |
+| `oauth_redirect_uri` | No | Redirect URI to use if the upstream server requires OAuth. When using the CLI interactively, Mcpjungle can usually generate a localhost callback automatically. |
+| `oauth_client_id` | No | Optional pre-registered OAuth client ID to use instead of dynamic client registration. |
+| `oauth_client_secret` | No | Optional OAuth client secret paired with `oauth_client_id`. |
+| `oauth_scopes` | No | Optional list of scopes to request during the upstream OAuth flow. |
 | `session_mode` | No       | `stateless` (default) creates a new connection per tool call. `stateful` reuses a persistent session across tool calls.      |
 | `headers`      | No       | Map of additional HTTP headers to forward. If `Authorization` is set here, it overrides `bearer_token`.                      |
 
@@ -100,6 +108,37 @@ For servers that need a custom `Authorization` format or additional headers, use
   }
 }
 ```
+
+## Upstream OAuth flow
+
+If the upstream MCP server responds with `401 Unauthorized` and advertises OAuth, Mcpjungle can now complete that authorization flow during registration.
+
+Typical CLI flow:
+
+```bash
+mcpjungle register --name todoist --url https://ai.todoist.net/mcp
+```
+
+What happens next:
+
+1. Mcpjungle attempts a normal registration first.
+2. If the upstream server requires OAuth, the CLI opens your browser.
+3. You approve access.
+4. Mcpjungle stores the resulting upstream token and completes registration automatically.
+
+If you are registering through a JSON config file or a non-interactive client, you can also provide explicit OAuth settings:
+
+```json
+{
+  "name": "todoist",
+  "transport": "streamable_http",
+  "url": "https://ai.todoist.net/mcp",
+  "oauth_redirect_uri": "http://127.0.0.1:8085/oauth/callback",
+  "oauth_scopes": ["mcp.read"]
+}
+```
+
+If you already have pre-registered OAuth client credentials with the upstream authorization server, include `oauth_client_id` and `oauth_client_secret` as well.
 
 ## Environment variable substitution
 

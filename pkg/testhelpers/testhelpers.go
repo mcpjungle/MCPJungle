@@ -218,6 +218,8 @@ func SetupTestDB(t *testing.T) *TestDBSetup {
 		&model.ToolGroup{},
 		&model.Prompt{},
 		&model.Resource{},
+		&model.UpstreamOAuthPendingSession{},
+		&model.UpstreamOAuthToken{},
 	)
 	AssertNoError(t, err)
 

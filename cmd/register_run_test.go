@@ -21,9 +21,11 @@ func TestRunRegisterMCPServer_PrintsPromptsAndResourcesWithoutTools(t *testing.T
 		switch r.URL.Path {
 		case "/api/v0/servers":
 			w.WriteHeader(http.StatusCreated)
-			_ = json.NewEncoder(w).Encode(types.McpServer{
-				Name:      "test-server",
-				Transport: string(types.TransportStreamableHTTP),
+			_ = json.NewEncoder(w).Encode(types.RegisterServerResult{
+				Server: &types.McpServer{
+					Name:      "test-server",
+					Transport: string(types.TransportStreamableHTTP),
+				},
 			})
 		case "/api/v0/tools":
 			_ = json.NewEncoder(w).Encode([]*types.Tool{})
@@ -104,9 +106,11 @@ func TestRunRegisterMCPServer_PrintsEmptySummaryWhenNoCapabilitiesExist(t *testi
 		switch r.URL.Path {
 		case "/api/v0/servers":
 			w.WriteHeader(http.StatusCreated)
-			_ = json.NewEncoder(w).Encode(types.McpServer{
-				Name:      "empty-server",
-				Transport: string(types.TransportStreamableHTTP),
+			_ = json.NewEncoder(w).Encode(types.RegisterServerResult{
+				Server: &types.McpServer{
+					Name:      "empty-server",
+					Transport: string(types.TransportStreamableHTTP),
+				},
 			})
 		case "/api/v0/tools":
 			_ = json.NewEncoder(w).Encode([]*types.Tool{})

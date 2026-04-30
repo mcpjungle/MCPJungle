@@ -82,7 +82,7 @@ func (m *MCPService) getSession(ctx context.Context, server *model.McpServer) (*
 	}
 
 	// Default: stateless mode - create a new session for each call
-	mcpClient, err := newMcpServerSession(ctx, server, m.mcpServerInitReqTimeoutSec)
+	mcpClient, err := createMcpServerConnectionWithDB(ctx, m.db, server, m.mcpServerInitReqTimeoutSec)
 	if err != nil {
 		return nil, err
 	}

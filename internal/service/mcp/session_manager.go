@@ -10,6 +10,7 @@ import (
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
+	"gorm.io/gorm"
 )
 
 const (
@@ -229,11 +230,15 @@ func (sm *SessionManager) cleanupIdleSessions() {
 // createMcpServerConnection creates a new MCP client connection based on the server's transport type.
 // This is a wrapper around the transport-specific connection functions.
 func createMcpServerConnection(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*client.Client, error) {
+	return createMcpServerConnectionWithDB(ctx, nil, s, initReqTimeoutSec)
+}
+
+func createMcpServerConnectionWithDB(ctx context.Context, db *gorm.DB, s *model.McpServer, initReqTimeoutSec int) (*client.Client, error) {
 	switch s.Transport {
 	case types.TransportStreamableHTTP:
-		return createHTTPMcpServerConn(ctx, s, initReqTimeoutSec)
+		return createHTTPMcpServerConn(ctx, db, s, initReqTimeoutSec)
 	case types.TransportSSE:
-		return createSSEMcpServerConn(ctx, s)
+		return createSSEMcpServerConn(ctx, db, s)
 	case types.TransportStdio:
 		return runStdioServer(ctx, s, initReqTimeoutSec)
 	default:
