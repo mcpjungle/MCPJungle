@@ -1,12 +1,15 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"time"
 
 	mcpgoclient "github.com/mark3labs/mcp-go/client"
@@ -289,8 +292,15 @@ func (m *MCPService) bootstrapUpstreamOAuth(ctx context.Context, input *types.Re
 	}
 
 	if oauthHandler.GetClientID() == "" {
-		if err := oauthHandler.RegisterClient(ctx, "mcpjungle-"+server.Name); err != nil {
+		clientID, clientSecret, err := registerOAuthClientWithoutEmptyScope(ctx, oauthHandler, input, "mcpjungle-"+server.Name)
+		if err != nil {
 			return fmt.Errorf("failed to dynamically register OAuth client: %w", err)
+		}
+		input.OAuthClientID = clientID
+		input.OAuthClientSecret = clientSecret
+		oauthHandler, err = m.buildOAuthHandlerForRegisteredClient(ctx, server, input)
+		if err != nil {
+			return fmt.Errorf("failed to rebuild OAuth handler after dynamic client registration: %w", err)
 		}
 	}
 
@@ -344,6 +354,143 @@ func (m *MCPService) bootstrapUpstreamOAuth(ctx context.Context, input *types.Re
 		AuthorizationURL: authURL,
 		ExpiresAt:        expiresAt,
 	}
+}
+
+// buildOAuthHandlerForRegisteredClient recreates an OAuth-capable upstream client
+// after dynamic registration so subsequent authorization URL generation uses the
+// newly issued client credentials.
+func (m *MCPService) buildOAuthHandlerForRegisteredClient(ctx context.Context, server *model.McpServer, input *types.RegisterServerInput) (*mcpgotransport.OAuthHandler, error) {
+	var oauthErr *mcpgoclient.OAuthAuthorizationRequiredError
+
+	switch server.Transport {
+	case types.TransportStreamableHTTP:
+		conf, err := server.GetStreamableHTTPConfig()
+		if err != nil {
+			return nil, err
+		}
+		opts := prepareSHTTPClientOptions(server.Name, conf)
+		c, err := mcpgoclient.NewOAuthStreamableHttpClient(conf.URL, prepareOAuthConfig(input, mcpgoclient.NewMemoryTokenStore()), opts...)
+		if err != nil {
+			return nil, err
+		}
+		defer c.Close()
+		_, err = initializeHTTPClient(ctx, c, conf.URL, m.mcpServerInitReqTimeoutSec)
+		if !errors.As(err, &oauthErr) {
+			if err == nil {
+				return nil, fmt.Errorf("unexpectedly initialized upstream server while rebuilding OAuth handler")
+			}
+			return nil, err
+		}
+	case types.TransportSSE:
+		conf, err := server.GetSSEConfig()
+		if err != nil {
+			return nil, err
+		}
+		c, err := mcpgoclient.NewOAuthSSEClient(conf.URL, prepareOAuthConfig(input, mcpgoclient.NewMemoryTokenStore()))
+		if err != nil {
+			return nil, err
+		}
+		defer c.Close()
+		err = c.Start(ctx)
+		if err == nil {
+			_, err = c.Initialize(ctx, defaultSSEInitializeRequest())
+		}
+		if !errors.As(err, &oauthErr) {
+			if err == nil {
+				return nil, fmt.Errorf("unexpectedly initialized upstream server while rebuilding OAuth handler")
+			}
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("unsupported transport type for OAuth: %s", server.Transport)
+	}
+
+	if oauthErr == nil || oauthErr.Handler == nil {
+		return nil, fmt.Errorf("failed to retrieve OAuth handler")
+	}
+	return oauthErr.Handler, nil
+}
+
+// registerOAuthClientWithoutEmptyScope performs dynamic client registration but
+// omits the "scope" field entirely when no explicit scopes were configured.
+func registerOAuthClientWithoutEmptyScope(
+	ctx context.Context,
+	handler *mcpgotransport.OAuthHandler,
+	input *types.RegisterServerInput,
+	clientName string,
+) (string, string, error) {
+	metadata, err := handler.GetServerMetadata(ctx)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get server metadata: %w", err)
+	}
+	if metadata.RegistrationEndpoint == "" {
+		return "", "", errors.New("server does not support dynamic client registration")
+	}
+
+	regRequest := map[string]any{
+		"client_name":                clientName,
+		"redirect_uris":              []string{input.OAuthRedirectURI},
+		"token_endpoint_auth_method": "none",
+		"grant_types":                []string{"authorization_code", "refresh_token"},
+		"response_types":             []string{"code"},
+	}
+	if len(input.OAuthScopes) > 0 {
+		regRequest["scope"] = joinScopes(input.OAuthScopes)
+	}
+	if input.OAuthClientSecret != "" {
+		regRequest["token_endpoint_auth_method"] = "client_secret_basic"
+	}
+
+	reqBody, err := json.Marshal(regRequest)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to marshal registration request: %w", err)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, metadata.RegistrationEndpoint, bytes.NewReader(reqBody))
+	if err != nil {
+		return "", "", fmt.Errorf("failed to create registration request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to send registration request: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		var oauthErr struct {
+			Error            string `json:"error"`
+			ErrorDescription string `json:"error_description,omitempty"`
+		}
+		if err := json.Unmarshal(body, &oauthErr); err == nil && oauthErr.Error != "" {
+			if oauthErr.ErrorDescription != "" {
+				return "", "", fmt.Errorf("OAuth error: %s - %s", oauthErr.Error, oauthErr.ErrorDescription)
+			}
+			return "", "", fmt.Errorf("OAuth error: %s", oauthErr.Error)
+		}
+		return "", "", fmt.Errorf("registration request failed with status %d: %s", resp.StatusCode, body)
+	}
+
+	var regResponse struct {
+		ClientID     string `json:"client_id"`
+		ClientSecret string `json:"client_secret,omitempty"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&regResponse); err != nil {
+		return "", "", fmt.Errorf("failed to decode registration response: %w", err)
+	}
+	return regResponse.ClientID, regResponse.ClientSecret, nil
+}
+
+func joinScopes(scopes []string) string {
+	if len(scopes) == 0 {
+		return ""
+	}
+	result := scopes[0]
+	for i := 1; i < len(scopes); i++ {
+		result += " " + scopes[i]
+	}
+	return result
 }
 
 // generateOAuthSessionID creates a cryptographically random identifier for a
