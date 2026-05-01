@@ -120,6 +120,8 @@ Used with `mcpjungle register -c <file>`.
 | `headers` | object | No | Additional HTTP headers to forward. A `"Authorization"` entry here overrides `bearer_token`. |
 
 <Note>
+  Upstream OAuth support is currently beta.
+
   For interactive CLI use, you usually do not need to set `oauth_redirect_uri` manually. Mcpjungle can provision a localhost callback automatically when the upstream MCP server actually requires OAuth.
 </Note>
 

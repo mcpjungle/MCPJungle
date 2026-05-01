@@ -111,7 +111,11 @@ For servers that need a custom `Authorization` format or additional headers, use
 
 ## Upstream OAuth flow
 
-If the upstream MCP server responds with `401 Unauthorized` and advertises OAuth, Mcpjungle can now complete that authorization flow during registration.
+<Note>
+Upstream OAuth support is currently in beta.
+</Note>
+
+If the upstream MCP server responds with `401 Unauthorized` and advertises OAuth, Mcpjungle can complete that authorization flow during registration.
 
 Typical CLI flow:
 

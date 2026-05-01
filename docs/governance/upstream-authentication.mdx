@@ -68,7 +68,7 @@ If you set both `bearer_token` and `headers.Authorization`, the explicit header 
 
 ## Upstream OAuth during registration
 
-Mcpjungle now supports OAuth flows for upstream HTTP MCP servers.
+Mcpjungle now supports OAuth flows for upstream HTTP MCP servers in beta.
 
 The simplest path is interactive CLI registration:
 
@@ -82,6 +82,10 @@ If the upstream MCP server requires OAuth:
 2. If the upstream server responds with `401` and advertises OAuth, the CLI opens your browser.
 3. You approve the OAuth request.
 4. Mcpjungle stores the resulting token and completes server registration.
+
+<Note>
+This upstream OAuth support is currently beta.
+</Note>
 
 ## OAuth fields in config files
 
@@ -159,11 +163,11 @@ Those are separate concerns and use different configuration points.
 
 ## Current limitations
 
-Current upstream OAuth support is intentionally narrow:
+Current upstream OAuth support has some limitations:
 
-- it currently applies to HTTP-based upstream MCP servers
-- the stored upstream token is gateway-scoped, not per downstream user
-- token/client secrets are persisted in the Mcpjungle database and should be treated as sensitive operator data
+- The feature is currently beta
+- It is only supported for streamable HTTP transport
+- The oauth token stored is scoped to the whole gateway, ie, per-user oauth login is currently not supported
 
 ## Related pages
 
