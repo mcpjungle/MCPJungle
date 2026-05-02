@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 #
 # Integration test script for the MCP Jungle project.
-# This script builds the binary, runs CLI checks, spins up the Docker stack,
-# exercises registry + server functionality, and finally ensures the binary
-# server runs correctly.
+# This script builds the binary, runs CLI checks, starts a local server from
+# the freshly built binary, and exercises registry + server functionality
+# against that local process.
 #
 
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"   # repo root
 BIN_PATH="$ROOT_DIR/bin/mcpjungle"                            # compiled binary
-COMPOSE_FILE="$ROOT_DIR/docker-compose.yaml"                  # compose file path
-REGISTRY_URL="http://127.0.0.1:8080"                          # local registry
+REGISTRY_PORT="${REGISTRY_PORT:-18080}"
+REGISTRY_URL="http://127.0.0.1:${REGISTRY_PORT}"              # local registry
 
 # Simple logger for readable output
 log() { printf "\n[TEST] %s\n" "$*"; }
@@ -20,18 +20,6 @@ log() { printf "\n[TEST] %s\n" "$*"; }
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "ERROR: Required command '$1' not found in PATH" >&2
-    exit 1
-  fi
-}
-
-# Detect docker compose flavor (new `docker compose` vs legacy `docker-compose`)
-detect_compose() {
-  if docker compose version >/dev/null 2>&1; then
-    echo "docker compose"
-  elif command -v docker-compose >/dev/null 2>&1; then
-    echo "docker-compose"
-  else
-    echo "ERROR: Neither 'docker compose' nor 'docker-compose' found" >&2
     exit 1
   fi
 }
@@ -51,45 +39,75 @@ wait_for_health() {
   return 1
 }
 
-# Cleanup: stop local binary server if running
-cleanup_binary_server() {
+cleanup_binary_servers() {
+  if [[ -n "${REGISTRY_SERVER_PID:-}" ]] && kill -0 "$REGISTRY_SERVER_PID" >/dev/null 2>&1; then
+    kill "$REGISTRY_SERVER_PID" || true
+    wait "$REGISTRY_SERVER_PID" 2>/dev/null || true
+  fi
+
   if [[ -n "${BIN_SERVER_PID:-}" ]] && kill -0 "$BIN_SERVER_PID" >/dev/null 2>&1; then
     kill "$BIN_SERVER_PID" || true
     wait "$BIN_SERVER_PID" 2>/dev/null || true
   fi
 }
 
-# Cleanup: bring down docker compose stack along with volumes
-cleanup_compose() {
-  if [[ -f "$COMPOSE_FILE" ]]; then
-    if [[ -n "${COMPOSE_CLI:-}" ]]; then
-      $COMPOSE_CLI -f "$COMPOSE_FILE" down -v || true
-    else
-      if docker compose version >/dev/null 2>&1; then
-        docker compose -f "$COMPOSE_FILE" down -v || true
-      elif command -v docker-compose >/dev/null 2>&1; then
-        docker-compose -f "$COMPOSE_FILE" down -v || true
-      fi
-    fi
+cleanup_temp_files() {
+  if [[ -n "${FS_CONFIG:-}" ]]; then
+    rm -f "$FS_CONFIG"
+  fi
+
+  if [[ -n "${FS_STATEFUL_CONFIG:-}" ]]; then
+    rm -f "$FS_STATEFUL_CONFIG"
+  fi
+
+  if [[ -n "${REGISTRY_LOG:-}" ]]; then
+    rm -f "$REGISTRY_LOG"
   fi
 }
 
-cleanup_artifacts() {
-  rm -f ./mcpjungle.db ./mcp.db
+cleanup_runtime_state() {
+  rm -f "$ROOT_DIR/mcpjungle.db" "$ROOT_DIR/mcp.db"
+  rm -rf "$ROOT_DIR/mcpjungle_data"
+  rm -f "$HOME/.mcpjungle.conf"
+}
+
+cleanup() {
+  cleanup_binary_servers
+  cleanup_temp_files
+  cleanup_runtime_state
+}
+
+reset_runtime_state() {
+  cleanup_runtime_state
+  mkdir -p "$ROOT_DIR/mcpjungle_data"
+}
+
+start_local_server() {
+  local port=$1
+  local log_file=$2
+
+  "$BIN_PATH" start --port "$port" >"$log_file" 2>&1 &
+  local pid=$!
+
+  if [[ "$port" == "$REGISTRY_PORT" ]]; then
+    REGISTRY_SERVER_PID=$pid
+  else
+    BIN_SERVER_PID=$pid
+  fi
 }
 
 # Always cleanup on exit
-trap 'cleanup_binary_server; cleanup_compose; cleanup_artifacts' EXIT
+trap cleanup EXIT
 
 export MCP_SERVER_INIT_REQ_TIMEOUT_SEC=30
 
 # 0) Requirements
 log "Checking required commands"
 require_cmd go
-require_cmd docker
 require_cmd curl
 require_cmd sed
 require_cmd awk
+require_cmd mktemp
 
 # 1) Build the binary
 log "Building binary"
@@ -102,12 +120,13 @@ log "Verifying CLI help and version"
 "$BIN_PATH" --help >/dev/null
 "$BIN_PATH" version
 
-# 3) Start Docker stack + wait for health
-log "Starting Docker compose stack"
-COMPOSE_CLI=$(detect_compose)
-$COMPOSE_CLI -f "$COMPOSE_FILE" up -d
+# 3) Start local server + wait for health
+log "Starting server via local binary on port ${REGISTRY_PORT}"
+reset_runtime_state
+REGISTRY_LOG=$(mktemp)
+start_local_server "$REGISTRY_PORT" "$REGISTRY_LOG"
 
-log "Waiting for containerized server health"
+log "Waiting for local registry server health"
 wait_for_health "$REGISTRY_URL/health"
 
 # 4) Register a test MCP server (idempotent)
@@ -133,16 +152,8 @@ log "Invoking context7__get-library-docs"
 "$BIN_PATH" --registry "$REGISTRY_URL" invoke context7__get-library-docs \
   --input '{"context7CompatibleLibraryID":"/lodash/lodash","tokens":500}' >/dev/null
 
-# 6) Start local binary server on port 9090 + verify
-log "Starting server via local binary on port 9090"
-"$BIN_PATH" start --port 9090 >/dev/null 2>&1 &
-BIN_SERVER_PID=$!
-
-log "Waiting for local binary server health"
-wait_for_health "http://127.0.0.1:9090/health"
-
-# 7) Test filesystem MCP server in Docker
-log "Testing filesystem MCP server in Docker"
+# 6) Test filesystem MCP server on the local host
+log "Testing filesystem MCP server on the local host"
 
 if ! "$BIN_PATH" --registry "$REGISTRY_URL" init-server; then
   log "warning: init-server command failed, but this is not fatal"
@@ -155,19 +166,20 @@ cat > "$FS_CONFIG" <<EOF
   "name": "filesystem",
   "transport": "stdio",
   "command": "npx",
-  "args": ["-y", "@modelcontextprotocol/server-filesystem", "/host"]
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "${ROOT_DIR}"]
 }
 EOF
 
 "$BIN_PATH" --registry "$REGISTRY_URL" register -c "$FS_CONFIG"
 
 rm -f "$FS_CONFIG"
+unset FS_CONFIG
 
 "$BIN_PATH" --registry "$REGISTRY_URL" invoke filesystem__list_allowed_directories --input '{}' >/dev/null
 
-# 8) Test stateful session mode (uses local binary server on port 9090)
+# 7) Test stateful session mode
 log "Testing stateful session mode (session reuse for faster subsequent calls)"
-LOCAL_REGISTRY="http://127.0.0.1:9090"
+LOCAL_REGISTRY="$REGISTRY_URL"
 
 FS_STATEFUL_CONFIG=$(mktemp)
 cat > "$FS_STATEFUL_CONFIG" <<EOF
@@ -182,6 +194,7 @@ EOF
 
 "$BIN_PATH" --registry "$LOCAL_REGISTRY" register -c "$FS_STATEFUL_CONFIG"
 rm -f "$FS_STATEFUL_CONFIG"
+unset FS_STATEFUL_CONFIG
 
 # First call (cold start)
 log "First call to stateful server (cold start)..."
@@ -204,11 +217,11 @@ else
   log "⚠️  Times similar (MCP server may have fast startup)"
 fi
 
-# 9) Print Homebrew formula config snippet
+# 8) Print Homebrew formula config snippet
 log "Homebrew formula config (from .goreleaser.yaml)"
 sed -n '/^brews:/,/^dockers:/p' "$ROOT_DIR/.goreleaser.yaml" || true
 
-# 10) Run manual API error response verification against an isolated server
+# 9) Run manual API error response verification against an isolated server
 log "Running manual API error response verification"
 BIN_PATH="$BIN_PATH" "$ROOT_DIR/scripts/test-api-error-responses.sh"
 popd >/dev/null
