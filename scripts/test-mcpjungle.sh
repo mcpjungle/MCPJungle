@@ -95,8 +95,16 @@ cleanup_temp_files() {
     rm -f "$GROUP_CONFIG"
   fi
 
+  if [[ -n "${ENTERPRISE_GROUP_CONFIG:-}" ]]; then
+    rm -f "$ENTERPRISE_GROUP_CONFIG"
+  fi
+
   if [[ -n "${ENTERPRISE_FS_CONFIG:-}" ]]; then
     rm -f "$ENTERPRISE_FS_CONFIG"
+  fi
+
+  if [[ -n "${ENTERPRISE_EXPORT_DIR:-}" ]]; then
+    rm -rf "$ENTERPRISE_EXPORT_DIR"
   fi
 
   if [[ -n "${REGISTRY_LOG:-}" ]]; then
@@ -593,11 +601,54 @@ if [[ "$ENTERPRISE_CLIENTS_OUTPUT" != *"enterprise-client"* || "$ENTERPRISE_CLIE
   exit 1
 fi
 
-# 11) Print Homebrew formula config snippet
+ENTERPRISE_GROUP_CONFIG=$(mktemp)
+cat > "$ENTERPRISE_GROUP_CONFIG" <<EOF
+{
+  "name": "enterprise-group",
+  "description": "Enterprise integration test group",
+  "included_servers": ["enterprise-fs"]
+}
+EOF
+
+HOME="$ENTERPRISE_ADMIN_HOME" "$BIN_PATH" --registry "$ENTERPRISE_URL" create group -c "$ENTERPRISE_GROUP_CONFIG" >/dev/null
+rm -f "$ENTERPRISE_GROUP_CONFIG"
+unset ENTERPRISE_GROUP_CONFIG
+
+# 11) Test enterprise export for currently supported entities
+log "Testing enterprise export"
+
+ENTERPRISE_EXPORT_DIR=$(mktemp -d)
+rm -rf "$ENTERPRISE_EXPORT_DIR"
+HOME="$ENTERPRISE_ADMIN_HOME" "$BIN_PATH" --registry "$ENTERPRISE_URL" export --dir "$ENTERPRISE_EXPORT_DIR" >/dev/null
+
+if [[ ! -f "$ENTERPRISE_EXPORT_DIR/servers/enterprise-fs.json" ]]; then
+  echo "ERROR: expected enterprise export to include server config for enterprise-fs" >&2
+  exit 1
+fi
+
+if [[ ! -f "$ENTERPRISE_EXPORT_DIR/groups/enterprise-group.json" ]]; then
+  echo "ERROR: expected enterprise export to include tool group config for enterprise-group" >&2
+  exit 1
+fi
+
+if ! grep -q '"name": "enterprise-fs"' "$ENTERPRISE_EXPORT_DIR/servers/enterprise-fs.json"; then
+  echo "ERROR: expected exported server config to preserve the server name" >&2
+  cat "$ENTERPRISE_EXPORT_DIR/servers/enterprise-fs.json" >&2
+  exit 1
+fi
+
+if ! grep -q '"name": "enterprise-group"' "$ENTERPRISE_EXPORT_DIR/groups/enterprise-group.json" || \
+   ! grep -q '"enterprise-fs"' "$ENTERPRISE_EXPORT_DIR/groups/enterprise-group.json"; then
+  echo "ERROR: expected exported tool group config to preserve the group definition" >&2
+  cat "$ENTERPRISE_EXPORT_DIR/groups/enterprise-group.json" >&2
+  exit 1
+fi
+
+# 12) Print Homebrew formula config snippet
 log "Homebrew formula config (from .goreleaser.yaml)"
 sed -n '/^brews:/,/^dockers:/p' "$ROOT_DIR/.goreleaser.yaml" || true
 
-# 12) Run manual API error response verification against an isolated server
+# 13) Run manual API error response verification against an isolated server
 log "Running manual API error response verification"
 BIN_PATH="$BIN_PATH" "$ROOT_DIR/scripts/test-api-error-responses.sh"
 popd >/dev/null
