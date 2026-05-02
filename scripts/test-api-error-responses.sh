@@ -213,6 +213,42 @@ assert_status \
   '{"name":"bad-http-url","transport":"streamable_http","url":"http:///missing-host"}'
 
 assert_status \
+  "register server rejects invalid oauth_scopes type" \
+  "POST" \
+  "/api/v0/servers" \
+  "400" \
+  "cannot unmarshal" \
+  "$ADMIN_TOKEN" \
+  '{"name":"bad-oauth-scopes","transport":"streamable_http","url":"https://example.com/mcp","oauth_scopes":"mcp.read"}'
+
+assert_status \
+  "complete upstream oauth session rejects malformed json" \
+  "POST" \
+  "/api/v0/upstream_oauth/sessions/test-session/complete" \
+  "400" \
+  "unexpected EOF" \
+  "$ADMIN_TOKEN" \
+  '{'
+
+assert_status \
+  "complete upstream oauth session requires code and state" \
+  "POST" \
+  "/api/v0/upstream_oauth/sessions/test-session/complete" \
+  "400" \
+  "session_id, code and state are required" \
+  "$ADMIN_TOKEN" \
+  '{}'
+
+assert_status \
+  "complete upstream oauth session returns not found for unknown session" \
+  "POST" \
+  "/api/v0/upstream_oauth/sessions/ghost-session/complete" \
+  "404" \
+  "upstream OAuth session not found" \
+  "$ADMIN_TOKEN" \
+  '{"code":"abc123","state":"xyz789"}'
+
+assert_status \
   "get tool rejects invalid canonical name" \
   "GET" \
   "/api/v0/tool?name=invalid-name" \
