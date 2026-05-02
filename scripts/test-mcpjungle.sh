@@ -14,6 +14,8 @@ REGISTRY_PORT="${REGISTRY_PORT:-18080}"
 REGISTRY_URL="http://127.0.0.1:${REGISTRY_PORT}"              # local registry
 OAUTH_MOCK_PORT="${OAUTH_MOCK_PORT:-18081}"
 OAUTH_MOCK_URL="http://127.0.0.1:${OAUTH_MOCK_PORT}"
+ENTERPRISE_PORT="${ENTERPRISE_PORT:-18082}"
+ENTERPRISE_URL="http://127.0.0.1:${ENTERPRISE_PORT}"
 
 # Simple logger for readable output
 log() { printf "\n[TEST] %s\n" "$*"; }
@@ -64,6 +66,11 @@ cleanup_binary_servers() {
     wait "$REGISTRY_SERVER_PID" 2>/dev/null || true
   fi
 
+  if [[ -n "${ENTERPRISE_SERVER_PID:-}" ]] && kill -0 "$ENTERPRISE_SERVER_PID" >/dev/null 2>&1; then
+    kill "$ENTERPRISE_SERVER_PID" || true
+    wait "$ENTERPRISE_SERVER_PID" 2>/dev/null || true
+  fi
+
   if [[ -n "${OAUTH_MOCK_PID:-}" ]] && kill -0 "$OAUTH_MOCK_PID" >/dev/null 2>&1; then
     kill "$OAUTH_MOCK_PID" || true
     wait "$OAUTH_MOCK_PID" 2>/dev/null || true
@@ -88,8 +95,16 @@ cleanup_temp_files() {
     rm -f "$GROUP_CONFIG"
   fi
 
+  if [[ -n "${ENTERPRISE_FS_CONFIG:-}" ]]; then
+    rm -f "$ENTERPRISE_FS_CONFIG"
+  fi
+
   if [[ -n "${REGISTRY_LOG:-}" ]]; then
     rm -f "$REGISTRY_LOG"
+  fi
+
+  if [[ -n "${ENTERPRISE_LOG:-}" ]]; then
+    rm -f "$ENTERPRISE_LOG"
   fi
 
   if [[ -n "${OAUTH_MOCK_LOG:-}" ]]; then
@@ -103,12 +118,27 @@ cleanup_temp_files() {
   if [[ -n "${OAUTH_MOCK_DIR:-}" ]]; then
     rm -rf "$OAUTH_MOCK_DIR"
   fi
+
+  if [[ -n "${REGISTRY_RUNTIME_DIR:-}" ]]; then
+    rm -rf "$REGISTRY_RUNTIME_DIR"
+  fi
+
+  if [[ -n "${ENTERPRISE_RUNTIME_DIR:-}" ]]; then
+    rm -rf "$ENTERPRISE_RUNTIME_DIR"
+  fi
+
+  if [[ -n "${ENTERPRISE_ADMIN_HOME:-}" ]]; then
+    rm -rf "$ENTERPRISE_ADMIN_HOME"
+  fi
+
+  if [[ -n "${ENTERPRISE_USER_HOME:-}" ]]; then
+    rm -rf "$ENTERPRISE_USER_HOME"
+  fi
 }
 
 cleanup_runtime_state() {
   rm -f "$ROOT_DIR/mcpjungle.db" "$ROOT_DIR/mcp.db"
   rm -rf "$ROOT_DIR/mcpjungle_data"
-  rm -f "$HOME/.mcpjungle.conf"
 }
 
 cleanup() {
@@ -125,12 +155,19 @@ reset_runtime_state() {
 start_local_server() {
   local port=$1
   local log_file=$2
+  local workdir=$3
+  shift 3
 
-  "$BIN_PATH" start --port "$port" >"$log_file" 2>&1 &
+  (
+    cd "$workdir"
+    exec "$BIN_PATH" start --port "$port" "$@"
+  ) >"$log_file" 2>&1 &
   local pid=$!
 
   if [[ "$port" == "$REGISTRY_PORT" ]]; then
     REGISTRY_SERVER_PID=$pid
+  elif [[ "$port" == "$ENTERPRISE_PORT" ]]; then
+    ENTERPRISE_SERVER_PID=$pid
   else
     BIN_SERVER_PID=$pid
   fi
@@ -267,8 +304,9 @@ go build -o "$BIN_PATH" .
 # 2) Start local server + wait for health
 log "Starting server via local binary on port ${REGISTRY_PORT}"
 reset_runtime_state
+REGISTRY_RUNTIME_DIR=$(mktemp -d)
 REGISTRY_LOG=$(mktemp)
-start_local_server "$REGISTRY_PORT" "$REGISTRY_LOG"
+start_local_server "$REGISTRY_PORT" "$REGISTRY_LOG" "$REGISTRY_RUNTIME_DIR"
 
 log "Waiting for local registry server health"
 wait_for_health "$REGISTRY_URL/health"
@@ -494,11 +532,72 @@ if [[ "$GROUP_INVOKE_OUTPUT" != *"oauth echo: hello group"* ]]; then
   exit 1
 fi
 
-# 10) Print Homebrew formula config snippet
+# 10) Test enterprise-only user and MCP client features
+log "Testing enterprise users and MCP clients"
+
+ENTERPRISE_RUNTIME_DIR=$(mktemp -d)
+ENTERPRISE_LOG=$(mktemp)
+ENTERPRISE_ADMIN_HOME=$(mktemp -d)
+ENTERPRISE_USER_HOME=$(mktemp -d)
+start_local_server "$ENTERPRISE_PORT" "$ENTERPRISE_LOG" "$ENTERPRISE_RUNTIME_DIR" --enterprise
+wait_for_health "${ENTERPRISE_URL}/health"
+
+HOME="$ENTERPRISE_ADMIN_HOME" "$BIN_PATH" --registry "$ENTERPRISE_URL" init-server >/dev/null
+
+ENTERPRISE_FS_CONFIG=$(mktemp)
+cat > "$ENTERPRISE_FS_CONFIG" <<EOF
+{
+  "name": "enterprise-fs",
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "${ROOT_DIR}"]
+}
+EOF
+
+HOME="$ENTERPRISE_ADMIN_HOME" "$BIN_PATH" --registry "$ENTERPRISE_URL" register -c "$ENTERPRISE_FS_CONFIG" >/dev/null
+rm -f "$ENTERPRISE_FS_CONFIG"
+unset ENTERPRISE_FS_CONFIG
+
+ENTERPRISE_USERS_OUTPUT=$(HOME="$ENTERPRISE_ADMIN_HOME" "$BIN_PATH" --registry "$ENTERPRISE_URL" list users 2>&1)
+if [[ "$ENTERPRISE_USERS_OUTPUT" != *"admin"* ]]; then
+  echo "ERROR: expected enterprise user list to include admin after initialization" >&2
+  echo "$ENTERPRISE_USERS_OUTPUT" >&2
+  exit 1
+fi
+
+ENTERPRISE_USER_TOKEN="enterprise_user_token_12345"
+HOME="$ENTERPRISE_ADMIN_HOME" "$BIN_PATH" --registry "$ENTERPRISE_URL" create user enterprise-user --access-token "$ENTERPRISE_USER_TOKEN" >/dev/null
+
+ENTERPRISE_USERS_OUTPUT=$(HOME="$ENTERPRISE_ADMIN_HOME" "$BIN_PATH" --registry "$ENTERPRISE_URL" list users 2>&1)
+if [[ "$ENTERPRISE_USERS_OUTPUT" != *"enterprise-user"* ]]; then
+  echo "ERROR: expected enterprise user list to include enterprise-user" >&2
+  echo "$ENTERPRISE_USERS_OUTPUT" >&2
+  exit 1
+fi
+
+HOME="$ENTERPRISE_USER_HOME" "$BIN_PATH" --registry "$ENTERPRISE_URL" login "$ENTERPRISE_USER_TOKEN" >/dev/null
+ENTERPRISE_SERVERS_OUTPUT=$(HOME="$ENTERPRISE_USER_HOME" "$BIN_PATH" --registry "$ENTERPRISE_URL" list servers 2>&1)
+if [[ "$ENTERPRISE_SERVERS_OUTPUT" != *"enterprise-fs"* ]]; then
+  echo "ERROR: expected logged-in enterprise user to be able to list registered servers" >&2
+  echo "$ENTERPRISE_SERVERS_OUTPUT" >&2
+  exit 1
+fi
+
+ENTERPRISE_CLIENT_TOKEN="enterprise_client_token_12345"
+HOME="$ENTERPRISE_ADMIN_HOME" "$BIN_PATH" --registry "$ENTERPRISE_URL" create mcp-client enterprise-client --allow "enterprise-fs" --access-token "$ENTERPRISE_CLIENT_TOKEN" >/dev/null
+
+ENTERPRISE_CLIENTS_OUTPUT=$(HOME="$ENTERPRISE_ADMIN_HOME" "$BIN_PATH" --registry "$ENTERPRISE_URL" list mcp-clients 2>&1)
+if [[ "$ENTERPRISE_CLIENTS_OUTPUT" != *"enterprise-client"* || "$ENTERPRISE_CLIENTS_OUTPUT" != *"enterprise-fs"* ]]; then
+  echo "ERROR: expected enterprise MCP client list to include enterprise-client and its allow-list" >&2
+  echo "$ENTERPRISE_CLIENTS_OUTPUT" >&2
+  exit 1
+fi
+
+# 11) Print Homebrew formula config snippet
 log "Homebrew formula config (from .goreleaser.yaml)"
 sed -n '/^brews:/,/^dockers:/p' "$ROOT_DIR/.goreleaser.yaml" || true
 
-# 11) Run manual API error response verification against an isolated server
+# 12) Run manual API error response verification against an isolated server
 log "Running manual API error response verification"
 BIN_PATH="$BIN_PATH" "$ROOT_DIR/scripts/test-api-error-responses.sh"
 popd >/dev/null
