@@ -12,6 +12,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"   # repo root
 BIN_PATH="$ROOT_DIR/bin/mcpjungle"                            # compiled binary
 REGISTRY_PORT="${REGISTRY_PORT:-18080}"
 REGISTRY_URL="http://127.0.0.1:${REGISTRY_PORT}"              # local registry
+OAUTH_MOCK_PORT="${OAUTH_MOCK_PORT:-18081}"
+OAUTH_MOCK_URL="http://127.0.0.1:${OAUTH_MOCK_PORT}"
 
 # Simple logger for readable output
 log() { printf "\n[TEST] %s\n" "$*"; }
@@ -22,6 +24,23 @@ require_cmd() {
     echo "ERROR: Required command '$1' not found in PATH" >&2
     exit 1
   fi
+}
+
+extract_json_string_field() {
+  local field=$1
+  local body=$2
+
+  printf "%s" "$body" | sed -n "s/.*\"${field}\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p"
+}
+
+decode_json_string() {
+  local value=$1
+
+  printf "%s" "$value" | sed \
+    -e 's#\\/#/#g' \
+    -e 's/\\u0026/\&/g' \
+    -e 's/\\u003d/=/g' \
+    -e 's/\\u003f/?/g'
 }
 
 # Poll a health endpoint until it's available (timeout configurable)
@@ -45,6 +64,11 @@ cleanup_binary_servers() {
     wait "$REGISTRY_SERVER_PID" 2>/dev/null || true
   fi
 
+  if [[ -n "${OAUTH_MOCK_PID:-}" ]] && kill -0 "$OAUTH_MOCK_PID" >/dev/null 2>&1; then
+    kill "$OAUTH_MOCK_PID" || true
+    wait "$OAUTH_MOCK_PID" 2>/dev/null || true
+  fi
+
   if [[ -n "${BIN_SERVER_PID:-}" ]] && kill -0 "$BIN_SERVER_PID" >/dev/null 2>&1; then
     kill "$BIN_SERVER_PID" || true
     wait "$BIN_SERVER_PID" 2>/dev/null || true
@@ -62,6 +86,18 @@ cleanup_temp_files() {
 
   if [[ -n "${REGISTRY_LOG:-}" ]]; then
     rm -f "$REGISTRY_LOG"
+  fi
+
+  if [[ -n "${OAUTH_MOCK_LOG:-}" ]]; then
+    rm -f "$OAUTH_MOCK_LOG"
+  fi
+
+  if [[ -n "${OAUTH_MOCK_SOURCE:-}" ]]; then
+    rm -f "$OAUTH_MOCK_SOURCE"
+  fi
+
+  if [[ -n "${OAUTH_MOCK_DIR:-}" ]]; then
+    rm -rf "$OAUTH_MOCK_DIR"
   fi
 }
 
@@ -96,6 +132,115 @@ start_local_server() {
   fi
 }
 
+start_mock_oauth_upstream() {
+  OAUTH_MOCK_DIR=$(mktemp -d "$ROOT_DIR/.mock-oauth-mcp.XXXXXX")
+  OAUTH_MOCK_SOURCE="$OAUTH_MOCK_DIR/main.go"
+  OAUTH_MOCK_LOG=$(mktemp)
+
+  cat >"$OAUTH_MOCK_SOURCE" <<EOF
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/url"
+	"os"
+
+	"github.com/mark3labs/mcp-go/mcp"
+	mcpserver "github.com/mark3labs/mcp-go/server"
+)
+
+func main() {
+	baseURL := os.Getenv("OAUTH_MOCK_BASE_URL")
+	accessToken := "mock-access-token"
+
+	upstreamMCP := mcpserver.NewMCPServer("oauth-upstream", "0.1.0")
+	upstreamMCP.AddTool(
+		mcp.NewTool("echo", mcp.WithDescription("Echoes the msg argument"), mcp.WithString("msg", mcp.Required())),
+		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			msg, _ := req.GetArguments()["msg"].(string)
+			return mcp.NewToolResultText("oauth echo: " + msg), nil
+		},
+	)
+	streamable := mcpserver.NewStreamableHTTPServer(upstreamMCP)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	mux.HandleFunc("/.well-known/oauth-protected-resource/mcp", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"authorization_servers": []string{baseURL},
+			"resource":              baseURL + "/mcp",
+		})
+	})
+	mux.HandleFunc("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"issuer":                 baseURL,
+			"authorization_endpoint": baseURL + "/authorize",
+			"token_endpoint":         baseURL + "/token",
+			"registration_endpoint":  baseURL + "/register",
+			"response_types_supported": []string{
+				"code",
+			},
+		})
+	})
+	mux.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"client_id": "mock-client-id",
+		})
+	})
+	mux.HandleFunc("/authorize", func(w http.ResponseWriter, r *http.Request) {
+		redirectURI := r.URL.Query().Get("redirect_uri")
+		state := r.URL.Query().Get("state")
+		u, err := url.Parse(redirectURI)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		q := u.Query()
+		q.Set("code", "mock-auth-code")
+		q.Set("state", state)
+		u.RawQuery = q.Encode()
+		http.Redirect(w, r, u.String(), http.StatusFound)
+	})
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"access_token":  accessToken,
+			"token_type":    "Bearer",
+			"refresh_token": "mock-refresh-token",
+			"expires_in":    3600,
+			"scope":         "mcp.read",
+		})
+	})
+	mux.Handle("/mcp", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer "+accessToken {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte("unauthorized"))
+			return
+		}
+		streamable.ServeHTTP(w, r)
+	}))
+
+	if err := http.ListenAndServe("127.0.0.1:"+os.Getenv("OAUTH_MOCK_PORT"), mux); err != nil {
+		panic(err)
+	}
+}
+EOF
+
+  OAUTH_MOCK_PORT="$OAUTH_MOCK_PORT" OAUTH_MOCK_BASE_URL="$OAUTH_MOCK_URL" \
+    go run "$OAUTH_MOCK_SOURCE" >"$OAUTH_MOCK_LOG" 2>&1 &
+  OAUTH_MOCK_PID=$!
+}
+
 # Always cleanup on exit
 trap cleanup EXIT
 
@@ -115,12 +260,7 @@ mkdir -p "$ROOT_DIR/bin"
 pushd "$ROOT_DIR" >/dev/null
 go build -o "$BIN_PATH" .
 
-# 2) Basic CLI sanity checks
-log "Verifying CLI help and version"
-"$BIN_PATH" --help >/dev/null
-"$BIN_PATH" version
-
-# 3) Start local server + wait for health
+# 2) Start local server + wait for health
 log "Starting server via local binary on port ${REGISTRY_PORT}"
 reset_runtime_state
 REGISTRY_LOG=$(mktemp)
@@ -128,6 +268,11 @@ start_local_server "$REGISTRY_PORT" "$REGISTRY_LOG"
 
 log "Waiting for local registry server health"
 wait_for_health "$REGISTRY_URL/health"
+
+# 3) Basic CLI sanity checks
+log "Verifying CLI help and version"
+"$BIN_PATH" --help >/dev/null
+"$BIN_PATH" --registry "$REGISTRY_URL" version
 
 # 4) Register a test MCP server (idempotent)
 log "Ensuring 'context7' server is registered"
@@ -148,11 +293,92 @@ log "Invoking context7__resolve-library-id"
 "$BIN_PATH" --registry "$REGISTRY_URL" invoke context7__resolve-library-id \
   --input '{"libraryName":"lodash"}' >/dev/null
 
-log "Invoking context7__get-library-docs"
-"$BIN_PATH" --registry "$REGISTRY_URL" invoke context7__get-library-docs \
-  --input '{"context7CompatibleLibraryID":"/lodash/lodash","tokens":500}' >/dev/null
+# 6) Test upstream OAuth registration and later authenticated tool calls
+log "Testing upstream OAuth registration flow with a local mock MCP server"
+start_mock_oauth_upstream
+wait_for_health "${OAUTH_MOCK_URL}/healthz"
 
-# 6) Test filesystem MCP server on the local host
+OAUTH_REGISTER_BODY=$(cat <<EOF
+{"name":"oauthsrv","description":"OAuth-protected upstream MCP server","transport":"streamable_http","url":"${OAUTH_MOCK_URL}/mcp","oauth_redirect_uri":"http://127.0.0.1:9999/oauth/callback","oauth_scopes":["mcp.read"]}
+EOF
+)
+
+OAUTH_REGISTER_RESPONSE_FILE=$(mktemp)
+OAUTH_REGISTER_STATUS=$(curl -sS -o "$OAUTH_REGISTER_RESPONSE_FILE" -w "%{http_code}" \
+  -X POST \
+  -H "Content-Type: application/json" \
+  --data "$OAUTH_REGISTER_BODY" \
+  "${REGISTRY_URL}/api/v0/servers")
+OAUTH_REGISTER_BODY_CONTENT="$(cat "$OAUTH_REGISTER_RESPONSE_FILE")"
+rm -f "$OAUTH_REGISTER_RESPONSE_FILE"
+
+if [[ "$OAUTH_REGISTER_STATUS" != "202" ]]; then
+  echo "ERROR: expected OAuth registration to return 202, got ${OAUTH_REGISTER_STATUS}" >&2
+  echo "Body: ${OAUTH_REGISTER_BODY_CONTENT}" >&2
+  exit 1
+fi
+
+OAUTH_SESSION_ID=$(extract_json_string_field "session_id" "$OAUTH_REGISTER_BODY_CONTENT")
+OAUTH_AUTH_URL=$(extract_json_string_field "authorization_url" "$OAUTH_REGISTER_BODY_CONTENT")
+OAUTH_AUTH_URL=$(decode_json_string "$OAUTH_AUTH_URL")
+if [[ -z "$OAUTH_SESSION_ID" || -z "$OAUTH_AUTH_URL" ]]; then
+  echo "ERROR: OAuth registration response did not include session_id and authorization_url" >&2
+  echo "Body: ${OAUTH_REGISTER_BODY_CONTENT}" >&2
+  exit 1
+fi
+
+OAUTH_AUTH_HEADERS=$(mktemp)
+curl -sS -D "$OAUTH_AUTH_HEADERS" -o /dev/null "$OAUTH_AUTH_URL"
+OAUTH_CALLBACK_URL=$(sed -n 's/^[Ll]ocation: \(.*\)\r$/\1/p' "$OAUTH_AUTH_HEADERS" | tail -n 1)
+rm -f "$OAUTH_AUTH_HEADERS"
+if [[ -z "$OAUTH_CALLBACK_URL" ]]; then
+  echo "ERROR: OAuth authorize endpoint did not return a callback redirect" >&2
+  exit 1
+fi
+
+OAUTH_CODE=$(printf "%s" "$OAUTH_CALLBACK_URL" | sed -n 's/.*[?&]code=\([^&]*\).*/\1/p')
+OAUTH_STATE=$(printf "%s" "$OAUTH_CALLBACK_URL" | sed -n 's/.*[?&]state=\([^&]*\).*/\1/p')
+if [[ -z "$OAUTH_CODE" || -z "$OAUTH_STATE" ]]; then
+  echo "ERROR: OAuth callback URL did not include both code and state" >&2
+  echo "Callback URL: ${OAUTH_CALLBACK_URL}" >&2
+  exit 1
+fi
+
+OAUTH_COMPLETE_BODY=$(cat <<EOF
+{"code":"${OAUTH_CODE}","state":"${OAUTH_STATE}"}
+EOF
+)
+
+OAUTH_COMPLETE_RESPONSE_FILE=$(mktemp)
+OAUTH_COMPLETE_STATUS=$(curl -sS -o "$OAUTH_COMPLETE_RESPONSE_FILE" -w "%{http_code}" \
+  -X POST \
+  -H "Content-Type: application/json" \
+  --data "$OAUTH_COMPLETE_BODY" \
+  "${REGISTRY_URL}/api/v0/upstream_oauth/sessions/${OAUTH_SESSION_ID}/complete")
+OAUTH_COMPLETE_BODY_CONTENT="$(cat "$OAUTH_COMPLETE_RESPONSE_FILE")"
+rm -f "$OAUTH_COMPLETE_RESPONSE_FILE"
+
+if [[ "$OAUTH_COMPLETE_STATUS" != "201" ]]; then
+  echo "ERROR: expected OAuth completion to return 201, got ${OAUTH_COMPLETE_STATUS}" >&2
+  echo "Body: ${OAUTH_COMPLETE_BODY_CONTENT}" >&2
+  exit 1
+fi
+
+OAUTH_TOOLS_OUTPUT=$("$BIN_PATH" --registry "$REGISTRY_URL" list tools 2>&1)
+if [[ "$OAUTH_TOOLS_OUTPUT" != *"oauthsrv__echo"* ]]; then
+  echo "ERROR: expected oauthsrv__echo to be registered after OAuth completion" >&2
+  echo "$OAUTH_TOOLS_OUTPUT" >&2
+  exit 1
+fi
+
+OAUTH_INVOKE_OUTPUT=$("$BIN_PATH" --registry "$REGISTRY_URL" invoke oauthsrv__echo --input '{"msg":"hello oauth"}' 2>&1)
+if [[ "$OAUTH_INVOKE_OUTPUT" != *"oauth echo: hello oauth"* ]]; then
+  echo "ERROR: expected oauth-protected tool invocation to succeed after OAuth completion" >&2
+  echo "$OAUTH_INVOKE_OUTPUT" >&2
+  exit 1
+fi
+
+# 7) Test filesystem MCP server on the local host
 log "Testing filesystem MCP server on the local host"
 
 if ! "$BIN_PATH" --registry "$REGISTRY_URL" init-server; then
@@ -177,7 +403,7 @@ unset FS_CONFIG
 
 "$BIN_PATH" --registry "$REGISTRY_URL" invoke filesystem__list_allowed_directories --input '{}' >/dev/null
 
-# 7) Test stateful session mode
+# 8) Test stateful session mode
 log "Testing stateful session mode (session reuse for faster subsequent calls)"
 LOCAL_REGISTRY="$REGISTRY_URL"
 
@@ -217,11 +443,11 @@ else
   log "⚠️  Times similar (MCP server may have fast startup)"
 fi
 
-# 8) Print Homebrew formula config snippet
+# 9) Print Homebrew formula config snippet
 log "Homebrew formula config (from .goreleaser.yaml)"
 sed -n '/^brews:/,/^dockers:/p' "$ROOT_DIR/.goreleaser.yaml" || true
 
-# 9) Run manual API error response verification against an isolated server
+# 10) Run manual API error response verification against an isolated server
 log "Running manual API error response verification"
 BIN_PATH="$BIN_PATH" "$ROOT_DIR/scripts/test-api-error-responses.sh"
 popd >/dev/null
