@@ -45,3 +45,37 @@ func ProxyToolFilter(ctx context.Context, tools []mcp.Tool) []mcp.Tool {
 
 	return filteredTools
 }
+
+// ProxyPromptFilter filters prompts exposed by MCP proxy for enterprise mode based on client allow-list.
+func ProxyPromptFilter(ctx context.Context, prompts []mcp.Prompt) []mcp.Prompt {
+	serverMode, ok := ctx.Value("mode").(model.ServerMode)
+	if !ok {
+		return nil
+	}
+	if !model.IsEnterpriseMode(serverMode) {
+		return prompts
+	}
+
+	c, ok := ctx.Value("client").(*model.McpClient)
+	if !ok || c == nil {
+		return nil
+	}
+
+	var filteredPrompts []mcp.Prompt
+	allowedServers := make(map[string]bool)
+
+	for _, prompt := range prompts {
+		serverName, _, _ := splitServerPromptName(prompt.Name)
+
+		allowed, cached := allowedServers[serverName]
+		if !cached {
+			allowed = c.CheckHasServerAccess(serverName)
+			allowedServers[serverName] = allowed
+		}
+		if allowed {
+			filteredPrompts = append(filteredPrompts, prompt)
+		}
+	}
+
+	return filteredPrompts
+}
