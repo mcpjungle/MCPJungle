@@ -20,7 +20,6 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
-	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"gorm.io/gorm"
 )
 
@@ -493,38 +492,4 @@ plainSSEClient:
 	}
 
 	return c, nil
-}
-
-// newMcpServerSession retains the older transport-selection helper used by a
-// few internal code paths that do not need DB-backed OAuth support.
-func newMcpServerSession(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*client.Client, error) {
-	if s.Transport == types.TransportStreamableHTTP {
-		mcpClient, err := createHTTPMcpServerConn(ctx, nil, s, initReqTimeoutSec)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"failed to create connection to streamable http MCP server %s: %w", s.Name, err,
-			)
-		}
-		return mcpClient, nil
-	}
-
-	if s.Transport == types.TransportSSE {
-		mcpClient, err := createSSEMcpServerConn(ctx, nil, s)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"failed to create connection to SSE MCP server %s: %w", s.Name, err,
-			)
-		}
-		return mcpClient, nil
-	}
-
-	// A new sub-process is spun up for each call to a STDIO mcp server.
-	// This is especially a problem for the MCP proxy server, which is expected to call tools frequently.
-	// This causes a serious performance hit, but is easy to implement so it is used for now.
-	// For stateful sessions, use the SessionManager to keep the process running.
-	mcpClient, err := runStdioServer(ctx, s, initReqTimeoutSec)
-	if err != nil {
-		return nil, fmt.Errorf("failed to run stdio MCP server %s: %w", s.Name, err)
-	}
-	return mcpClient, nil
 }
