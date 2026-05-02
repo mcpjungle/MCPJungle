@@ -91,7 +91,7 @@ require_cmd curl
 require_cmd sed
 require_cmd awk
 
-# 1) Build the binary
+# 1) Build the binary (native arch for CLI use)
 log "Building binary"
 mkdir -p "$ROOT_DIR/bin"
 pushd "$ROOT_DIR" >/dev/null
@@ -102,15 +102,32 @@ log "Verifying CLI help and version"
 "$BIN_PATH" --help >/dev/null
 "$BIN_PATH" version
 
-# 3) Start Docker stack + wait for health
-log "Starting Docker compose stack"
+# 3) Build local Docker image so compose uses the current code, not a pulled image
+log "Building local Docker image"
+# The Dockerfile expects the binary at ./mcpjungle in the build context (distroless, no build stage).
+# Cross-compile for Linux to match the container OS; use the host arch to avoid emulation.
+DOCKER_ARCH=$(docker info --format '{{.Architecture}}' 2>/dev/null || echo "x86_64")
+case "$DOCKER_ARCH" in
+  aarch64|arm64) GOARCH=arm64 ;;
+  *)             GOARCH=amd64 ;;
+esac
+log "Cross-compiling for linux/$GOARCH (Docker host arch: $DOCKER_ARCH)"
+GOOS=linux GOARCH=$GOARCH go build -o "$ROOT_DIR/mcpjungle" .
+# Use stdio.Dockerfile — it includes Node.js + npx, required for stdio MCP servers (e.g. filesystem, server-everything)
+docker build --platform "linux/$GOARCH" -f "$ROOT_DIR/stdio.Dockerfile" -t "ghcr.io/mcpjungle/mcpjungle:local" "$ROOT_DIR"
+rm -f "$ROOT_DIR/mcpjungle"   # remove linux binary, keep the native one in bin/
+export MCPJUNGLE_IMAGE_TAG=local
+log "Local image built: ghcr.io/mcpjungle/mcpjungle:local (stdio.Dockerfile)"
+
+# 4) Start Docker stack + wait for health
+log "Starting Docker compose stack (using local image)"
 COMPOSE_CLI=$(detect_compose)
 $COMPOSE_CLI -f "$COMPOSE_FILE" up -d
 
 log "Waiting for containerized server health"
 wait_for_health "$REGISTRY_URL/health"
 
-# 4) Register a test MCP server (idempotent)
+# 5) Register a test MCP server (idempotent)
 log "Ensuring 'context7' server is registered"
 if ! "$BIN_PATH" --registry "$REGISTRY_URL" list servers 2>/dev/null | grep -q "context7"; then
   "$BIN_PATH" --registry "$REGISTRY_URL" register \
@@ -121,7 +138,7 @@ else
   log "'context7' already registered"
 fi
 
-# 5) Exercise tools via registry
+# 6) Exercise tools via registry
 log "Listing tools"
 "$BIN_PATH" --registry "$REGISTRY_URL" list tools
 
@@ -133,15 +150,17 @@ log "Invoking context7__get-library-docs"
 "$BIN_PATH" --registry "$REGISTRY_URL" invoke context7__get-library-docs \
   --input '{"context7CompatibleLibraryID":"/lodash/lodash","tokens":500}' >/dev/null
 
-# 6) Start local binary server on port 9090 + verify
+# 7) Start local binary server on port 9090 + verify
 log "Starting server via local binary on port 9090"
+# Remove any leftover SQLite DB from a previous run so the server starts clean
+rm -f ./mcpjungle.db ./mcp.db
 "$BIN_PATH" start --port 9090 >/dev/null 2>&1 &
 BIN_SERVER_PID=$!
 
 log "Waiting for local binary server health"
 wait_for_health "http://127.0.0.1:9090/health"
 
-# 7) Test filesystem MCP server in Docker
+# 8) Test filesystem MCP server in Docker
 log "Testing filesystem MCP server in Docker"
 
 if ! "$BIN_PATH" --registry "$REGISTRY_URL" init-server; then
@@ -165,7 +184,7 @@ rm -f "$FS_CONFIG"
 
 "$BIN_PATH" --registry "$REGISTRY_URL" invoke filesystem__list_allowed_directories --input '{}' >/dev/null
 
-# 8) Test stateful session mode (uses local binary server on port 9090)
+# 9) Test stateful session mode (uses local binary server on port 9090)
 log "Testing stateful session mode (session reuse for faster subsequent calls)"
 LOCAL_REGISTRY="http://127.0.0.1:9090"
 
@@ -204,7 +223,7 @@ else
   log "⚠️  Times similar (MCP server may have fast startup)"
 fi
 
-# 9) Print Homebrew formula config snippet
+# 10) Print Homebrew formula config snippet
 log "Homebrew formula config (from .goreleaser.yaml)"
 sed -n '/^brews:/,/^dockers:/p' "$ROOT_DIR/.goreleaser.yaml" || true
 
