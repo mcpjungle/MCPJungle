@@ -84,6 +84,10 @@ cleanup_temp_files() {
     rm -f "$FS_STATEFUL_CONFIG"
   fi
 
+  if [[ -n "${GROUP_CONFIG:-}" ]]; then
+    rm -f "$GROUP_CONFIG"
+  fi
+
   if [[ -n "${REGISTRY_LOG:-}" ]]; then
     rm -f "$REGISTRY_LOG"
   fi
@@ -443,11 +447,58 @@ else
   log "⚠️  Times similar (MCP server may have fast startup)"
 fi
 
-# 9) Print Homebrew formula config snippet
+# 9) Test tool groups
+log "Testing tool groups"
+
+GROUP_CONFIG=$(mktemp)
+cat > "$GROUP_CONFIG" <<EOF
+{
+  "name": "test-group",
+  "description": "Curated integration test tools",
+  "included_tools": [
+    "context7__resolve-library-id",
+    "oauthsrv__echo"
+  ]
+}
+EOF
+
+"$BIN_PATH" --registry "$REGISTRY_URL" create group -c "$GROUP_CONFIG" >/dev/null
+rm -f "$GROUP_CONFIG"
+unset GROUP_CONFIG
+
+GROUPS_OUTPUT=$("$BIN_PATH" --registry "$REGISTRY_URL" list groups 2>&1)
+if [[ "$GROUPS_OUTPUT" != *"test-group"* ]]; then
+  echo "ERROR: expected test-group to be listed after creation" >&2
+  echo "$GROUPS_OUTPUT" >&2
+  exit 1
+fi
+
+GROUP_DETAILS=$("$BIN_PATH" --registry "$REGISTRY_URL" get group test-group 2>&1)
+if [[ "$GROUP_DETAILS" != *"context7__resolve-library-id"* || "$GROUP_DETAILS" != *"oauthsrv__echo"* ]]; then
+  echo "ERROR: expected test-group details to include both configured tools" >&2
+  echo "$GROUP_DETAILS" >&2
+  exit 1
+fi
+
+GROUP_TOOLS_OUTPUT=$("$BIN_PATH" --registry "$REGISTRY_URL" list tools --group test-group 2>&1)
+if [[ "$GROUP_TOOLS_OUTPUT" != *"context7__resolve-library-id"* || "$GROUP_TOOLS_OUTPUT" != *"oauthsrv__echo"* ]]; then
+  echo "ERROR: expected grouped tool listing to include configured tools" >&2
+  echo "$GROUP_TOOLS_OUTPUT" >&2
+  exit 1
+fi
+
+GROUP_INVOKE_OUTPUT=$("$BIN_PATH" --registry "$REGISTRY_URL" invoke oauthsrv__echo --group test-group --input '{"msg":"hello group"}' 2>&1)
+if [[ "$GROUP_INVOKE_OUTPUT" != *"oauth echo: hello group"* ]]; then
+  echo "ERROR: expected grouped tool invocation to succeed" >&2
+  echo "$GROUP_INVOKE_OUTPUT" >&2
+  exit 1
+fi
+
+# 10) Print Homebrew formula config snippet
 log "Homebrew formula config (from .goreleaser.yaml)"
 sed -n '/^brews:/,/^dockers:/p' "$ROOT_DIR/.goreleaser.yaml" || true
 
-# 10) Run manual API error response verification against an isolated server
+# 11) Run manual API error response verification against an isolated server
 log "Running manual API error response verification"
 BIN_PATH="$BIN_PATH" "$ROOT_DIR/scripts/test-api-error-responses.sh"
 popd >/dev/null
