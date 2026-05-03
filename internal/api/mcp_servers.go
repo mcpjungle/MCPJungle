@@ -123,6 +123,9 @@ func (s *Server) registerServerHandler() gin.HandlerFunc {
 		if err := s.mcpService.RegisterMcpServerWithOAuthSupport(c, &input, server, force, initiatedBy); err != nil {
 			var oauthErr *mcp.UpstreamOAuthAuthorizationPendingError
 			if errors.As(err, &oauthErr) {
+				// registration failed because upstream server requires OAuth authorization.
+				// Don't return an error. Return the relevant information to the client so they can complete
+				// the OAuth flow and then call the completeUpstreamOAuthSession endpoint.
 				c.JSON(http.StatusAccepted, types.RegisterServerResult{
 					AuthorizationRequired: &types.UpstreamOAuthAuthorizationRequired{
 						SessionID:        oauthErr.SessionID,
@@ -132,6 +135,7 @@ func (s *Server) registerServerHandler() gin.HandlerFunc {
 				})
 				return
 			}
+
 			handleServiceError(c, err)
 			return
 		}
