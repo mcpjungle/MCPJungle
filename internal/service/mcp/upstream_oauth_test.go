@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -88,5 +89,22 @@ func TestUpstreamOAuthTokenStore_SaveAndGetToken(t *testing.T) {
 	}
 	if persisted.RefreshToken != "refresh-token" {
 		t.Fatalf("expected refresh token to be updated, got %q", persisted.RefreshToken)
+	}
+}
+
+func TestUpstreamOAuthDCRUnsupportedUserError(t *testing.T) {
+	t.Parallel()
+
+	err := upstreamOAuthDCRUnsupportedUserError()
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	msg := err.Error()
+	if !strings.Contains(msg, "does not support dynamic client registration") {
+		t.Fatalf("expected DCR limitation in error message, got %q", msg)
+	}
+	if !strings.Contains(msg, "oauth_client_id") || !strings.Contains(msg, "oauth_client_secret") {
+		t.Fatalf("expected credential hint in error message, got %q", msg)
 	}
 }

@@ -25,6 +25,14 @@ import (
 // registration can remain incomplete before operators need to restart the flow.
 const upstreamOAuthPendingSessionTTL = 10 * time.Minute
 
+var errUpstreamOAuthDCRUnsupported = errors.New("upstream OAuth provider does not support dynamic client registration")
+
+func upstreamOAuthDCRUnsupportedUserError() error {
+	return fmt.Errorf(
+		"upstream OAuth provider does not support dynamic client registration, and mcpjungle does not yet support the OAuth client identification flow required by this provider. Hint: if you already have provider-issued OAuth client credentials, retry registration by supplying the oauth_client_id and oauth_client_secret in the MCP server configuration",
+	)
+}
+
 // UpstreamOAuthAuthorizationPendingError signals that upstream registration
 // must pause until an operator completes an OAuth authorization step.
 type UpstreamOAuthAuthorizationPendingError struct {
@@ -294,6 +302,14 @@ func (m *MCPService) bootstrapUpstreamOAuth(ctx context.Context, input *types.Re
 	if oauthHandler.GetClientID() == "" {
 		clientID, clientSecret, err := registerOAuthClientWithoutEmptyScope(ctx, oauthHandler, input, "mcpjungle-"+server.Name)
 		if err != nil {
+			if errors.Is(err, errUpstreamOAuthDCRUnsupported) {
+				// TODO: Once MCPJungle supports additional OAuth client identification
+				// strategies (for example Client ID Metadata Documents), revisit
+				// this special-case error. At that point this branch may no longer
+				// be needed because the flow should continue with the alternative
+				// strategy instead of failing here.
+				return upstreamOAuthDCRUnsupportedUserError()
+			}
 			return fmt.Errorf("failed to dynamically register OAuth client: %w", err)
 		}
 		input.OAuthClientID = clientID
@@ -424,7 +440,7 @@ func registerOAuthClientWithoutEmptyScope(
 		return "", "", fmt.Errorf("failed to get server metadata: %w", err)
 	}
 	if metadata.RegistrationEndpoint == "" {
-		return "", "", errors.New("server does not support dynamic client registration")
+		return "", "", errUpstreamOAuthDCRUnsupported
 	}
 
 	regRequest := map[string]any{
@@ -458,6 +474,9 @@ func registerOAuthClientWithoutEmptyScope(
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusForbidden {
+			return "", "", errUpstreamOAuthDCRUnsupported
+		}
 		body, _ := io.ReadAll(resp.Body)
 		var oauthErr struct {
 			Error            string `json:"error"`
