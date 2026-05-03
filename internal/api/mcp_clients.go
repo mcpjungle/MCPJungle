@@ -69,15 +69,18 @@ func (s *Server) createSelfClientHandler() gin.HandlerFunc {
 			name = fmt.Sprintf("%s-mcp", username)
 		}
 
-		// Inherit the allow_list configured by admin for this user.
-		// If the user has no explicit allow_list, fall back to wildcard.
-		allowList := userModel.AllowList
-		if len(allowList) == 0 {
-			allowList, _ = json.Marshal([]string{"*"})
-		}
+		// Resolve the allow_list using group inheritance logic.
+		resolvedList := s.groupService.ResolveAllowList(userModel)
+		encodedList, _ := json.Marshal(resolvedList)
+
+		// If a client with this name already exists, replace it so the user
+		// always gets a fresh token with current group permissions.
+		_ = s.mcpClientService.DeleteClient(name)
+
 		client, err := s.mcpClientService.CreateClient(model.McpClient{
-			Name:      name,
-			AllowList: allowList,
+			Name:          name,
+			AllowList:     encodedList,
+			OwnerUsername: &username,
 		})
 		if err != nil {
 			handleServiceError(c, err)
@@ -157,6 +160,44 @@ func (s *Server) applySelfClientConfigHandler() gin.HandlerFunc {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"output": output})
+	}
+}
+
+func (s *Server) listSelfClientsHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		u, exists := c.Get("user")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+			return
+		}
+		userModel := u.(*model.User)
+		clients, err := s.mcpClientService.ListClientsByOwner(userModel.Username)
+		if err != nil {
+			handleServiceError(c, err)
+			return
+		}
+		c.JSON(http.StatusOK, clients)
+	}
+}
+
+func (s *Server) deleteSelfClientHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		name := c.Param("name")
+		if name == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
+			return
+		}
+		u, exists := c.Get("user")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+			return
+		}
+		userModel := u.(*model.User)
+		if err := s.mcpClientService.DeleteClientByOwner(name, userModel.Username); err != nil {
+			handleServiceError(c, err)
+			return
+		}
+		c.Status(http.StatusNoContent)
 	}
 }
 

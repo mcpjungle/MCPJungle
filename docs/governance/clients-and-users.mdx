@@ -1,12 +1,13 @@
 ---
-title: "Manage clients and users"
-description: "Manage machine identities for MCP clients and user accounts for human operators in Mcpjungle enterprise mode."
+title: "Manage clients, users, and groups"
+description: "Manage machine identities for MCP clients, user accounts for human operators, and groups for team-level access control in Mcpjungle enterprise mode."
 ---
 
-Enterprise mode separates machine identities from human identities.
+Enterprise mode separates machine identities from human identities and provides group-level access management.
 
 - **MCP clients** represent IDEs, bridges, and agents that connect to the gateway.
 - **Users** represent humans who need authenticated access to Mcpjungle.
+- **Groups** are named sets of users that share the same server access policy.
 
 That separation keeps client access control clean and avoids overloading one token model for every use case.
 
@@ -68,12 +69,45 @@ JSON config files support `${VAR_NAME}` placeholders in string values.
 
 See the [configuration file reference](/reference/config-file#var_name-placeholder-substitution) for the exact substitution rules and examples.
 
+## Groups
+
+Groups let you manage server access at team scale. Instead of setting an allow-list on every individual user, you set it once on the group and all members inherit it.
+
+### Create a group (Dashboard)
+
+1. Navigate to **Groups** in the admin sidebar.
+2. Click **New group**, enter a name and description.
+3. Set the **Server access** allow-list — pick specific servers or grant wildcard access.
+4. Add members from the existing user list.
+
+### Create a group (CLI)
+
+Group management is currently dashboard-only. CLI support is planned.
+
+### Allow-list inheritance
+
+When a user creates their own MCP client token (from the Settings page), the token's allow-list is resolved as follows:
+
+1. **Explicit user override** — if an admin set a specific allow-list directly on the user, that list is used.
+2. **Group allow-list** — if the user belongs to a group and has no explicit override, the group's list is inherited.
+3. **Wildcard** `["*"]` — if neither is set, the token can access all registered servers.
+
+An admin can reset a user's explicit override back to group inheritance using the **Reset to group default** button in the user's Permissions drawer.
+
+## Self-service client tokens
+
+Non-admin users can create their own MCP client token directly from the **Settings** page in the dashboard — no admin intervention required. The generated token inherits the user's effective allow-list (from their group or their explicit override).
+
+The Settings page also provides a one-click **Apply Config** that writes the correct MCP configuration for Claude, Cursor, Codex, Copilot, OpenCode, and Zed.
+
 ## Recommended identity model
 
 For a small to medium sized deployment:
 
 - create a small number of admin users for platform operators
-- create one user in mcpjungle for each human operator who needs CLI or API access
+- create one group per team or role and set its server allow-list once
+- assign users to groups — they inherit access automatically
+- use per-user overrides only for exceptions (a user needing narrower or broader access than their group)
 - create one MCP client per consuming application or workflow
 - avoid sharing one token across multiple tools or teams
 
@@ -93,5 +127,8 @@ That keeps auditability and token rotation manageable without introducing needle
   </Card>
   <Card title="Production deployment" icon="cloud" href="/deployment/production">
     Initialize and operate Mcpjungle correctly in enterprise mode.
+  </Card>
+  <Card title="Starting the server" icon="play" href="/reference/cli-server">
+    Start the gateway with the dashboard enabled using `--ui`.
   </Card>
 </CardGroup>

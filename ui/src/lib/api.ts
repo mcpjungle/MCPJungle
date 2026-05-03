@@ -1,6 +1,7 @@
 import type {
   CreateOrUpdateUserResponse,
   CurrentUser,
+  Group,
   McpClient,
   McpClientWithToken,
   McpServer,
@@ -115,8 +116,11 @@ export const api = {
   clients: (token?: string) => request<McpClient[]>("/api/v0/clients", { token }),
   createClient: (body: Pick<McpClient, "name" | "description" | "allow_list"> & { access_token?: string }, token?: string) =>
     request<McpClientWithToken>("/api/v0/clients", { method: "POST", token, body }),
+  selfClients: (token?: string) => request<McpClient[]>("/api/v0/clients/self", { token }),
   createSelfClient: (name: string, token?: string) =>
     request<McpClientWithToken>("/api/v0/clients/self", { method: "POST", token, body: { name } }),
+  deleteSelfClient: (name: string, token?: string) =>
+    request<void>(`/api/v0/clients/self/${encodeURIComponent(name)}`, { method: "DELETE", token }),
   applyClientConfig: (mcpToken: string, targets: string[], userToken?: string) =>
     request<{ output: string }>("/api/v0/clients/self/apply-config", {
       method: "POST", token: userToken,
@@ -137,4 +141,15 @@ export const api = {
     }),
   deleteUser: (username: string, token?: string) =>
     request(`/api/v0/users/${encodeURIComponent(username)}`, { method: "DELETE", token }),
+  groups: (token?: string) => request<Group[]>("/api/v0/groups", { token }),
+  createGroup: (body: { name: string; description: string; allow_list: string[] }, token?: string) =>
+    request<Group>("/api/v0/groups", { method: "POST", token, body }),
+  updateGroup: (name: string, body: { description: string; allow_list: string[]; update_allow_list: boolean }, token?: string) =>
+    request<Group>(`/api/v0/groups/${encodeURIComponent(name)}`, { method: "PUT", token, body }),
+  deleteGroup: (name: string, token?: string) =>
+    request<void>(`/api/v0/groups/${encodeURIComponent(name)}`, { method: "DELETE", token }),
+  assignUserToGroup: (groupName: string, username: string, token?: string) =>
+    request<void>(`/api/v0/groups/${encodeURIComponent(groupName)}/members`, { method: "POST", token, body: { username } }),
+  removeUserFromGroup: (groupName: string, username: string, token?: string) =>
+    request<void>(`/api/v0/groups/${encodeURIComponent(groupName)}/members/${encodeURIComponent(username)}`, { method: "DELETE", token }),
 };

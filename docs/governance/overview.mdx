@@ -21,20 +21,23 @@ In enterprise mode, organizations want:
 | Gateway authentication | Disabled | Required                          |
 | MCP client access control | Open access to registered servers | Explicit allow-list per client    |
 | User accounts | Not needed | Supported                         |
+| User groups | Not needed | Supported — users inherit group allow-list |
+| Self-service client tokens | Not needed | Users create their own tokens via dashboard |
+| Management Dashboard (`--ui`) | Available | Available |
 | OpenTelemetry metrics | Disabled by default | Enabled by default                |
 | Server initialization | Automatic | Manual initialization by an Administrator   |
 
 ## Governance model
 
-Mcpjungle uses three main identity and access concepts in enterprise mode.
+Mcpjungle uses four main identity and access concepts in enterprise mode.
 
 ### Administrator
 
-Admin initializes the server, register MCP servers, creates mcp clients, creates users, and manages platform configuration.
+Admin initializes the server, registers MCP servers, creates MCP clients, creates users, manages groups, and manages platform configuration. Admins can use the CLI or the Management Dashboard (`--ui`).
 
 ### MCP clients
 
-MCP clients are machine identities for your AI clients (agents, CLIs like claude code, IDEs like Cursor, or custom mcp clients).
+MCP clients are machine identities for your AI clients (agents, CLIs like Claude Code, IDEs like Cursor, or custom MCP clients).
 
 Each client gets:
 
@@ -44,6 +47,19 @@ Each client gets:
 ### Users
 
 Users are human identities for people who need authenticated access to Mcpjungle. They have a narrower permission set than admins.
+
+Each user can create their own MCP client token from the **Settings** page in the dashboard. That token automatically inherits the server allow-list configured by an admin — either directly on the user or through the user's group.
+
+### Groups
+
+Groups are named sets of users that share the same server access policy. An admin assigns users to a group and sets the group's allow-list once. Every user in the group inherits that list when they create MCP client tokens.
+
+If an admin sets an explicit allow-list on a specific user, that overrides the group's list for that user.
+
+**Allow-list resolution priority:**
+1. Explicit per-user allow-list (highest priority)
+2. Group allow-list (inherited)
+3. Wildcard `["*"]` — access to all servers (default when neither is set)
 
 ## Typical enterprise flow
 
@@ -62,6 +78,9 @@ Users are human identities for people who need authenticated access to Mcpjungle
   </Step>
   <Step title="Create users when needed">
     Create standard users for human operators who need authenticated visibility into Mcpjungle.
+  </Step>
+  <Step title="Organise users into groups (optional)">
+    Create groups, set a server allow-list on each group, and assign users. Users inherit the group's access policy when they create their own MCP client tokens.
   </Step>
 </Steps>
 
@@ -87,6 +106,9 @@ That is what enterprise mode is for.
   </Card>
   <Card title="Clients and users" icon="users" href="/governance/clients-and-users">
     Manage machine identities and human accounts cleanly.
+  </Card>
+  <Card title="Groups" icon="users-gear" href="/governance/groups">
+    Assign users to groups and manage access at the group level.
   </Card>
   <Card title="Production deployment" icon="cloud" href="/deployment/production">
     Run Mcpjungle with the expected enterprise operating model.

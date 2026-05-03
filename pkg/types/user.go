@@ -33,7 +33,9 @@ type UserConfig struct {
 type User struct {
 	Username  string   `json:"username"`
 	Role      string   `json:"role"`
-	AllowList []string `json:"allow_list"` // never omit: [] = no access, ["*"] = wildcard
+	AllowList []string `json:"allow_list,omitempty"`
+	GroupID   *uint    `json:"group_id,omitempty"`
+	GroupName string   `json:"group_name,omitempty"`
 }
 
 type CreateOrUpdateUserRequest struct {
@@ -46,5 +48,5 @@ type CreateOrUpdateUserResponse struct {
 	Username    string   `json:"username"`
 	Role        string   `json:"role"`
 	AccessToken string   `json:"access_token"`
-	AllowList   []string `json:"allow_list"` // never omit: [] = no access, ["*"] = wildcard
+	AllowList   []string `json:"allow_list,omitempty"`
 }

@@ -34,19 +34,28 @@ We are working on:
 - live reload for supported config changes
 - a more GitOps-friendly workflow for operators managing shared setups
 
-## 3. A Web GUI
-We're working on a browser-based UI for easier management and visibility.
+## 3. A Web GUI ✅ Shipped in v0.1.0
 
-It will serve as an alternative to the mcpjungle CLI.
+The Management Dashboard is live. Start with `mcpjungle start --enterprise --ui`.
 
-## 4. Better access control in enterprise mode
+The dashboard covers:
 
-Once core usability is stronger, we plan to add more targeted control features for team scenarios.
+- Server, tool, and tool-group management
+- MCP client token CRUD with per-client allow-lists
+- User management with per-user server access control
+- **Groups** — assign users to groups and inherit access at team scale
+- Self-service token creation from the Settings page
+- One-click **Apply Config** for Claude, Cursor, Codex, Copilot, OpenCode, and Zed
 
-Near-term areas include:
+## 4. Better access control in enterprise mode ✅ Partially shipped in v0.1.0
 
-- per-client credentials
-- more fine-grained ACLs
+Per-user and group-level server allow-lists are now available in the dashboard.
+
+Remaining items:
+
+- per-client credentials (OAuth / OIDC)
+- more fine-grained ACLs (tool-level access per user or group)
+- audit log for access events
 
 # How we make roadmap decisions
 

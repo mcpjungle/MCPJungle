@@ -113,6 +113,31 @@ mcpjungle create mcp-client --conf ./cursor-local.json
 
 See the [configuration file reference](/reference/config-file#token-supply-strategies) for the supported ways to supply a custom token in config files.
 
+## User-level access control
+
+In addition to per-client allow-lists, enterprise mode lets admins control which servers each **user** can access. This matters because users can create their own MCP client tokens from the Settings page — those tokens inherit the user's effective allow-list.
+
+Set per-user access from the **Users** page in the dashboard:
+
+1. Open the Permissions drawer for a user.
+2. Add or remove specific servers, or toggle wildcard access.
+3. Save — the change takes effect for any new client tokens that user creates.
+
+## Group-based access control
+
+Instead of setting access per user, use **Groups** to manage access at team scale:
+
+1. Create a group in the **Groups** page.
+2. Set the group's server allow-list.
+3. Assign users to the group — they inherit the list immediately.
+
+If a user has an explicit override, that overrides the group. Use **Reset to group default** in the Permissions drawer to clear an override and fall back to group inheritance.
+
+**Allow-list resolution priority:**
+1. Explicit per-user allow-list
+2. Group allow-list (inherited)
+3. Wildcard `["*"]` (default)
+
 ## Recommended pattern
 
 For shared environments, create one MCP client per integration or workflow, not one shared token for everything.
@@ -124,7 +149,7 @@ Examples:
 - one for Copilot
 - one per internal agent or service
 
-That keeps access explicit and rotation manageable.
+For human users, group them by team or role and manage access at the group level instead of per user.
 
 ## Related pages
 

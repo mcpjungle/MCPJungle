@@ -5,6 +5,10 @@
   <strong>Run all your MCP servers behind one endpoint</strong>
 </p>
 <p align="center">
+  <a href="https://github.com/dinhdobathi1992/MCPJungle" style="text-decoration: none;">
+    <img src="https://img.shields.io/badge/Fork%20of-mcpjungle%2FMCPJungle-orange?style=flat-square&logo=github" alt="Fork of mcpjungle/MCPJungle" style="max-width: 100%;">
+  </a>
+
   <a href="https://docs.mcpjungle.com" style="text-decoration: none;">
     <img src="https://img.shields.io/badge/Documentation-docs.mcpjungle.com-blue?style=flat-square&logo=book" alt="Documentation" style="max-width: 100%;">
   </a>
@@ -18,6 +22,10 @@
   </a>
 </p>
 
+> **This is a fork of [mcpjungle/MCPJungle](https://github.com/mcpjungle/MCPJungle).**
+> It adds a **Groups** management system on top of the upstream codebase — full backend service, REST API, and dashboard UI.
+> All upstream features, CLI commands, and API endpoints are preserved unchanged.
+
 MCPJungle is a self-hosted MCP gateway for developers and teams who want to manage multiple MCP servers without scattered client configurations, duplicated setup, or inconsistent access control.
 
 Use it **locally** to keep your personal MCP setup clean, or run it as **shared infrastructure** for a team with centralized discovery, access control, and observability.
@@ -25,6 +33,44 @@ Use it **locally** to keep your personal MCP setup clean, or run it as **shared 
 ![diagram](./assets/mcpjungle-diagram/april-2026/mcpjungle-diagram.png)
 
 Instead of wiring every MCP server into every AI client, register your servers once in MCPJungle and let Claude, Cursor, Codex, or your own Agents connect to a single MCP endpoint.
+
+## What this fork adds
+
+### Groups management
+
+Admins can create **Groups** and assign users to them. A group holds a server allow-list that member users inherit when creating their own MCP client tokens.
+
+**Allow-list resolution (priority order):**
+
+1. `User.allow_list` — explicit per-user override set by admin
+2. `Group.allow_list` — inherited when user has no explicit list
+3. `["*"]` — wildcard fallback if neither is set
+
+This lets teams define access policies once at the group level instead of per-user.
+
+**New API endpoints** (admin-only, enterprise mode):
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v0/groups` | List all groups |
+| `POST` | `/api/v0/groups` | Create group |
+| `PUT` | `/api/v0/groups/:name` | Update group |
+| `DELETE` | `/api/v0/groups/:name` | Delete group |
+| `POST` | `/api/v0/groups/:name/members` | Assign user to group |
+| `DELETE` | `/api/v0/groups/:name/members/:username` | Remove user from group |
+
+**Dashboard additions:**
+
+- **Groups page** — create/edit groups, manage server allow-lists, assign/remove members
+- **Users page** — new Group column; shows inherited allow-list with override hint; "Reset to group default" button to clear explicit overrides
+
+<p align="center">
+  <img src="./assets/screenshots/groups.png" alt="Groups management page" width="780">
+</p>
+
+<p align="center">
+  <img src="./assets/screenshots/users.png" alt="Users page with group column" width="780">
+</p>
 
 ## Why MCPJungle?
 
@@ -44,16 +90,59 @@ MCPJungle gives you a single control point:
 - 🗂️ One place to register and manage MCP servers
 - 🔎 Unified discovery for tools, prompts, and resources
 - 🎛️ Optional tool groups to expose only the tools a client should see
+- 👥 User groups with inherited server access control
+- 🖥️ Browser-based Management Dashboard for full admin visibility
 - 📊 Simple access-control and observability hooks for shared deployments
 
 Start with a local setup. Scale to a shared team gateway when you need it.
 
+## What's new in v0.1.0 — Management Dashboard
+
+MCPJungle now ships an embedded **Management Dashboard** served at `/ui` when you start the server with `--ui`.
+
+### Dashboard features
+
+- **Overview** — live stats: registered servers, tools, active clients, users
+- **Servers** — register, enable/disable, delete MCP servers from the browser
+- **Tools** — browse and enable/disable individual tools
+- **Tool Groups** — create named groups with server/tool filters
+- **Clients** — admin CRUD for MCP client tokens with per-client allow-list control
+- **Users** — admin CRUD for users with per-user server access
+- **Groups** — create groups, set server allow-lists, assign users
+- **Settings** — view version, mode, create your own MCP client token, apply config to IDEs
+
+### Self-service client tokens
+
+Non-admin users can create their own MCP client token from the Settings page.  
+The token automatically inherits the server access list configured for that user (or their group) by an admin.  
+A one-click **Apply Config** generates the correct config for Claude, Cursor, Codex, Copilot, OpenCode, and Zed.
+
+### Dashboard preview
+
+<p align="center">
+  <img src="./assets/screenshots/dashboard.png" alt="MCPJungle Management Dashboard" width="780">
+</p>
+
+### Start with the dashboard
+
+```bash
+mcpjungle start --enterprise --ui
+```
+
+The dashboard is off by default so the gateway remains a minimal binary for pure CLI/API use.
+To run the gateway without the dashboard:
+
+```bash
+mcpjungle start --enterprise
+```
+
 ## Documentation
- Mcpjungle documentation has a new home: [https://docs.mcpjungle.com](https://docs.mcpjungle.com).
- 
- Please prefer the docs site over this README for the latest guides, reference, and operational details.
- 
- Your AI Clients can also access the docs using its MCP server `https://docs.mcpjungle.com/mcp`!
+
+Mcpjungle documentation has a new home: [https://docs.mcpjungle.com](https://docs.mcpjungle.com).
+
+Please prefer the docs site over this README for the latest guides, reference, and operational details.
+
+Your AI Clients can also access the docs using its MCP server `https://docs.mcpjungle.com/mcp`!
 
 ## Quickstart
 
@@ -118,6 +207,50 @@ Claude will then attempt to call the `context7__get-library-docs` tool via MCPJu
 You now have a working MCP setup with a single unified endpoint!
 
 Next, explore the complete documentation at [docs.mcpjungle.com](https://docs.mcpjungle.com/) and the [public roadmap](https://docs.mcpjungle.com/roadmap).
+
+## Development
+
+Requires Go and Node.js. Uses [air](https://github.com/air-verse/air) for hot-reload.
+
+```bash
+# Build binary to /tmp/mcpjungle
+make build
+
+# Hot-swap running server (gateway + dashboard UI)
+make restart
+
+# Hot-swap running server (gateway only, no UI)
+make restart-core
+
+# Watch mode with auto-rebuild on .go changes (gateway + UI)
+make dev
+
+# Watch mode, gateway only
+make dev-core
+
+# Vite dev server for UI (proxies /api to :8080)
+make dev-ui
+
+# Run full Go test suite
+make test
+
+# Run linters
+make lint
+```
+
+Override defaults with env vars:
+
+```bash
+PORT=9090 MODE=development make restart
+```
+
+### macOS launchd service
+
+```bash
+make service-install   # install and load auto-start service
+make service-stop      # stop the service
+make service-logs      # tail /tmp/mcpjungle.log
+```
 
 ---
 

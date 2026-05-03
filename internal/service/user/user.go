@@ -24,6 +24,7 @@ type UpdateUserInput struct {
 	RotateAccessToken bool
 	AllowList         []string // nil = no change, empty slice = wildcard (*), non-empty = restrict
 	UpdateAllowList   bool     // explicit flag so empty slice is distinguishable from "not provided"
+	ClearAllowList    bool     // if true, set AllowList = NULL (revert to group inheritance)
 }
 
 func NewUserService(db *gorm.DB) *UserService {
@@ -63,15 +64,10 @@ func (u *UserService) GetUserByAccessToken(token string) (*model.User, error) {
 // CreateUser creates a new user with the specified username.
 // This method currently only supports creating a standard user, ie, user with the "user" role.
 func (u *UserService) CreateUser(input *model.User) (*model.User, error) {
-	allowList := input.AllowList
-	if len(allowList) == 0 {
-		// default: wildcard — user can access all servers
-		allowList, _ = json.Marshal([]string{"*"})
-	}
 	user := model.User{
 		Username:  input.Username,
 		Role:      types.UserRoleUser,
-		AllowList: allowList,
+		AllowList: input.AllowList, // nil = inherit from group (or wildcard default)
 	}
 	if input.AccessToken == "" {
 		// no custom access token provided, generate a new one
@@ -132,6 +128,10 @@ func (u *UserService) UpdateUser(input UpdateUserInput) (*model.User, error) {
 		user.AllowList = encoded
 	}
 
+	if input.ClearAllowList {
+		user.AllowList = nil
+	}
+
 	err = u.db.Save(&user).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to update user: %w", err)
@@ -143,6 +143,15 @@ func (u *UserService) UpdateUser(input UpdateUserInput) (*model.User, error) {
 func (u *UserService) ListUsers() ([]model.User, error) {
 	var users []model.User
 	if err := u.db.Find(&users).Error; err != nil {
+		return nil, fmt.Errorf("failed to list users: %w", err)
+	}
+	return users, nil
+}
+
+// ListUsersWithGroup retrieves all users from the database with their Group preloaded.
+func (u *UserService) ListUsersWithGroup() ([]model.User, error) {
+	var users []model.User
+	if err := u.db.Preload("Group").Find(&users).Error; err != nil {
 		return nil, fmt.Errorf("failed to list users: %w", err)
 	}
 	return users, nil
