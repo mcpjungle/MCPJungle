@@ -31,17 +31,20 @@ type UserConfig struct {
 // A user has lesser privileges than an Admin.
 // They can consume mcpjungle but not necessarily manage it.
 type User struct {
-	Username string `json:"username"`
-	Role     string `json:"role"`
+	Username  string   `json:"username"`
+	Role      string   `json:"role"`
+	AllowList []string `json:"allow_list"` // never omit: [] = no access, ["*"] = wildcard
 }
 
 type CreateOrUpdateUserRequest struct {
-	Username    string `json:"username"`
-	AccessToken string `json:"access_token,omitempty"`
+	Username    string   `json:"username"`
+	AccessToken string   `json:"access_token,omitempty"`
+	AllowList   []string `json:"allow_list,omitempty"`
 }
 
 type CreateOrUpdateUserResponse struct {
-	Username    string `json:"username"`
-	Role        string `json:"role"`
-	AccessToken string `json:"access_token"`
+	Username    string   `json:"username"`
+	Role        string   `json:"role"`
+	AccessToken string   `json:"access_token"`
+	AllowList   []string `json:"allow_list"` // never omit: [] = no access, ["*"] = wildcard
 }

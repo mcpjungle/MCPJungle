@@ -2,6 +2,7 @@
 package user
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -15,6 +16,14 @@ import (
 // UserService provides methods to manage users in the MCPJungle system.
 type UserService struct {
 	db *gorm.DB
+}
+
+type UpdateUserInput struct {
+	Username          string
+	AccessToken       string
+	RotateAccessToken bool
+	AllowList         []string // nil = no change, empty slice = wildcard (*), non-empty = restrict
+	UpdateAllowList   bool     // explicit flag so empty slice is distinguishable from "not provided"
 }
 
 func NewUserService(db *gorm.DB) *UserService {
@@ -54,9 +63,15 @@ func (u *UserService) GetUserByAccessToken(token string) (*model.User, error) {
 // CreateUser creates a new user with the specified username.
 // This method currently only supports creating a standard user, ie, user with the "user" role.
 func (u *UserService) CreateUser(input *model.User) (*model.User, error) {
+	allowList := input.AllowList
+	if len(allowList) == 0 {
+		// default: wildcard — user can access all servers
+		allowList, _ = json.Marshal([]string{"*"})
+	}
 	user := model.User{
-		Username: input.Username,
-		Role:     types.UserRoleUser,
+		Username:  input.Username,
+		Role:      types.UserRoleUser,
+		AllowList: allowList,
 	}
 	if input.AccessToken == "" {
 		// no custom access token provided, generate a new one
@@ -78,9 +93,8 @@ func (u *UserService) CreateUser(input *model.User) (*model.User, error) {
 	return &user, nil
 }
 
-// UpdateUser updates an existing user's information based on the provided input.
-// Currently it only supports updating the user's access token.
-func (u *UserService) UpdateUser(input *model.User) (*model.User, error) {
+// UpdateUser updates an existing user's access token.
+func (u *UserService) UpdateUser(input UpdateUserInput) (*model.User, error) {
 	var user model.User
 	err := u.db.Where("username = ?", input.Username).First(&user).Error
 	if err != nil {
@@ -90,14 +104,33 @@ func (u *UserService) UpdateUser(input *model.User) (*model.User, error) {
 		return nil, fmt.Errorf("failed to find user: %w", err)
 	}
 
-	if input.AccessToken == "" {
-		return nil, fmt.Errorf("access token cannot be empty: %w", apierrors.ErrInvalidInput)
+	if input.AccessToken != "" && input.RotateAccessToken {
+		return nil, fmt.Errorf("access_token and rotate_access_token cannot both be set: %w", apierrors.ErrInvalidInput)
 	}
-	// validate the user-provided custom access token
-	if err := internal.ValidateAccessToken(input.AccessToken); err != nil {
-		return nil, fmt.Errorf("invalid access token: %v: %w", err, apierrors.ErrInvalidInput)
+
+	switch {
+	case input.AccessToken != "":
+		if err := internal.ValidateAccessToken(input.AccessToken); err != nil {
+			return nil, fmt.Errorf("invalid access token: %v: %w", err, apierrors.ErrInvalidInput)
+		}
+		user.AccessToken = input.AccessToken
+	case input.RotateAccessToken:
+		token, err := internal.GenerateAccessToken()
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate access token: %w", err)
+		}
+		user.AccessToken = token
 	}
-	user.AccessToken = input.AccessToken
+
+	if input.UpdateAllowList {
+		// Explicitly marshal whatever was sent — empty slice = no access, ["*"] = wildcard.
+		// Never substitute a default here; the caller is making a deliberate choice.
+		encoded, err := json.Marshal(input.AllowList)
+		if err != nil {
+			return nil, fmt.Errorf("invalid allow_list: %w", err)
+		}
+		user.AllowList = encoded
+	}
 
 	err = u.db.Save(&user).Error
 	if err != nil {

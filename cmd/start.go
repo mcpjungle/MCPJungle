@@ -66,6 +66,7 @@ var (
 	startServerCmdBindPort          string
 	startServerCmdEnterpriseEnabled bool
 	startServerCmdProdEnabled       bool
+	startServerCmdUIEnabled         bool
 )
 
 var startServerCmd = &cobra.Command{
@@ -114,6 +115,13 @@ func init() {
 		"prod",
 		false,
 		"[DEPRECATED] Alias for --enterprise flag.",
+	)
+	startServerCmd.Flags().BoolVar(
+		&startServerCmdUIEnabled,
+		"ui",
+		false,
+		"Enable the embedded management dashboard UI served at /ui. "+
+			"When omitted the gateway runs as a pure MCP proxy with no web interface.",
 	)
 
 	rootCmd.AddCommand(startServerCmd)
@@ -447,6 +455,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		ToolGroupService:  toolGroupService,
 		OtelProviders:     otelProviders,
 		Metrics:           mcpMetrics,
+		UIEnabled:         startServerCmdUIEnabled,
 	}
 	s, err := api.NewServer(opts)
 	if err != nil {
@@ -490,7 +499,13 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 
 	// Display startup banner when the server is started
 	cmd.Print(asciiArt)
-	cmd.Printf("MCPJungle HTTP server listening on :%s\n\n", bindPort)
+	cmd.Printf("MCPJungle HTTP server listening on :%s\n", bindPort)
+	if startServerCmdUIEnabled {
+		cmd.Printf("Dashboard UI:  http://localhost:%s/ui\n", bindPort)
+	} else {
+		cmd.Printf("Dashboard UI:  disabled  (pass --ui to enable)\n")
+	}
+	cmd.Println()
 
 	// Create a cancellable base context for all requests - when cancelled, all active connections terminate
 	requestBaseCtx, cancelRequests := context.WithCancel(context.Background())

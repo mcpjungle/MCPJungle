@@ -35,3 +35,24 @@ dist/
 mcpjungle
 mcp.db
 mcpjungle.db
+.air.toml
+
+# UI
+ui/node_modules/
+internal/ui/dist/*
+!internal/ui/dist/placeholder.txt
+
+# Screenshots (local dev captures)
+screenshots/
+
+# Local MCP config (may contain tokens)
+.mcp.json
+servers.json
+
+codex_plan.md
+AGENTS.md
+DESIGN.md
+
+
+.codex
+.cursor

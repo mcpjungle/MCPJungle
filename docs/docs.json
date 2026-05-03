@@ -3,14 +3,14 @@
   "name": "mcpjungle",
   "theme": "aspen",
   "colors": {
-    "primary": "#5c64f4",
-    "light": "#acb4fc",
-    "dark": "#ffffff"
+    "primary": "#1d7a53",
+    "light": "#7bd39a",
+    "dark": "#d8ffe1"
   },
-  "favicon": "/images/logo.png",
+  "favicon": "/favicon.svg",
   "logo": {
-    "light": "/images/logo.png",
-    "dark": "/images/logo.png"
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
   },
   "navbar": {
     "primary": {

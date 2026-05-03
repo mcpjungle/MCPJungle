@@ -1,0 +1,66 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="mBase" x1="196" y1="146" x2="840" y2="674" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#236E49"/>
+      <stop offset="0.5" stop-color="#11513A"/>
+      <stop offset="1" stop-color="#072C24"/>
+    </linearGradient>
+    <linearGradient id="cpBase" x1="110" y1="726" x2="846" y2="1004" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1A5F43"/>
+      <stop offset="0.45" stop-color="#0E4936"/>
+      <stop offset="1" stop-color="#082A23"/>
+    </linearGradient>
+    <linearGradient id="trail" x1="510" y1="236" x2="522" y2="674" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F4FFD7"/>
+      <stop offset="0.58" stop-color="#DBF387"/>
+      <stop offset="1" stop-color="#96DC63"/>
+    </linearGradient>
+    <linearGradient id="vineGlow" x1="484" y1="678" x2="546" y2="920" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#DFFF9F"/>
+      <stop offset="1" stop-color="#6DCB67"/>
+    </linearGradient>
+    <mask id="mMask" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+      <rect width="1024" height="1024" fill="black"/>
+      <path d="M174 628V154H316L512 500L708 154H850V628" stroke="white" stroke-width="174" stroke-linejoin="round" stroke-linecap="butt"/>
+    </mask>
+    <mask id="cpMask" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+      <rect width="1024" height="1024" fill="black"/>
+      <path d="M382 760C344 732 298 720 252 720C182 720 136 772 136 844C136 916 182 968 252 968C298 968 344 956 382 928" stroke="white" stroke-width="56" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M552 970V718H698C764 718 812 760 812 820C812 882 764 924 698 924H552" stroke="white" stroke-width="56" stroke-linecap="round" stroke-linejoin="round"/>
+    </mask>
+  </defs>
+
+  <path d="M174 628V154H316L512 500L708 154H850V628" stroke="#EEFFD7" stroke-width="178" stroke-linejoin="round" stroke-linecap="butt" opacity="0.12"/>
+  <g mask="url(#mMask)">
+    <rect width="1024" height="700" fill="url(#mBase)"/>
+    <path d="M0 128C120 82 270 94 406 146C562 206 752 194 1024 92V314H0V128Z" fill="#A4DF98" opacity="0.8"/>
+    <path d="M0 240C130 196 308 202 466 270C642 346 828 344 1024 250V456H0V240Z" fill="#60BA6C" opacity="0.88"/>
+    <path d="M0 370C128 334 298 346 456 418C640 500 820 500 1024 396V580H0V370Z" fill="#246749"/>
+    <path d="M0 490C136 454 316 462 486 540C646 614 836 620 1024 520V700H0V490Z" fill="#0B352A"/>
+    <path d="M164 520C242 512 304 540 350 620C276 642 204 610 164 520Z" fill="#2F8A55" opacity="0.78"/>
+    <path d="M740 512C818 500 882 538 930 618C854 642 784 614 740 512Z" fill="#74D06F" opacity="0.78"/>
+    <path d="M512 238C484 308 472 380 478 446C484 516 504 584 542 646" stroke="#103E31" stroke-width="64" stroke-linecap="round" opacity="0.4"/>
+    <path d="M512 240C488 308 478 378 484 444C490 510 508 574 540 636" stroke="url(#trail)" stroke-width="38" stroke-linecap="round"/>
+  </g>
+
+  <path d="M100 1000V688H848V1000" stroke="#EEFFD7" stroke-width="68" stroke-linecap="round" stroke-linejoin="round" opacity="0.08"/>
+  <g mask="url(#cpMask)">
+    <rect x="90" y="688" width="758" height="336" fill="url(#cpBase)"/>
+    <path d="M90 730C196 696 308 706 426 744C568 790 706 794 848 738V820H90V730Z" fill="#8BD480" opacity="0.86"/>
+    <path d="M90 804C194 770 318 780 446 826C580 876 716 880 848 832V910H90V804Z" fill="#54B867" opacity="0.92"/>
+    <path d="M90 892C212 860 346 872 478 924C612 978 742 982 848 942V1024H90V892Z" fill="#124635"/>
+    <path d="M174 814C226 790 282 804 322 868C266 886 208 868 174 814Z" fill="#BCE989" opacity="0.9"/>
+    <path d="M246 816C218 852 196 900 182 952" stroke="#11402F" stroke-width="10" stroke-linecap="round"/>
+    <path d="M228 860L196 888" stroke="#11402F" stroke-width="10" stroke-linecap="round"/>
+    <path d="M262 888L224 926" stroke="#11402F" stroke-width="10" stroke-linecap="round"/>
+    <path d="M610 960C646 896 704 850 794 816C778 908 714 970 610 960Z" fill="#70CD6C" opacity="0.92"/>
+    <path d="M676 942C704 900 740 864 792 830" stroke="#0F4A35" stroke-width="10" stroke-linecap="round"/>
+    <path d="M700 908L748 870" stroke="#0F4A35" stroke-width="10" stroke-linecap="round"/>
+    <path d="M650 980L698 930" stroke="#0F4A35" stroke-width="10" stroke-linecap="round"/>
+    <path d="M454 700C462 780 486 842 528 900C554 934 590 956 628 968" stroke="#103E31" stroke-width="20" stroke-linecap="round" opacity="0.5"/>
+    <path d="M458 704C468 780 490 838 530 892C554 924 586 944 618 956" stroke="url(#vineGlow)" stroke-width="12" stroke-linecap="round"/>
+    <path d="M506 834L478 792" stroke="#DFFF9F" stroke-width="10" stroke-linecap="round"/>
+    <path d="M540 880L580 860" stroke="#DFFF9F" stroke-width="10" stroke-linecap="round"/>
+    <path d="M550 914L594 922" stroke="#DFFF9F" stroke-width="10" stroke-linecap="round"/>
+  </g>
+</svg>
