@@ -80,11 +80,32 @@ func (m *McpClientService) GetClientByToken(token string) (*model.McpClient, err
 	return &client, nil
 }
 
+// ListClientsByOwner retrieves all MCP clients owned by a specific user.
+func (m *McpClientService) ListClientsByOwner(username string) ([]*model.McpClient, error) {
+	var clients []*model.McpClient
+	if err := m.db.Where("owner_username = ?", username).Find(&clients).Error; err != nil {
+		return nil, err
+	}
+	return clients, nil
+}
+
 // DeleteClient removes an MCP client from the database and immediately revokes its access.
 // It is an idempotent operation. Deleting a client that does not exist will not return an error.
 func (m *McpClientService) DeleteClient(name string) error {
 	result := m.db.Unscoped().Where("name = ?", name).Delete(&model.McpClient{})
 	return result.Error
+}
+
+// DeleteClientByOwner removes an MCP client only if it is owned by the given user.
+func (m *McpClientService) DeleteClientByOwner(name, username string) error {
+	result := m.db.Unscoped().Where("name = ? AND owner_username = ?", name, username).Delete(&model.McpClient{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("client not found: %w", apierrors.ErrNotFound)
+	}
+	return nil
 }
 
 // UpdateClient updates an existing MCP client's information in the database.

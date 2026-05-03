@@ -56,3 +56,5 @@ DESIGN.md
 
 .codex
 .cursor
+# Claude Code local backend config (contains credentials)
+.claude/settings.local.json

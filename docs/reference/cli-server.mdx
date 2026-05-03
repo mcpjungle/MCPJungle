@@ -25,6 +25,10 @@ The server listens on port `8080` by default and exposes the MCP proxy at `/mcp`
   Start the server in enterprise mode, which enables access control, authenticated clients, and user management. Equivalent to setting `SERVER_MODE=enterprise`. When using this flag on a fresh database, the server will print a reminder to run `init-server` before it can be used.
 </ParamField>
 
+<ParamField body="--ui" type="boolean" default="false">
+  Enable the embedded Management Dashboard served at `/ui`. The dashboard provides browser-based administration for servers, tools, tool groups, clients, users, groups, and settings. It is disabled by default so the gateway binary stays minimal for pure CLI/API deployments.
+</ParamField>
+
 ### Environment variables
 
 The `start` command reads environment variables for server mode, database configuration, timeouts, and telemetry. A `.env` file in the working directory is loaded automatically if present.
@@ -49,6 +53,12 @@ Start in enterprise mode:
 
 ```bash
 mcpjungle start --enterprise
+```
+
+Start in enterprise mode with the Management Dashboard:
+
+```bash
+mcpjungle start --enterprise --ui
 ```
 
 Start with a Postgres database:

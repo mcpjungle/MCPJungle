@@ -18,6 +18,15 @@ export type CurrentUser = {
   username: string;
   role: string;
   allow_list?: string[];
+  group_id?: number;
+  group_name?: string;
+};
+
+export type Group = {
+  name: string;
+  description: string;
+  allow_list: string[];
+  member_count: number;
 };
 
 export type BootstrapReadyState = {
@@ -105,7 +114,7 @@ export type UpdateClientInput = {
 export type UpdateUserInput = {
   access_token?: string;
   rotate_access_token?: boolean;
-  allow_list?: string[];
+  allow_list?: string[] | null; // null = clear override (revert to group), [] = no access, [...] = explicit
   update_allow_list?: boolean;
 };
 

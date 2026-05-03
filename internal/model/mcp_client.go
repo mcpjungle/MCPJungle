@@ -21,6 +21,9 @@ type McpClient struct {
 	// storing the list of server names as a JSON array is a convenient way for now.
 	// In the future, this will be removed in favor of a separate table for ACLs.
 	AllowList datatypes.JSON `json:"allow_list" gorm:"type:jsonb; not null"`
+
+	// OwnerUsername links self-service tokens to the user who created them.
+	OwnerUsername *string `json:"owner_username,omitempty" gorm:"index"`
 }
 
 // CheckHasServerAccess returns true if this client has access to the specified MCP server.

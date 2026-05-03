@@ -22,4 +22,7 @@ type User struct {
 	// Stored as a JSON array of server names, e.g. ["atlassian", "github"].
 	// Use "*" as a single entry to allow all servers explicitly.
 	AllowList datatypes.JSON `json:"allow_list" gorm:"type:jsonb"`
+
+	GroupID *uint  `json:"group_id" gorm:"index"`
+	Group   *Group `json:"group,omitempty" gorm:"foreignKey:GroupID"`
 }

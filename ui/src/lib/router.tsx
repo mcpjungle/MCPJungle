@@ -3,6 +3,7 @@ import { createBrowserRouter } from "react-router-dom";
 import { AppShell } from "../components/layout/AppShell";
 import { ClientsPage } from "../pages/ClientsPage";
 import { DashboardPage } from "../pages/DashboardPage";
+import { GroupsPage } from "../pages/GroupsPage";
 import { ServerEditorPage } from "../pages/ServerEditorPage";
 import { ServersPage } from "../pages/ServersPage";
 import { SettingsPage } from "../pages/SettingsPage";
@@ -25,6 +26,7 @@ export function createAppRouter() {
           { path: "tool-groups", element: <ToolGroupsPage /> },
           { path: "clients", element: <ClientsPage /> },
           { path: "users", element: <UsersPage /> },
+          { path: "groups", element: <GroupsPage /> },
           { path: "settings", element: <SettingsPage /> },
         ],
       },

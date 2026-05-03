@@ -5,7 +5,7 @@ import { useAppContext } from "../App";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 import { EmptyState } from "../components/ui/EmptyState";
 import { api } from "../lib/api";
-import type { CreateOrUpdateUserResponse, CurrentUser, McpServer } from "../lib/types";
+import type { CreateOrUpdateUserResponse, CurrentUser, Group, McpServer } from "../lib/types";
 
 type DrawerMode = "create" | "rotate" | "permissions";
 
@@ -43,6 +43,12 @@ export function UsersPage() {
     queryKey: ["servers"],
     queryFn: () => api.servers(token || undefined),
     enabled: isAdminEquivalent,
+  });
+
+  const groupsQuery = useQuery({
+    queryKey: ["groups"],
+    queryFn: () => api.groups(token || undefined),
+    enabled: isAdminEquivalent && settings.mode !== "development",
   });
 
   const createMutation = useMutation({
@@ -113,9 +119,18 @@ export function UsersPage() {
   }
 
   function openPermissions(user: CurrentUser) {
-    // Server always sends allow_list now. undefined = old record with no value set (treat as wildcard).
-    // [] = explicitly no access. Never coerce [] to ["*"].
-    setPermAllowList(user.allow_list === undefined ? ["*"] : user.allow_list);
+    if (user.allow_list !== undefined) {
+      // User has an explicit allow_list set by admin — use it as-is.
+      setPermAllowList(user.allow_list);
+    } else if (user.group_name) {
+      // No explicit override — user inherits from group. Pre-load group's list so
+      // admin sees the effective access, not a misleading wildcard.
+      const group = (groupsQuery.data ?? []).find((g: Group) => g.name === user.group_name);
+      setPermAllowList(group ? group.allow_list : ["*"]);
+    } else {
+      // No group, no explicit list — wildcard default.
+      setPermAllowList(["*"]);
+    }
     setFormError("");
     setDrawerTarget(user);
     setDrawerMode("permissions");
@@ -159,7 +174,22 @@ export function UsersPage() {
     permMutation.mutate({ username: drawerTarget.username, allow_list: permAllowList });
   }
 
-  const isPending = createMutation.isPending || rotateMutation.isPending || permMutation.isPending;
+  const resetToGroupMutation = useMutation({
+    mutationFn: (username: string) =>
+      api.updateUser(username, { allow_list: null, update_allow_list: true }, token || undefined),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["users"] });
+      closeDrawer();
+    },
+    onError: (err: Error) => setFormError(err.message),
+  });
+
+  function handleResetToGroup() {
+    if (!drawerTarget) return;
+    resetToGroupMutation.mutate(drawerTarget.username);
+  }
+
+  const isPending = createMutation.isPending || rotateMutation.isPending || permMutation.isPending || resetToGroupMutation.isPending;
   const users = usersQuery.data ?? [];
   const servers: McpServer[] = serversQuery.data ?? [];
 
@@ -298,6 +328,21 @@ export function UsersPage() {
           <p className="mt-1 text-xs text-muted">
             Controls which MCP servers this user&apos;s self-created client tokens can access.
           </p>
+          {drawerTarget?.group_name ? (
+            drawerTarget.allow_list === undefined ? (
+              <div className="mt-3 rounded-ui border border-yellow-500/30 bg-yellow-500/5 px-3 py-2">
+                <p className="text-xs text-yellow-400">
+                  Inheriting access from group: <strong>{drawerTarget.group_name}</strong>. Set an explicit list below to override.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-3 rounded-ui border border-yellow-500/30 bg-yellow-500/5 px-3 py-2">
+                <p className="text-xs text-yellow-400">
+                  This user has an explicit override that takes priority over the group.
+                </p>
+              </div>
+            )
+          ) : null}
           <div className="mt-4">
             <AllowListEditor
               value={permAllowList}
@@ -306,7 +351,7 @@ export function UsersPage() {
             />
           </div>
           {formError ? <p className="mt-3 text-sm text-down">{formError}</p> : null}
-          <div className="mt-5 flex gap-3">
+          <div className="mt-5 flex gap-3 flex-wrap">
             <button
               className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-ink disabled:opacity-40"
               disabled={isPending}
@@ -317,6 +362,15 @@ export function UsersPage() {
             <button className="rounded-md border border-line px-4 py-2 text-sm text-body" onClick={closeDrawer}>
               Cancel
             </button>
+            {drawerTarget?.group_name && (
+              <button
+                onClick={handleResetToGroup}
+                disabled={isPending}
+                className="px-3 py-1.5 text-sm text-[#F0B90B] border border-[#F0B90B]/30 rounded hover:bg-[#F0B90B]/10 disabled:opacity-40"
+              >
+                Reset to group default
+              </button>
+            )}
           </div>
         </div>
       ) : null}
@@ -333,6 +387,9 @@ export function UsersPage() {
                 </th>
                 <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-[0.18em] text-muted">
                   Role
+                </th>
+                <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-[0.18em] text-muted">
+                  Group
                 </th>
                 <th className="px-5 py-3 text-left text-xs font-medium uppercase tracking-[0.18em] text-muted">
                   Server Access
@@ -364,7 +421,24 @@ export function UsersPage() {
                     </span>
                   </td>
                   <td className="px-5 py-3">
-                    <AllowListBadges allowList={user.allow_list ?? []} />
+                    {user.group_name ? (
+                      <span className="rounded-full bg-elevated px-2 py-0.5 text-xs font-medium text-body">
+                        {user.group_name}
+                      </span>
+                    ) : (
+                      <span className="text-[#848E9C]">—</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3">
+                    {user.allow_list === undefined ? (
+                      user.group_name ? (
+                        <span className="text-xs text-[#848E9C] italic">from group</span>
+                      ) : (
+                        <span className="rounded-full bg-up/10 px-2 py-0.5 text-xs font-medium text-up">All servers</span>
+                      )
+                    ) : (
+                      <AllowListBadges allowList={user.allow_list} />
+                    )}
                   </td>
                   <td className="max-w-xs px-5 py-3">
                     {revealedTokens[user.username] ? (

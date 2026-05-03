@@ -22,6 +22,7 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/migrations"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
+	groupsvc "github.com/mcpjungle/mcpjungle/internal/service/group"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
@@ -438,6 +439,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 
 	configService := config.NewServerConfigService(dbConn)
 	userService := user.NewUserService(dbConn)
+	groupService := groupsvc.NewGroupService(dbConn)
 
 	toolGroupService, err := toolgroup.NewToolGroupService(dbConn, mcpService)
 	if err != nil {
@@ -453,6 +455,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		ConfigService:     configService,
 		UserService:       userService,
 		ToolGroupService:  toolGroupService,
+		GroupService:      groupService,
 		OtelProviders:     otelProviders,
 		Metrics:           mcpMetrics,
 		UIEnabled:         startServerCmdUIEnabled,

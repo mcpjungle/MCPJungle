@@ -14,19 +14,25 @@ import (
 func (s *Server) createUserHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input struct {
-			Username    string   `json:"username"`
-			AccessToken string   `json:"access_token"`
-			AllowList   []string `json:"allow_list"`
+			Username    string    `json:"username"`
+			AccessToken string    `json:"access_token"`
+			AllowList   *[]string `json:"allow_list"` // pointer: nil = not provided (inherit from group)
 		}
 		if err := c.ShouldBindJSON(&input); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
+		var allowList datatypes.JSON
+		if input.AllowList != nil {
+			b, _ := json.Marshal(*input.AllowList)
+			allowList = datatypes.JSON(b)
+		}
+
 		newUser, err := s.userService.CreateUser(&model.User{
 			Username:    input.Username,
 			AccessToken: input.AccessToken,
-			AllowList:   datatypes.JSON(mustMarshalStringSlice(input.AllowList)),
+			AllowList:   allowList,
 		})
 		if err != nil {
 			handleServiceError(c, err)
@@ -45,7 +51,7 @@ func (s *Server) createUserHandler() gin.HandlerFunc {
 
 func (s *Server) listUsersHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		users, err := s.userService.ListUsers()
+		users, err := s.userService.ListUsersWithGroup()
 		if err != nil {
 			handleServiceError(c, err)
 			return
@@ -53,10 +59,16 @@ func (s *Server) listUsersHandler() gin.HandlerFunc {
 
 		resp := make([]*types.User, len(users))
 		for i, u := range users {
+			groupName := ""
+			if u.Group != nil {
+				groupName = u.Group.Name
+			}
 			resp[i] = &types.User{
 				Username:  u.Username,
 				Role:      string(u.Role),
 				AllowList: parseAllowList(u.AllowList),
+				GroupID:   u.GroupID,
+				GroupName: groupName,
 			}
 		}
 
@@ -72,24 +84,38 @@ func (s *Server) updateUserHandler() gin.HandlerFunc {
 			return
 		}
 
-		var input struct {
-			AccessToken       string   `json:"access_token"`
-			RotateAccessToken bool     `json:"rotate_access_token"`
-			AllowList         []string `json:"allow_list"`
-			UpdateAllowList   bool     `json:"update_allow_list"`
+		var body struct {
+			AccessToken       string          `json:"access_token"`
+			RotateAccessToken bool            `json:"rotate_access_token"`
+			AllowList         json.RawMessage `json:"allow_list"` // RawMessage to detect null vs absent
+			UpdateAllowList   bool            `json:"update_allow_list"`
 		}
-		if err := c.ShouldBindJSON(&input); err != nil {
+		if err := c.ShouldBindJSON(&body); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 
-		updatedUser, err := s.userService.UpdateUser(user.UpdateUserInput{
+		input := user.UpdateUserInput{
 			Username:          username,
-			AccessToken:       input.AccessToken,
-			RotateAccessToken: input.RotateAccessToken,
-			AllowList:         input.AllowList,
-			UpdateAllowList:   input.UpdateAllowList,
-		})
+			AccessToken:       body.AccessToken,
+			RotateAccessToken: body.RotateAccessToken,
+		}
+
+		if body.UpdateAllowList {
+			if string(body.AllowList) == "null" || len(body.AllowList) == 0 {
+				input.ClearAllowList = true
+			} else {
+				var list []string
+				if err := json.Unmarshal(body.AllowList, &list); err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "invalid allow_list"})
+					return
+				}
+				input.AllowList = list
+				input.UpdateAllowList = true
+			}
+		}
+
+		updatedUser, err := s.userService.UpdateUser(input)
 		if err != nil {
 			handleServiceError(c, err)
 			return
@@ -106,31 +132,18 @@ func (s *Server) updateUserHandler() gin.HandlerFunc {
 }
 
 // parseAllowList decodes a JSON-stored allow list into a string slice.
-// null / missing DB value → ["*"]  (wildcard default for unset users)
-// []                      → []     (explicitly no access — never nil, so JSON encodes as [])
+// null / missing DB value → nil      (no explicit override; omitted from JSON via omitempty)
+// []                      → []       (explicitly no access)
 // ["a","b"]               → ["a","b"]
 func parseAllowList(raw datatypes.JSON) []string {
 	if len(raw) == 0 {
-		return []string{"*"}
+		return nil
 	}
-	// Use a pre-initialized slice so json.Marshal always emits [] not null.
 	list := make([]string, 0)
 	if err := json.Unmarshal(raw, &list); err != nil {
-		return []string{"*"}
+		return nil
 	}
 	return list
-}
-
-// mustMarshalStringSlice marshals a string slice to JSON bytes; falls back to wildcard on error.
-func mustMarshalStringSlice(s []string) []byte {
-	if s == nil {
-		return []byte(`["*"]`)
-	}
-	b, err := json.Marshal(s)
-	if err != nil {
-		return []byte(`["*"]`)
-	}
-	return b
 }
 
 func (s *Server) deleteUserHandler() gin.HandlerFunc {

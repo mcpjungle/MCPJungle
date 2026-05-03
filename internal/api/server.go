@@ -10,6 +10,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
+	groupsvc "github.com/mcpjungle/mcpjungle/internal/service/group"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
@@ -43,6 +44,7 @@ type ServerOptions struct {
 	ConfigService    *config.ServerConfigService
 	UserService      *user.UserService
 	ToolGroupService *toolgroup.ToolGroupService
+	GroupService     *groupsvc.GroupService
 
 	OtelProviders *telemetry.Providers
 	Metrics       telemetry.CustomMetrics
@@ -65,6 +67,7 @@ type Server struct {
 	configService    *config.ServerConfigService
 	userService      *user.UserService
 	toolGroupService *toolgroup.ToolGroupService
+	groupService     *groupsvc.GroupService
 
 	otelProviders *telemetry.Providers
 	metrics       telemetry.CustomMetrics
@@ -87,6 +90,7 @@ func NewServer(opts *ServerOptions) (*Server, error) {
 		configService:     opts.ConfigService,
 		userService:       opts.UserService,
 		toolGroupService:  opts.ToolGroupService,
+		groupService:      opts.GroupService,
 		otelProviders:     opts.OtelProviders,
 		metrics:           opts.Metrics,
 		uiEnabled:         opts.UIEnabled,
@@ -256,8 +260,10 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 
 		userAPI.GET("/users/whoami", requireEnterpriseMode, s.whoAmIHandler())
 
-		// self-service: any authenticated user can create their own MCP client token
+		// self-service: any authenticated user can manage their own MCP client tokens
+		userAPI.GET("/clients/self", requireEnterpriseMode, s.listSelfClientsHandler())
 		userAPI.POST("/clients/self", requireEnterpriseMode, s.createSelfClientHandler())
+		userAPI.DELETE("/clients/self/:name", requireEnterpriseMode, s.deleteSelfClientHandler())
 		// self-service: apply config to local IDE/agent tools via the setup script
 		userAPI.POST("/clients/self/apply-config", requireEnterpriseMode, s.applySelfClientConfigHandler())
 	}
@@ -331,6 +337,14 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		adminAPI.GET("/tool-groups", s.listToolGroupsHandler())
 		adminAPI.DELETE("/tool-groups/:name", s.deleteToolGroupHandler())
 		adminAPI.PUT("/tool-groups/:name", s.updateToolGroupHandler())
+
+		// Group management (enterprise + admin)
+		adminAPI.POST("/groups", requireEnterpriseMode, s.createGroupHandler)
+		adminAPI.GET("/groups", requireEnterpriseMode, s.listGroupsHandler)
+		adminAPI.PUT("/groups/:name", requireEnterpriseMode, s.updateGroupHandler)
+		adminAPI.DELETE("/groups/:name", requireEnterpriseMode, s.deleteGroupHandler)
+		adminAPI.POST("/groups/:name/members", requireEnterpriseMode, s.assignUserToGroupHandler)
+		adminAPI.DELETE("/groups/:name/members/:username", requireEnterpriseMode, s.removeUserFromGroupHandler)
 	}
 
 	return r, nil

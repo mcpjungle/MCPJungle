@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useAppContext } from "../App";
 import { api } from "../lib/api";
-import type { McpClientWithToken } from "../lib/types";
+import type { McpClient, McpClientWithToken } from "../lib/types";
 
 function formatVersion(v: string): string {
   if (/^v?\d+\.\d+\.\d+$/.test(v)) return v;
@@ -218,6 +218,62 @@ function ConnectSection({
   );
 }
 
+function AllowListPills({ list }: { list: string[] | undefined }) {
+  if (!list) return <span className="text-xs text-muted italic">from group / default</span>;
+  if (list.length === 0) return <span className="text-xs text-down">No access</span>;
+  if (list.includes("*")) return <span className="rounded-full bg-up/10 px-2 py-0.5 text-xs font-medium text-up">All servers</span>;
+  return (
+    <div className="flex flex-wrap gap-1">
+      {list.map((s) => (
+        <span key={s} className="rounded-full bg-accent/10 px-2 py-0.5 font-mono text-[11px] text-accent">{s}</span>
+      ))}
+    </div>
+  );
+}
+
+function MyClientsSection({ token: userToken }: { token: string }) {
+  const qc = useQueryClient();
+  const { data: clients, isLoading } = useQuery({
+    queryKey: ["selfClients", userToken],
+    queryFn: () => api.selfClients(userToken),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (name: string) => api.deleteSelfClient(name, userToken),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["selfClients"] }),
+  });
+
+  if (isLoading) return <p className="text-sm text-muted">Loading…</p>;
+
+  const list: McpClient[] = clients ?? [];
+  if (list.length === 0) {
+    return <p className="text-sm text-muted">No MCP client tokens yet. Create one in the "Connect to IDE / Agent" section above.</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {list.map((c) => (
+        <div key={c.name} className="flex items-center gap-3 rounded-ui border border-line bg-shell px-4 py-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-body truncate">{c.name}</p>
+            <div className="mt-1">
+              <AllowListPills list={c.allow_list} />
+            </div>
+          </div>
+          <button
+            className="shrink-0 rounded border border-down/30 px-2.5 py-1 text-xs text-down transition hover:bg-down/10 disabled:opacity-40"
+            disabled={deleteMutation.isPending}
+            onClick={() => deleteMutation.mutate(c.name)}
+          >
+            Revoke
+          </button>
+        </div>
+      ))}
+      <p className="text-xs text-muted">Access is managed by your admin. Contact them to change server permissions.</p>
+    </div>
+  );
+}
+
 export function SettingsPage() {
   const { settings, metadata, token, clearToken, user } = useAppContext();
   const isEnterprise = settings.mode !== "development";
@@ -404,6 +460,18 @@ export function SettingsPage() {
           </div>
         </section>
       )}
+
+      {/* My Clients — enterprise only */}
+      {isEnterprise && token ? (
+        <section className="rounded-panel border border-line bg-panel">
+          <div className="border-b border-line px-5 py-3">
+            <p className="text-xs font-medium uppercase tracking-widest text-muted">My MCP Clients</p>
+          </div>
+          <div className="px-5 py-5">
+            <MyClientsSection token={token} />
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
