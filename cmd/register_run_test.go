@@ -10,6 +10,7 @@ import (
 
 	"github.com/mcpjungle/mcpjungle/client"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/spf13/cobra"
 )
@@ -185,7 +186,8 @@ func TestRunRegisterMCPServer_LazilyStartsOAuthCallbackOnlyAfterOAuthIsRequired(
 				}
 				w.WriteHeader(http.StatusBadRequest)
 				_ = json.NewEncoder(w).Encode(map[string]string{
-					"error": upstreamOAuthRedirectURIMissingMsg + ": invalid user input",
+					"error": "upstream server requires OAuth authorization, but oauth_redirect_uri was not provided: invalid user input",
+					"code":  apierrors.CodeUpstreamOAuthRequired,
 				})
 				return
 			}

@@ -107,3 +107,19 @@ func TestInvalidInputWrapping(t *testing.T) {
 	testhelpers.AssertTrue(t, errors.Is(doubleWrapped, apierrors.ErrInvalidInput), "double-wrapped must match")
 	testhelpers.AssertFalse(t, errors.Is(unrelated, apierrors.ErrInvalidInput), "unrelated error must not match")
 }
+
+func TestHandleServiceError_UpstreamOAuthRequiredIncludesCode(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	router.GET("/test", func(c *gin.Context) {
+		handleServiceError(c, fmt.Errorf("oauth redirect missing: %w", errors.Join(apierrors.ErrInvalidInput, apierrors.ErrUpstreamOAuthRequired)))
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	testhelpers.AssertEqual(t, http.StatusBadRequest, w.Code)
+	testhelpers.AssertStringContains(t, w.Body.String(), apierrors.CodeUpstreamOAuthRequired)
+}

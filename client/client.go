@@ -54,6 +54,17 @@ func (c *Client) newRequest(method, url string, body io.Reader) (*http.Request, 
 // ErrorResponse represents the JSON structure of error responses from the server
 type ErrorResponse struct {
 	Error string `json:"error"`
+	Code  string `json:"code,omitempty"`
+}
+
+// APIError is a machine-readable API error returned by the MCPJungle server.
+type APIError struct {
+	Message string
+	Code    string
+}
+
+func (e *APIError) Error() string {
+	return e.Message
 }
 
 // parseErrorResponse parses HTTP error responses (4xx and 5xx) and returns a user-friendly error message
@@ -72,7 +83,7 @@ func (c *Client) parseErrorResponse(resp *http.Response) error {
 			return fmt.Errorf("request failed with status: %d, message: %s", resp.StatusCode, string(body))
 		}
 		// Return the parsed error message
-		return fmt.Errorf("%s", errorResp.Error)
+		return &APIError{Message: errorResp.Error, Code: errorResp.Code}
 	}
 
 	// For any other status code, return the full response

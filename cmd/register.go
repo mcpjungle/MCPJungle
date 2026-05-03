@@ -3,21 +3,21 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
-	"strings"
 	"time"
 
+	"github.com/mcpjungle/mcpjungle/client"
 	"github.com/mcpjungle/mcpjungle/internal/configresolver"
+	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/spf13/cobra"
 )
-
-const upstreamOAuthRedirectURIMissingMsg = "upstream server requires OAuth authorization, but oauth_redirect_uri was not provided"
 
 var (
 	registerCmdServerName  string
@@ -125,9 +125,11 @@ func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	result, err := apiClient.RegisterServer(&input, registerCmdForce)
 	var callbackSrv *oauthCallbackServer
+	result, err := apiClient.RegisterServer(&input, registerCmdForce)
 	if err != nil && shouldRetryRegisterWithOAuthCallback(err, &input) {
+		// server registration failed because the server requires oauth.
+		// Start the local callback server and retry registration with the callback URI included.
 		callbackSrv, err = newOAuthCallbackServer()
 		if err != nil {
 			return fmt.Errorf("failed to start local OAuth callback server: %w", err)
@@ -138,6 +140,7 @@ func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
 		result, err = apiClient.RegisterServer(&input, registerCmdForce)
 	}
 	if err != nil {
+		// server registration failed due to an unexpected reason.
 		return fmt.Errorf("failed to register server: %w", err)
 	}
 
@@ -191,8 +194,10 @@ func shouldRetryRegisterWithOAuthCallback(err error, input *types.RegisterServer
 	if err == nil {
 		return false
 	}
+	var apiErr *client.APIError
 	return shouldAutoStartOAuthCallback(input) &&
-		strings.Contains(err.Error(), upstreamOAuthRedirectURIMissingMsg)
+		errors.As(err, &apiErr) &&
+		apiErr.Code == apierrors.CodeUpstreamOAuthRequired
 }
 
 func readMcpServerConfig(filePath string) (types.RegisterServerInput, error) {

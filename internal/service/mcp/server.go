@@ -47,7 +47,7 @@ func (m *MCPService) RegisterMcpServerWithOAuthSupport(
 	if input.OAuthRedirectURI == "" {
 		return fmt.Errorf(
 			"upstream server requires OAuth authorization, but oauth_redirect_uri was not provided: %w",
-			apierrors.ErrInvalidInput,
+			errors.Join(apierrors.ErrInvalidInput, apierrors.ErrUpstreamOAuthRequired),
 		)
 	}
 

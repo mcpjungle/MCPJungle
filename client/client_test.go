@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 )
 
 func TestNewClient(t *testing.T) {
@@ -352,5 +354,34 @@ func TestParseErrorResponse(t *testing.T) {
 				t.Errorf("Expected error to contain %q, got %q", tt.expectContains, err.Error())
 			}
 		})
+	}
+}
+
+func TestParseErrorResponse_PreservesMachineReadableCode(t *testing.T) {
+	t.Parallel()
+
+	client := NewClient("https://api.example.com", "token", &http.Client{})
+	resp := &http.Response{
+		StatusCode: http.StatusBadRequest,
+		Body: io.NopCloser(strings.NewReader(`{
+			"error":"oauth required",
+			"code":"` + apierrors.CodeUpstreamOAuthRequired + `"
+		}`)),
+	}
+
+	err := client.parseErrorResponse(resp)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	apiErr, ok := err.(*APIError)
+	if !ok {
+		t.Fatalf("expected *APIError, got %T", err)
+	}
+	if apiErr.Code != apierrors.CodeUpstreamOAuthRequired {
+		t.Fatalf("expected code %q, got %q", apierrors.CodeUpstreamOAuthRequired, apiErr.Code)
+	}
+	if apiErr.Error() != "oauth required" {
+		t.Fatalf("expected message %q, got %q", "oauth required", apiErr.Error())
 	}
 }

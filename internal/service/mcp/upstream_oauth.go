@@ -230,7 +230,10 @@ func (m *MCPService) persistOAuthTokenMetadata(ctx context.Context, serverName s
 // unauthenticated upstream registration attempt received an HTTP 401.
 func (m *MCPService) bootstrapUpstreamOAuth(ctx context.Context, input *types.RegisterServerInput, server *model.McpServer, force bool, initiatedBy string) error {
 	if input.OAuthRedirectURI == "" {
-		return fmt.Errorf("upstream server requires OAuth authorization, but oauth_redirect_uri was not provided: %w", apierrors.ErrInvalidInput)
+		return fmt.Errorf(
+			"upstream server requires OAuth authorization, but oauth_redirect_uri was not provided: %w",
+			errors.Join(apierrors.ErrInvalidInput, apierrors.ErrUpstreamOAuthRequired),
+		)
 	}
 
 	var (
