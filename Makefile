@@ -2,6 +2,8 @@ PORT     ?= 8080
 MODE     ?= enterprise
 AIR      := $(HOME)/go/bin/air
 BINARY   := /tmp/mcpjungle
+VERSION  := $(shell git describe --tags --exact-match 2>/dev/null || git describe --tags --abbrev=8 2>/dev/null || echo dev)
+LDFLAGS  := -X 'github.com/mcpjungle/mcpjungle/pkg/version.Version=$(VERSION)'
 
 .PHONY: build build-ui start dev dev-ui restart restart-core test lint service-install service-stop service-logs
 
@@ -16,7 +18,7 @@ build-ui:
 
 ## build: compile the Go binary to /tmp/mcpjungle
 build:
-	go build -o $(BINARY) .
+	go build -ldflags="$(LDFLAGS)" -o $(BINARY) .
 
 ## restart: rebuild Go binary and hot-swap the running server (UI already built)
 restart: build
