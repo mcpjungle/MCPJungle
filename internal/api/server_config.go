@@ -33,7 +33,7 @@ func (s *Server) registerInitServerHandler() gin.HandlerFunc {
 		}
 		// The server was successfully initialized and the mode is enterprise (either ModeEnterprise or ModeProd),
 		// create an admin user and return its access token
-		admin, err := s.userService.CreateAdminUser()
+		admin, err := s.userService.CreateAdminUser("")
 		if err != nil {
 			c.JSON(
 				http.StatusInternalServerError,

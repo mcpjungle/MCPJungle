@@ -141,6 +141,20 @@ func (s *Server) InitDev() error {
 	return nil
 }
 
+// InitEnterprise initializes the server in enterprise mode and creates the admin user.
+// If token is non-empty it is used as the admin access token; otherwise one is generated.
+// Returns the admin user (with AccessToken set) on success.
+func (s *Server) InitEnterprise(token string) (*model.User, error) {
+	ok, err := s.configService.Init(model.ModeEnterprise)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize server config: %w", err)
+	}
+	if !ok {
+		return nil, nil // already initialized
+	}
+	return s.userService.CreateAdminUser(token)
+}
+
 // Router returns the underlying HTTP handler for use with a custom HTTP server.
 // This is useful for graceful shutdown support.
 func (s *Server) Router() http.Handler {

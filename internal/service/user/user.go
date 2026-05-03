@@ -32,10 +32,14 @@ func NewUserService(db *gorm.DB) *UserService {
 }
 
 // CreateAdminUser creates an admin user in the MCPJungle system.
-func (u *UserService) CreateAdminUser() (*model.User, error) {
-	token, err := internal.GenerateAccessToken()
-	if err != nil {
-		return nil, err
+// If token is non-empty it is used as the access token; otherwise one is auto-generated.
+func (u *UserService) CreateAdminUser(token string) (*model.User, error) {
+	var err error
+	if token == "" {
+		token, err = internal.GenerateAccessToken()
+		if err != nil {
+			return nil, err
+		}
 	}
 	user := model.User{
 		Username:    "admin",

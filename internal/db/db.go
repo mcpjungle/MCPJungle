@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/glebarez/sqlite"
 	"gorm.io/driver/postgres"
@@ -48,8 +49,15 @@ func NewDBConnection(dsn string) (*gorm.DB, error) {
 		dbPath := getSQLiteDBPath()
 		log.Printf("[db] DATABASE_URL not set – falling back to embedded SQLite ./%s", dbPath)
 		dialector = sqlite.Open(fmt.Sprintf("%s?_busy_timeout=5000&_journal_mode=WAL", dbPath))
-	} else {
+	} else if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
 		dialector = postgres.Open(dsn)
+	} else if strings.HasPrefix(dsn, "/") || strings.HasPrefix(dsn, "./") || strings.HasPrefix(dsn, "../") ||
+		strings.HasSuffix(dsn, ".db") || strings.HasSuffix(dsn, ".sqlite") || strings.HasSuffix(dsn, ".sqlite3") {
+		// Treat as SQLite file path (e.g. DATABASE_URL=/data/mcpjungle.db)
+		log.Printf("[db] Using SQLite database at %s", dsn)
+		dialector = sqlite.Open(fmt.Sprintf("%s?_busy_timeout=5000&_journal_mode=WAL", dsn))
+	} else {
+		return nil, fmt.Errorf("unsupported DATABASE_URL format: must be a postgres:// URL or a SQLite file path")
 	}
 
 	c := &gorm.Config{

@@ -58,7 +58,7 @@ func TestCreateAdminUser(t *testing.T) {
 	setup, _ := testhelpers.SetupUserTest(t)
 	defer setup.Cleanup()
 	svc := NewUserService(setup.DB)
-	user, err := svc.CreateAdminUser()
+	user, err := svc.CreateAdminUser("")
 	testhelpers.AssertNoError(t, err)
 	testhelpers.AssertNotNil(t, user)
 	// Verify admin user properties
@@ -188,7 +188,7 @@ func TestDeleteAdminUser(t *testing.T) {
 	defer setup.Cleanup()
 	svc := NewUserService(setup.DB)
 	// Create admin user
-	admin, _ := svc.CreateAdminUser()
+	admin, _ := svc.CreateAdminUser("")
 	// Try to delete admin user (should fail)
 	err := svc.DeleteUser("admin")
 	testhelpers.AssertError(t, err)

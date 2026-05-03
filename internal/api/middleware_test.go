@@ -111,7 +111,7 @@ func TestVerifyUserAuthForAPIAccess(t *testing.T) {
 			mode:       model.ModeEnterprise,
 			authHeader: "Bearer test-token",
 			setupUser: func() error {
-				_, err := userService.CreateAdminUser()
+				_, err := userService.CreateAdminUser("")
 				if err != nil {
 					return err
 				}
@@ -451,7 +451,7 @@ func TestMiddlewareIntegration(t *testing.T) {
 	}
 
 	// Setup user
-	_, err = userService.CreateAdminUser()
+	_, err = userService.CreateAdminUser("")
 	if err != nil {
 		t.Fatalf("Setup user failed: %v", err)
 	}

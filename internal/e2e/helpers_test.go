@@ -165,7 +165,7 @@ func setupE2EServer(t *testing.T, mode model.ServerMode) *e2eEnv {
 	case model.ModeEnterprise:
 		_, err = cfgSvc.Init(model.ModeEnterprise)
 		require.NoError(t, err)
-		adminUser, err := usrSvc.CreateAdminUser()
+		adminUser, err := usrSvc.CreateAdminUser("")
 		require.NoError(t, err)
 		env.adminToken = adminUser.AccessToken
 		regularUser, err := usrSvc.CreateUser(&model.User{Username: "regularuser"})
