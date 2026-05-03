@@ -214,7 +214,14 @@ export function ClientsPage() {
             <div key={client.name} className="rounded-panel border border-line bg-panel p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-base font-semibold text-body">{client.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-semibold text-body">{client.name}</h3>
+                    {client.owner_username ? (
+                      <span className="rounded-full border border-line bg-elevated px-2 py-0.5 text-[11px] text-muted">
+                        owner: <span className="text-body">{client.owner_username}</span>
+                      </span>
+                    ) : null}
+                  </div>
                   {client.description ? (
                     <p className="mt-1 text-sm text-muted">{client.description}</p>
                   ) : null}

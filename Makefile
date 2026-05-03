@@ -3,13 +3,22 @@ MODE     ?= enterprise
 AIR      := $(HOME)/go/bin/air
 BINARY   := /tmp/mcpjungle
 
-.PHONY: build dev dev-ui restart restart-core test lint service-install service-stop service-logs
+.PHONY: build build-ui start dev dev-ui restart restart-core test lint service-install service-stop service-logs
+
+## start: clone-and-run — install npm deps, build UI + Go binary, start server
+start: build-ui build
+	$(BINARY) start --port $(PORT) --$(MODE) --ui &
+	@sleep 1 && curl -sf http://localhost:$(PORT)/health && echo " server up at http://localhost:$(PORT)"
+
+## build-ui: install npm deps and compile the dashboard UI
+build-ui:
+	cd ui && npm install && npm run build
 
 ## build: compile the Go binary to /tmp/mcpjungle
 build:
 	go build -o $(BINARY) .
 
-## restart: rebuild and hot-swap — gateway + dashboard UI (--ui enabled)
+## restart: rebuild Go binary and hot-swap the running server (UI already built)
 restart: build
 	@PID=$$(pgrep -x mcpjungle 2>/dev/null); \
 	if [ -n "$$PID" ]; then \
@@ -68,5 +77,6 @@ service-stop:
 service-logs:
 	tail -f /tmp/mcpjungle.log
 
+## help: show available commands
 help:
-	@grep -E '^## ' Makefile | sed 's/## //'
+	@grep -E '^## ' Makefile | sed 's/## /  /'

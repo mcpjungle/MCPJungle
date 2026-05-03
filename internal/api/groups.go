@@ -88,6 +88,25 @@ func (s *Server) updateGroupHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Propagate new allow_list to self-service tokens of group members who have no
+	// explicit per-user override (allow_list IS NULL in DB).
+	if body.UpdateAllowList {
+		newAllowList, _ := json.Marshal(body.AllowList)
+		if members, merr := s.groupService.GetGroupMembers(g.ID); merr == nil {
+			for _, u := range members {
+				// User inherits from group if allow_list is NULL or empty array [].
+				// Matches ResolveAllowList logic: empty decoded slice = fall through to group.
+				var decoded []string
+				inheriting := len(u.AllowList) == 0 ||
+					(json.Unmarshal(u.AllowList, &decoded) == nil && len(decoded) == 0)
+				if inheriting {
+					_ = s.mcpClientService.UpdateAllowListByOwner(u.Username, newAllowList)
+				}
+			}
+		}
+	}
+
 	c.JSON(http.StatusOK, groupToResponse(*g, s.groupService.MemberCount(g.ID)))
 }
 

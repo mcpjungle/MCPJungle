@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mcpjungle.fullname" . }}
+  labels:
+    {{- include "mcpjungle.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "mcpjungle.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- if .Values.mcpServers }}
+      annotations:
+        checksum/servers-config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      {{- end }}
+      labels:
+        {{- include "mcpjungle.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "mcpjungle.serviceAccountName" . }}
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: mcpjungle
+          image: "{{ .Values.image.repository }}:{{ include "mcpjungle.imageTag" . }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - start
+            - --port
+            - {{ .Values.server.port | quote }}
+            - --{{ .Values.server.mode }}
+            {{- if .Values.server.ui }}
+            - --ui
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.server.port }}
+              protocol: TCP
+          env:
+            - name: DATABASE_URL
+              value: /data/mcpjungle.db
+            {{- if .Values.admin.adminToken }}
+            - name: MCPJUNGLE_ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcpjungle.fullname" . }}-admin
+                  key: admin-token
+            {{- end }}
+            {{- if .Values.mcpServers }}
+            - name: MCPJUNGLE_SERVERS_FILE
+              value: /app/servers.json
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            {{- if .Values.mcpServers }}
+            - name: servers-config
+              mountPath: /app/servers.json
+              subPath: servers.json
+              readOnly: true
+            {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "mcpjungle.pvcName" . }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- if .Values.mcpServers }}
+        - name: servers-config
+          configMap:
+            name: {{ include "mcpjungle.fullname" . }}-servers
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

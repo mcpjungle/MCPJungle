@@ -100,6 +100,7 @@ export type McpClient = {
   description: string;
   access_token?: string;
   allow_list: string[];
+  owner_username?: string;
 };
 
 export type McpClientWithToken = McpClient & { access_token: string };
