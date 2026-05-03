@@ -1,0 +1,103 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/dinhdobathi1992/mcpjungle
+  pullPolicy: IfNotPresent
+  tag: ""  # defaults to Chart.appVersion
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Server mode: enterprise | development
+server:
+  mode: enterprise
+  port: 8080
+  # Enable the embedded dashboard UI at /ui
+  ui: true
+
+# Admin credentials — leave adminToken empty to auto-generate on first run.
+# If set, the value is stored in a Secret and injected as MCPJUNGLE_ADMIN_TOKEN.
+admin:
+  adminToken: ""
+
+# MCP servers to register — written to servers.json and mounted into the pod.
+# Format mirrors servers.json: keys are server names, values are server configs.
+# Example:
+#   atlassian:
+#     enabled: true
+#     command: /usr/local/bin/npx
+#     args:
+#       - mcp-remote
+#       - https://mcp.atlassian.com/v1/mcp/authv2
+mcpServers: {}
+
+# Persistent storage for the SQLite database
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 2Gi
+  # Override the full PVC name (leave empty to auto-generate)
+  existingClaim: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: mcpjungle.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  # - secretName: mcpjungle-tls
+  #   hosts:
+  #     - mcpjungle.example.com
+
+resources: {}
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # limits:
+  #   cpu: 500m
+  #   memory: 256Mi
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 30
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Extra environment variables injected into the main container
+extraEnv: []
+# - name: MY_VAR
+#   value: "my-value"

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "mcpjungle.fullname" . }}-servers
+  labels:
+    {{- include "mcpjungle.labels" . | nindent 4 }}
+data:
+  servers.json: |
+    {
+      "mcpServers": {{ .Values.mcpServers | toJson }}
+    }

@@ -1,0 +1,34 @@
+MCPJungle has been deployed!
+
+1. Get the application URL:
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else if eq .Values.service.type "NodePort" }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "mcpjungle.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo "MCPJungle: http://$NODE_IP:$NODE_PORT"
+{{- else if eq .Values.service.type "LoadBalancer" }}
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "mcpjungle.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo "MCPJungle: http://$SERVICE_IP:{{ .Values.service.port }}"
+{{- else }}
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "mcpjungle.fullname" . }} 8080:{{ .Values.service.port }}
+  echo "MCPJungle: http://127.0.0.1:8080"
+{{- end }}
+
+{{- if .Values.server.ui }}
+2. Dashboard UI: <base-url>/ui
+{{- end }}
+
+3. MCP endpoint: <base-url>/mcp
+
+4. Retrieve the admin token (auto-generated on first run):
+   kubectl --namespace {{ .Release.Namespace }} exec deploy/{{ include "mcpjungle.fullname" . }} -- \
+     sqlite3 /data/mcpjungle.db "SELECT access_token FROM users WHERE username='admin';"
+
+{{- if not .Values.persistence.enabled }}
+
+⚠️  WARNING: persistence is disabled — data will be lost on pod restart.
+   Set persistence.enabled=true for production use.
+{{- end }}

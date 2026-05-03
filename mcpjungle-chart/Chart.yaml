@@ -1,0 +1,16 @@
+apiVersion: v2
+name: mcpjungle
+description: Self-hosted MCP gateway with enterprise user management and dashboard UI
+type: application
+version: 2.1.0
+appVersion: "v2.1.0"
+keywords:
+  - mcp
+  - ai
+  - gateway
+  - llm
+home: https://github.com/dinhdobathi1992/MCPJungle
+sources:
+  - https://github.com/dinhdobathi1992/MCPJungle
+maintainers:
+  - name: dinhdobathi1992
