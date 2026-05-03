@@ -1,11 +1,37 @@
 package api
 
 import (
+	"net"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 )
+
+// requireInitToken gates POST /init. With no secret configured, only loopback
+// callers are allowed. With a secret, callers must supply it in X-Init-Token.
+func requireInitToken(secret string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if secret == "" {
+			host, _, _ := net.SplitHostPort(c.Request.RemoteAddr)
+			ip := net.ParseIP(host)
+			if ip == nil || !ip.IsLoopback() {
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+					"error": "Server initialization is restricted to localhost when MCPJUNGLE_INIT_TOKEN is not set",
+				})
+				return
+			}
+		} else {
+			if c.GetHeader("X-Init-Token") != secret {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"error": "Missing or invalid X-Init-Token header",
+				})
+				return
+			}
+		}
+		c.Next()
+	}
+}
 
 func (s *Server) registerInitServerHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {

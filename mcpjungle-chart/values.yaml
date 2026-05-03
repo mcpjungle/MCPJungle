@@ -25,6 +25,10 @@ server:
 # If set, the value is stored in a Secret and injected as MCPJUNGLE_ADMIN_TOKEN.
 admin:
   adminToken: ""
+  # initToken gates POST /init. Set in production to prevent unauthenticated server takeover.
+  # Callers must supply this in the X-Init-Token request header.
+  # If unset, /init is restricted to loopback (localhost) only.
+  initToken: ""
 
 # MCP servers to register — written to servers.json and mounted into the pod.
 # Format mirrors servers.json: keys are server names, values are server configs.

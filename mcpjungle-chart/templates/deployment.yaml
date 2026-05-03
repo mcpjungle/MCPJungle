@@ -53,6 +53,13 @@ spec:
                   name: {{ include "mcpjungle.fullname" . }}-admin
                   key: admin-token
             {{- end }}
+            {{- if .Values.admin.initToken }}
+            - name: MCPJUNGLE_INIT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "mcpjungle.fullname" . }}-admin
+                  key: init-token
+            {{- end }}
             {{- if .Values.mcpServers }}
             - name: MCPJUNGLE_SERVERS_FILE
               value: /app/servers.json

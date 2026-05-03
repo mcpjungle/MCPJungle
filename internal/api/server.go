@@ -4,6 +4,8 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -192,7 +194,8 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		},
 	)
 
-	r.POST("/init", s.registerInitServerHandler())
+	initToken := strings.TrimSpace(os.Getenv("MCPJUNGLE_INIT_TOKEN"))
+	r.POST("/init", requireInitToken(initToken), s.registerInitServerHandler())
 
 	if s.uiEnabled {
 		if err := uiassets.RegisterRoutes(r); err != nil {
