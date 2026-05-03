@@ -164,3 +164,95 @@ func TestRunRegisterMCPServer_PrintsEmptySummaryWhenNoCapabilitiesExist(t *testi
 		t.Fatalf("expected empty summary, got: %s", output)
 	}
 }
+
+func TestRunRegisterMCPServer_LazilyStartsOAuthCallbackOnlyAfterOAuthIsRequired(t *testing.T) {
+	requestCount := 0
+	sawRetryWithRedirectURI := false
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v0/servers":
+			requestCount++
+
+			var input types.RegisterServerInput
+			if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+				t.Fatalf("failed to decode register request: %v", err)
+			}
+
+			if requestCount == 1 {
+				if input.OAuthRedirectURI != "" {
+					t.Fatalf("expected first registration attempt to omit oauth_redirect_uri, got %q", input.OAuthRedirectURI)
+				}
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(map[string]string{
+					"error": upstreamOAuthRedirectURIMissingMsg + ": invalid user input",
+				})
+				return
+			}
+
+			if input.OAuthRedirectURI == "" {
+				t.Fatal("expected retry registration attempt to include oauth_redirect_uri")
+			}
+			sawRetryWithRedirectURI = true
+
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(types.RegisterServerResult{
+				Server: &types.McpServer{
+					Name:      "oauth-lazy-server",
+					Transport: string(types.TransportStreamableHTTP),
+				},
+			})
+		case "/api/v0/tools":
+			_ = json.NewEncoder(w).Encode([]*types.Tool{})
+		case "/api/v0/prompts":
+			_ = json.NewEncoder(w).Encode([]model.Prompt{})
+		case "/api/v0/resources":
+			_ = json.NewEncoder(w).Encode([]*types.Resource{})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":"not found"}`))
+		}
+	}))
+	defer server.Close()
+
+	origClient := apiClient
+	origName := registerCmdServerName
+	origURL := registerCmdServerURL
+	origDesc := registerCmdServerDesc
+	origToken := registerCmdBearerToken
+	origConfig := registerCmdServerConfigFilePath
+	origForce := registerCmdForce
+	defer func() {
+		apiClient = origClient
+		registerCmdServerName = origName
+		registerCmdServerURL = origURL
+		registerCmdServerDesc = origDesc
+		registerCmdBearerToken = origToken
+		registerCmdServerConfigFilePath = origConfig
+		registerCmdForce = origForce
+	}()
+
+	apiClient = client.NewClient(server.URL, "", http.DefaultClient)
+	registerCmdServerName = "oauth-lazy-server"
+	registerCmdServerURL = "http://upstream.example/mcp"
+	registerCmdServerDesc = ""
+	registerCmdBearerToken = ""
+	registerCmdServerConfigFilePath = ""
+	registerCmdForce = false
+
+	cmd := &cobra.Command{}
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+
+	if err := runRegisterMCPServer(cmd, nil); err != nil {
+		t.Fatalf("runRegisterMCPServer returned error: %v", err)
+	}
+
+	if requestCount != 2 {
+		t.Fatalf("expected exactly 2 registration attempts, got %d", requestCount)
+	}
+	if !sawRetryWithRedirectURI {
+		t.Fatal("expected retry registration attempt to include oauth_redirect_uri")
+	}
+}

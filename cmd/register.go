@@ -9,12 +9,15 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/mcpjungle/mcpjungle/internal/configresolver"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/spf13/cobra"
 )
+
+const upstreamOAuthRedirectURIMissingMsg = "upstream server requires OAuth authorization, but oauth_redirect_uri was not provided"
 
 var (
 	registerCmdServerName  string
@@ -101,24 +104,6 @@ func init() {
 	rootCmd.AddCommand(registerMCPServerCmd)
 }
 
-func readMcpServerConfig(filePath string) (types.RegisterServerInput, error) {
-	var input types.RegisterServerInput
-
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return input, fmt.Errorf("failed to read config file %s: %w", filePath, err)
-	}
-	// Parse JSON config
-	if err := json.Unmarshal(data, &input); err != nil {
-		return input, fmt.Errorf("failed to parse config file: %w", err)
-	}
-	if err := configresolver.ResolveEnvVars(&input); err != nil {
-		return input, fmt.Errorf("failed to resolve config file environment variables: %w", err)
-	}
-
-	return input, nil
-}
-
 func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
 	var input types.RegisterServerInput
 
@@ -140,18 +125,18 @@ func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	result, err := apiClient.RegisterServer(&input, registerCmdForce)
 	var callbackSrv *oauthCallbackServer
-	if shouldAutoStartOAuthCallback(&input) {
-		var err error
+	if err != nil && shouldRetryRegisterWithOAuthCallback(err, &input) {
 		callbackSrv, err = newOAuthCallbackServer()
 		if err != nil {
 			return fmt.Errorf("failed to start local OAuth callback server: %w", err)
 		}
 		defer callbackSrv.Close()
 		input.OAuthRedirectURI = callbackSrv.RedirectURI()
-	}
 
-	result, err := apiClient.RegisterServer(&input, registerCmdForce)
+		result, err = apiClient.RegisterServer(&input, registerCmdForce)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to register server: %w", err)
 	}
@@ -197,6 +182,35 @@ func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
 	s := result.Server
 	fmt.Printf("Server %s registered successfully!\n", s.Name)
 	return printRegisteredServerSummary(cmd, s)
+}
+
+// shouldRetryRegisterWithOAuthCallback decides whether the CLI should lazily
+// start its localhost OAuth callback listener and retry registration after the
+// first attempt proved that the upstream server requires OAuth.
+func shouldRetryRegisterWithOAuthCallback(err error, input *types.RegisterServerInput) bool {
+	if err == nil {
+		return false
+	}
+	return shouldAutoStartOAuthCallback(input) &&
+		strings.Contains(err.Error(), upstreamOAuthRedirectURIMissingMsg)
+}
+
+func readMcpServerConfig(filePath string) (types.RegisterServerInput, error) {
+	var input types.RegisterServerInput
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return input, fmt.Errorf("failed to read config file %s: %w", filePath, err)
+	}
+	// Parse JSON config
+	if err := json.Unmarshal(data, &input); err != nil {
+		return input, fmt.Errorf("failed to parse config file: %w", err)
+	}
+	if err := configresolver.ResolveEnvVars(&input); err != nil {
+		return input, fmt.Errorf("failed to resolve config file environment variables: %w", err)
+	}
+
+	return input, nil
 }
 
 // printRegisteredServerSummary prints the same capability summary for both
