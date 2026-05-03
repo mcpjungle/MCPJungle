@@ -568,6 +568,15 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 			if err := s.InitDev(); err != nil {
 				return fmt.Errorf("failed to initialize server in development mode: %v", err)
 			}
+		} else if adminToken := os.Getenv("MCPJUNGLE_ADMIN_TOKEN"); adminToken != "" {
+			// Auto-init enterprise mode when admin token is pre-configured (e.g. Helm deployment).
+			admin, initErr := s.InitEnterprise(adminToken)
+			if initErr != nil {
+				return fmt.Errorf("failed to auto-initialize server: %v", initErr)
+			}
+			if admin != nil {
+				log.Printf("[server] auto-initialized in enterprise mode; admin token set from MCPJUNGLE_ADMIN_TOKEN")
+			}
 		} else {
 			// If desired mode is enterprise, then server initialization is a manual next step to be taken by the user.
 			// This is so that they can obtain the admin access token on their client machine.
