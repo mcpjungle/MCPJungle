@@ -1,0 +1,39 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="baseGradient" x1="188" y1="144" x2="842" y2="874" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1D6B47"/>
+      <stop offset="0.55" stop-color="#0F4F38"/>
+      <stop offset="1" stop-color="#062A21"/>
+    </linearGradient>
+    <linearGradient id="trailGradient" x1="518" y1="248" x2="522" y2="744" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F3FFD7"/>
+      <stop offset="0.58" stop-color="#D8F483"/>
+      <stop offset="1" stop-color="#8DD75A"/>
+    </linearGradient>
+    <mask id="markMask" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+      <rect width="1024" height="1024" fill="black"/>
+      <path d="M190 858V176H328L512 548L696 176H834V858" stroke="white" stroke-width="186" stroke-linejoin="round" stroke-linecap="butt"/>
+    </mask>
+  </defs>
+
+  <g mask="url(#markMask)">
+    <rect width="1024" height="1024" fill="url(#baseGradient)"/>
+    <path d="M0 132C108 72 262 76 406 134C570 200 752 192 1024 82V332H0V132Z" fill="#A5E29A" opacity="0.78"/>
+    <path d="M0 246C130 190 300 196 452 264C630 344 810 344 1024 232V482H0V246Z" fill="#5AB56C" opacity="0.9"/>
+    <path d="M0 400C122 348 280 356 422 424C596 508 786 510 1024 386V650H0V400Z" fill="#216447"/>
+    <path d="M0 562C134 492 304 500 468 580C652 670 834 668 1024 544V1024H0V562Z" fill="#0B3529"/>
+
+    <path d="M126 748C228 720 314 758 358 878C260 884 174 836 126 748Z" fill="#2C8853" opacity="0.85"/>
+    <path d="M160 770C230 804 274 858 304 930" stroke="#103E30" stroke-width="10" stroke-linecap="round"/>
+    <path d="M224 790L180 846" stroke="#103E30" stroke-width="10" stroke-linecap="round"/>
+    <path d="M266 844L222 894" stroke="#103E30" stroke-width="10" stroke-linecap="round"/>
+
+    <path d="M688 704C804 682 894 744 928 888C818 900 726 838 688 704Z" fill="#66C767" opacity="0.92"/>
+    <path d="M820 730C780 780 750 836 724 920" stroke="#0F4B35" stroke-width="10" stroke-linecap="round"/>
+    <path d="M788 792L736 838" stroke="#0F4B35" stroke-width="10" stroke-linecap="round"/>
+    <path d="M842 812L780 872" stroke="#0F4B35" stroke-width="10" stroke-linecap="round"/>
+
+    <path d="M518 246C486 324 472 398 476 468C480 546 502 634 550 726" stroke="#103E31" stroke-width="68" stroke-linecap="round" opacity="0.42"/>
+    <path d="M518 248C490 322 478 396 482 466C486 542 506 626 548 714" stroke="url(#trailGradient)" stroke-width="40" stroke-linecap="round"/>
+  </g>
+</svg>

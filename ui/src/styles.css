@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #0b0e11;
+  color: #eaecef;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top right, rgba(252, 213, 53, 0.1), transparent 24%),
+    linear-gradient(180deg, #0b0e11 0%, #11151c 100%);
+  color: #eaecef;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2b3139;
+  border-radius: 999px;
+}
+
+.numeric {
+  font-family: "IBM Plex Sans", "JetBrains Mono", monospace;
+}

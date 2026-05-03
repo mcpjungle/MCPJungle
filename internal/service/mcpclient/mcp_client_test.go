@@ -309,9 +309,12 @@ func TestUpdateClientAccessToken(t *testing.T) {
 
 	_, _ = svc.CreateClient(clientInput)
 
-	clientInput.AccessToken = "new-access-token"
-
-	client, err := svc.UpdateClient(clientInput)
+	client, err := svc.UpdateClient(UpdateClientInput{
+		Name:        clientInput.Name,
+		Description: clientInput.Description,
+		AllowList:   []string{"*"},
+		AccessToken: "new-access-token",
+	})
 	testhelpers.AssertNoError(t, err)
 	testhelpers.AssertNotNil(t, client)
 
@@ -340,9 +343,12 @@ func TestUpdateClientInvalidAccessToken(t *testing.T) {
 
 	_, _ = svc.CreateClient(clientInput)
 
-	clientInput.AccessToken = "invalid token with spaces"
-
-	client, err := svc.UpdateClient(clientInput)
+	client, err := svc.UpdateClient(UpdateClientInput{
+		Name:        clientInput.Name,
+		Description: clientInput.Description,
+		AllowList:   []string{"server-a"},
+		AccessToken: "invalid token with spaces",
+	})
 	testhelpers.AssertError(t, err)
 	testhelpers.AssertTrue(t, errors.Is(err, apierrors.ErrInvalidInput), "expected ErrInvalidInput")
 	if client != nil {

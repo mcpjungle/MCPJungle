@@ -8,6 +8,7 @@ project_name: mcpjungle
 
 before:
   hooks:
+    - sh -c "cd ui && npm ci && npm run build"
     - go test -v ./...
     - golangci-lint run
     - go mod tidy

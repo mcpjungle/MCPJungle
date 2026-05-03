@@ -2,6 +2,7 @@
 package mcpclient
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -14,6 +15,14 @@ import (
 // McpClientService provides methods to manage MCP clients in the database.
 type McpClientService struct {
 	db *gorm.DB
+}
+
+type UpdateClientInput struct {
+	Name              string
+	Description       string
+	AllowList         []string
+	AccessToken       string
+	RotateAccessToken bool
 }
 
 func NewMCPClientService(db *gorm.DB) *McpClientService {
@@ -79,22 +88,40 @@ func (m *McpClientService) DeleteClient(name string) error {
 }
 
 // UpdateClient updates an existing MCP client's information in the database.
-// Currently, it only supports updating the access token of the client.
-func (m *McpClientService) UpdateClient(updatedClient model.McpClient) (*model.McpClient, error) {
+func (m *McpClientService) UpdateClient(input UpdateClientInput) (*model.McpClient, error) {
 	var client model.McpClient
-	if err := m.db.Where("name = ?", updatedClient.Name).First(&client).Error; err != nil {
+	if err := m.db.Where("name = ?", input.Name).First(&client).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("client not found: %w", apierrors.ErrNotFound)
 		}
 		return nil, err
 	}
 
-	if err := internal.ValidateAccessToken(updatedClient.AccessToken); err != nil {
-		return nil, fmt.Errorf("invalid access token: %v: %w", err, apierrors.ErrInvalidInput)
+	if input.AccessToken != "" && input.RotateAccessToken {
+		return nil, fmt.Errorf("access_token and rotate_access_token cannot both be set: %w", apierrors.ErrInvalidInput)
 	}
 
-	// Update only the access token for now
-	client.AccessToken = updatedClient.AccessToken
+	client.Description = input.Description
+
+	allowListJSON, err := json.Marshal(input.AllowList)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal allow list: %w", err)
+	}
+	client.AllowList = allowListJSON
+
+	switch {
+	case input.AccessToken != "":
+		if err := internal.ValidateAccessToken(input.AccessToken); err != nil {
+			return nil, fmt.Errorf("invalid access token: %v: %w", err, apierrors.ErrInvalidInput)
+		}
+		client.AccessToken = input.AccessToken
+	case input.RotateAccessToken:
+		token, err := internal.GenerateAccessToken()
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate access token: %w", err)
+		}
+		client.AccessToken = token
+	}
 
 	if err := m.db.Save(&client).Error; err != nil {
 		return nil, err

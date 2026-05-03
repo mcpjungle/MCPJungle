@@ -15,6 +15,7 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
+	uiassets "github.com/mcpjungle/mcpjungle/internal/ui"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/mcpjungle/mcpjungle/pkg/version"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -45,6 +46,10 @@ type ServerOptions struct {
 
 	OtelProviders *telemetry.Providers
 	Metrics       telemetry.CustomMetrics
+
+	// UIEnabled controls whether the embedded dashboard UI is served under /ui.
+	// When false, all /ui/* routes return 404 and the binary has no web UI overhead.
+	UIEnabled bool
 }
 
 // Server represents the MCPJungle registry server that handles MCP proxy and API requests
@@ -64,6 +69,8 @@ type Server struct {
 	otelProviders *telemetry.Providers
 	metrics       telemetry.CustomMetrics
 
+	uiEnabled bool
+
 	// groupMcpServers keeps track of mcp-go's server.SSEServer instances created for each tool group.
 	// These instances serve the requests made to tool groups' SSE tools.
 	// We need to maintain one instance for each group for sse to work correctly.
@@ -82,6 +89,7 @@ func NewServer(opts *ServerOptions) (*Server, error) {
 		toolGroupService:  opts.ToolGroupService,
 		otelProviders:     opts.OtelProviders,
 		metrics:           opts.Metrics,
+		uiEnabled:         opts.UIEnabled,
 	}
 
 	// Set up the router after the server is fully initialized
@@ -168,6 +176,12 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 
 	r.POST("/init", s.registerInitServerHandler())
 
+	if s.uiEnabled {
+		if err := uiassets.RegisterRoutes(r); err != nil {
+			return nil, fmt.Errorf("register ui routes: %w", err)
+		}
+	}
+
 	requireEnterpriseMode := s.requireServerMode(model.ModeEnterprise)
 
 	// Set up the MCP proxy server on /mcp
@@ -224,6 +238,7 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 	// endpoints accessible by a standard user in enterprise mode or anyone in development mode
 	userAPI := apiV0.Group("/")
 	{
+		userAPI.GET("/settings", s.getSettingsHandler())
 		userAPI.GET("/servers", s.listServersHandler())
 
 		userAPI.GET("/tools", s.listToolsHandler())
@@ -240,6 +255,11 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		userAPI.POST("/prompts/render", s.getPromptWithArgsHandler())
 
 		userAPI.GET("/users/whoami", requireEnterpriseMode, s.whoAmIHandler())
+
+		// self-service: any authenticated user can create their own MCP client token
+		userAPI.POST("/clients/self", requireEnterpriseMode, s.createSelfClientHandler())
+		// self-service: apply config to local IDE/agent tools via the setup script
+		userAPI.POST("/clients/self/apply-config", requireEnterpriseMode, s.applySelfClientConfigHandler())
 	}
 
 	// endpoints only accessible by an admin user in enterprise mode or anyone in development mode

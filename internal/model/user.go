@@ -3,6 +3,7 @@ package model
 
 import (
 	"github.com/mcpjungle/mcpjungle/pkg/types"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -15,4 +16,10 @@ type User struct {
 	Username    string         `json:"username" gorm:"unique; not null"`
 	Role        types.UserRole `json:"role" gorm:"not null"`
 	AccessToken string         `json:"access_token" gorm:"unique; not null"`
+
+	// AllowList defines which MCP server names this user's self-created MCP clients
+	// are allowed to access. Nil / empty means wildcard (all servers).
+	// Stored as a JSON array of server names, e.g. ["atlassian", "github"].
+	// Use "*" as a single entry to allow all servers explicitly.
+	AllowList datatypes.JSON `json:"allow_list" gorm:"type:jsonb"`
 }

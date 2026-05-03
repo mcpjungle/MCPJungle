@@ -65,3 +65,25 @@ func TestDeleteUserHandler_Exists(t *testing.T) {
 
 	testhelpers.AssertEqual(t, http.StatusNoContent, w.Code)
 }
+
+func TestUpdateUserHandler_UsesPathUsernameAndRotatesToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	setup := testhelpers.SetupTestDB(t)
+	defer setup.Cleanup()
+
+	setup.CreateTestUser("regularuser", types.UserRoleUser, "old-user-token")
+
+	s := &Server{userService: user.NewUserService(setup.DB)}
+	router := gin.New()
+	router.PUT("/users/:username", s.updateUserHandler())
+
+	req := httptest.NewRequest(http.MethodPut, "/users/regularuser",
+		strings.NewReader(`{"rotate_access_token":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	testhelpers.AssertEqual(t, http.StatusOK, w.Code)
+	testhelpers.AssertStringContains(t, w.Body.String(), `"username":"regularuser"`)
+	testhelpers.AssertStringNotContains(t, w.Body.String(), `"access_token":"old-user-token"`)
+}
