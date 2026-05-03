@@ -19,6 +19,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const oauthCallbackPath = "/oauth/callback"
+
 var (
 	registerCmdServerName  string
 	registerCmdServerURL   string
@@ -187,19 +189,6 @@ func runRegisterMCPServer(cmd *cobra.Command, args []string) error {
 	return printRegisteredServerSummary(cmd, s)
 }
 
-// shouldRetryRegisterWithOAuthCallback decides whether the CLI should lazily
-// start its localhost OAuth callback listener and retry registration after the
-// first attempt proved that the upstream server requires OAuth.
-func shouldRetryRegisterWithOAuthCallback(err error, input *types.RegisterServerInput) bool {
-	if err == nil {
-		return false
-	}
-	var apiErr *client.APIError
-	return shouldAutoStartOAuthCallback(input) &&
-		errors.As(err, &apiErr) &&
-		apiErr.Code == apierrors.CodeUpstreamOAuthRequired
-}
-
 func readMcpServerConfig(filePath string) (types.RegisterServerInput, error) {
 	var input types.RegisterServerInput
 
@@ -287,6 +276,19 @@ func printRegisteredServerSummary(cmd *cobra.Command, s *types.McpServer) error 
 	return nil
 }
 
+// shouldRetryRegisterWithOAuthCallback decides whether the CLI should
+// start its localhost OAuth callback listener and retry registration after the
+// first attempt proved that the upstream server requires OAuth.
+func shouldRetryRegisterWithOAuthCallback(err error, input *types.RegisterServerInput) bool {
+	if err == nil {
+		return false
+	}
+	var apiErr *client.APIError
+	return shouldAutoStartOAuthCallback(input) &&
+		errors.As(err, &apiErr) &&
+		apiErr.Code == apierrors.CodeUpstreamOAuthRequired
+}
+
 // shouldAutoStartOAuthCallback decides whether the CLI should automatically
 // provision its localhost callback listener for this registration attempt.
 func shouldAutoStartOAuthCallback(input *types.RegisterServerInput) bool {
@@ -321,7 +323,7 @@ func newOAuthCallbackServer() (*oauthCallbackServer, error) {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/oauth/callback", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(oauthCallbackPath, func(w http.ResponseWriter, r *http.Request) {
 		params := map[string]string{}
 		for key, values := range r.URL.Query() {
 			if len(values) > 0 {
@@ -345,7 +347,7 @@ func newOAuthCallbackServer() (*oauthCallbackServer, error) {
 
 // RedirectURI returns the callback URI that should be supplied during registration.
 func (s *oauthCallbackServer) RedirectURI() string {
-	return "http://" + s.listener.Addr().String() + "/oauth/callback"
+	return "http://" + s.listener.Addr().String() + oauthCallbackPath
 }
 
 // Wait blocks until the callback is received or the timeout elapses.
