@@ -96,6 +96,14 @@ func (m *McpClientService) DeleteClient(name string) error {
 	return result.Error
 }
 
+// UpdateAllowListByOwner updates the allow_list on all self-service clients owned by a user.
+// Matches on owner_username OR the legacy name convention "<username>-mcp" for pre-migration clients.
+func (m *McpClientService) UpdateAllowListByOwner(username string, allowList []byte) error {
+	return m.db.Model(&model.McpClient{}).
+		Where("owner_username = ? OR (owner_username IS NULL AND name = ?)", username, username+"-mcp").
+		Update("allow_list", allowList).Error
+}
+
 // DeleteClientByOwner removes an MCP client only if it is owned by the given user.
 func (m *McpClientService) DeleteClientByOwner(name, username string) error {
 	result := m.db.Unscoped().Where("name = ? AND owner_username = ?", name, username).Delete(&model.McpClient{})

@@ -111,6 +111,15 @@ func (s *GroupService) MemberCount(groupID uint) int {
 	return int(count)
 }
 
+// GetGroupMembers returns all users belonging to the given group.
+func (s *GroupService) GetGroupMembers(groupID uint) ([]model.User, error) {
+	var users []model.User
+	if err := s.db.Where("group_id = ?", groupID).Find(&users).Error; err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
 // ResolveAllowList returns the effective allow-list for a user.
 // Priority: explicit user allow_list > group allow_list > wildcard ["*"]
 func (s *GroupService) ResolveAllowList(user *model.User) []string {
