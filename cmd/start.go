@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -28,6 +29,7 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/spf13/cobra"
 )
 
@@ -39,6 +41,8 @@ const (
 	ServerModeEnvVar       = "SERVER_MODE"
 	TelemetryEnabledEnvVar = "OTEL_ENABLED"
 )
+
+const ServersFileEnvVar = "MCPJUNGLE_SERVERS_FILE"
 
 const (
 	PostgresHostEnvVar     = "POSTGRES_HOST"
@@ -312,6 +316,80 @@ func getSessionIdleTimeout() (int, error) {
 	return timeout, nil
 }
 
+// serversJsonEntry mirrors the servers.json / Claude Desktop / mcp-proxy format.
+type serversJsonEntry struct {
+	Enabled  *bool             `json:"enabled"`
+	URL      string            `json:"url"`
+	Command  string            `json:"command"`
+	Args     []string          `json:"args"`
+	Env      map[string]string `json:"env"`
+	Headers  map[string]string `json:"headers"`
+	BearerToken string         `json:"bearer_token"`
+}
+
+// seedServersFromFile reads a servers.json file and registers any enabled servers that
+// are not already in the DB. Skips silently if the file does not exist.
+// File path: MCPJUNGLE_SERVERS_FILE env var, falling back to ./servers.json.
+func seedServersFromFile(ctx context.Context, mcpSvc *mcp.MCPService) {
+	path := os.Getenv(ServersFileEnvVar)
+	if path == "" {
+		path = "servers.json"
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			log.Printf("[seed] could not read %s: %v", path, err)
+		}
+		return
+	}
+
+	var raw struct {
+		McpServers map[string]serversJsonEntry `json:"mcpServers"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		log.Printf("[seed] failed to parse %s: %v", path, err)
+		return
+	}
+
+	registered, skipped, failed := 0, 0, 0
+	for name, entry := range raw.McpServers {
+		if entry.Enabled != nil && !*entry.Enabled {
+			skipped++
+			continue
+		}
+
+		var srv *model.McpServer
+		if entry.Command != "" {
+			srv, err = model.NewStdioServer(name, "", entry.Command, entry.Args, entry.Env, types.SessionModeStateless)
+		} else if entry.URL != "" {
+			srv, err = model.NewStreamableHTTPServer(name, "", entry.URL, entry.BearerToken, entry.Headers, types.SessionModeStateless)
+		} else {
+			log.Printf("[seed] skipping %q: no command or url", name)
+			skipped++
+			continue
+		}
+		if err != nil {
+			log.Printf("[seed] skipping %q: %v", name, err)
+			skipped++
+			continue
+		}
+
+		if regErr := mcpSvc.RegisterMcpServer(ctx, srv); regErr != nil {
+			// already registered → not an error
+			if strings.Contains(regErr.Error(), "UNIQUE constraint") || strings.Contains(regErr.Error(), "duplicate key") {
+				skipped++
+			} else {
+				log.Printf("[seed] failed to register %q: %v", name, regErr)
+				failed++
+			}
+			continue
+		}
+		registered++
+	}
+	log.Printf("[seed] servers.json: %d registered, %d skipped, %d failed", registered, skipped, failed)
+}
+
 func runStartServer(cmd *cobra.Command, args []string) error {
 	_ = godotenv.Load()
 
@@ -499,6 +577,8 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 			)
 		}
 	}
+
+	seedServersFromFile(context.Background(), mcpService)
 
 	// Display startup banner when the server is started
 	cmd.Print(asciiArt)

@@ -1,3 +1,4 @@
+{{- if .Values.mcpServers }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,3 +10,4 @@ data:
     {
       "mcpServers": {{ .Values.mcpServers | toJson }}
     }
+{{- end }}

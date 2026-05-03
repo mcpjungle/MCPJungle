@@ -13,9 +13,10 @@ spec:
       {{- include "mcpjungle.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      {{- if .Values.mcpServers }}
       annotations:
-        # Roll pods when servers.json ConfigMap changes
-        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/servers-config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      {{- end }}
       labels:
         {{- include "mcpjungle.selectorLabels" . | nindent 8 }}
     spec:
@@ -52,16 +53,22 @@ spec:
                   name: {{ include "mcpjungle.fullname" . }}-admin
                   key: admin-token
             {{- end }}
+            {{- if .Values.mcpServers }}
+            - name: MCPJUNGLE_SERVERS_FILE
+              value: /app/servers.json
+            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
           volumeMounts:
             - name: data
               mountPath: /data
+            {{- if .Values.mcpServers }}
             - name: servers-config
               mountPath: /app/servers.json
               subPath: servers.json
               readOnly: true
+            {{- end }}
           livenessProbe:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
           readinessProbe:
@@ -78,9 +85,11 @@ spec:
           {{- else }}
           emptyDir: {}
           {{- end }}
+        {{- if .Values.mcpServers }}
         - name: servers-config
           configMap:
             name: {{ include "mcpjungle.fullname" . }}-servers
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
