@@ -44,6 +44,10 @@ type SessionManager struct {
 
 // SessionManagerConfig holds configuration for the SessionManager.
 type SessionManagerConfig struct {
+	// DB is the database handle used when new sessions need to load persisted
+	// upstream OAuth credentials during connection setup.
+	DB *gorm.DB
+
 	// IdleTimeoutSec is the idle timeout in seconds for stateful sessions.
 	// Sessions idle for longer than this will be closed.
 	// If set to 0, sessions will never be closed due to inactivity.
@@ -65,8 +69,9 @@ func NewSessionManager(cfg *SessionManagerConfig) *SessionManager {
 		idleTimeoutSec:    idleTimeout,
 		initReqTimeoutSec: cfg.InitReqTimeoutSec,
 		cleanupStopChan:   make(chan struct{}),
-		// Use the actual session creation function by default
-		createSessionFunc: createMcpServerConnection,
+		createSessionFunc: func(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*client.Client, error) {
+			return createMcpServerConnectionWithDB(ctx, cfg.DB, s, initReqTimeoutSec, true)
+		},
 	}
 
 	// Start cleanup goroutine if idle timeout is enabled
@@ -227,18 +232,18 @@ func (sm *SessionManager) cleanupIdleSessions() {
 	}
 }
 
-// createMcpServerConnection creates a new MCP client connection based on the server's transport type.
-// This is a wrapper around the transport-specific connection functions.
-func createMcpServerConnection(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*client.Client, error) {
-	return createMcpServerConnectionWithDB(ctx, nil, s, initReqTimeoutSec)
-}
-
-func createMcpServerConnectionWithDB(ctx context.Context, db *gorm.DB, s *model.McpServer, initReqTimeoutSec int) (*client.Client, error) {
+func createMcpServerConnectionWithDB(
+	ctx context.Context,
+	db *gorm.DB,
+	s *model.McpServer,
+	initReqTimeoutSec int,
+	useStoredUpstreamAuth bool,
+) (*client.Client, error) {
 	switch s.Transport {
 	case types.TransportStreamableHTTP:
-		return createHTTPMcpServerConn(ctx, db, s, initReqTimeoutSec)
+		return createHTTPMcpServerConn(ctx, db, s, initReqTimeoutSec, useStoredUpstreamAuth)
 	case types.TransportSSE:
-		return createSSEMcpServerConn(ctx, db, s)
+		return createSSEMcpServerConn(ctx, db, s, useStoredUpstreamAuth)
 	case types.TransportStdio:
 		return runStdioServer(ctx, s, initReqTimeoutSec)
 	default:

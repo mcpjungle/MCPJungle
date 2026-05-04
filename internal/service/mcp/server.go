@@ -13,14 +13,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// RegisterMcpServer registers a new MCP server in the database.
-// It also registers all the Tools, Prompts and Resources provided by the server.
-// Tool registration is required, while prompt/resource registration is on best-effort basis.
-// Registered tools, prompts and resources are also added to the MCP proxy server.
-func (m *MCPService) RegisterMcpServer(ctx context.Context, s *model.McpServer) error {
-	return m.registerMcpServer(ctx, s)
-}
-
 // RegisterMcpServerWithOAuthSupport attempts to register a server immediately and,
 // if upstream OAuth authorization is required, persists a pending auth session that
 // can be completed later.
@@ -31,39 +23,48 @@ func (m *MCPService) RegisterMcpServerWithOAuthSupport(
 	force bool,
 	initiatedBy string,
 ) error {
-	err := m.registerMcpServerWithStoredAuth(ctx, s, false)
+	// First attempt to register the server without involving any oauth flows.
+	// This covers all mcp servers that DO NOT specifically require oauth-based authentication.
+	err := m.registerMcpServerWithoutOAuth(ctx, s)
 	if err == nil {
 		return nil
 	}
 
+	// If registration failed and the error is not related to oauth, return error.
 	if s.Transport != types.TransportStreamableHTTP && s.Transport != types.TransportSSE {
 		return err
 	}
-
 	if !errors.Is(err, mcpgotransport.ErrUnauthorized) {
 		return err
 	}
 
-	if input.OAuthRedirectURI == "" {
-		return fmt.Errorf(
-			"upstream server requires OAuth authorization, but oauth_redirect_uri was not provided: %w",
-			errors.Join(apierrors.ErrInvalidInput, apierrors.ErrUpstreamOAuthRequired),
-		)
-	}
-
+	// registration failed due to missing/invalid upstream OAuth credentials.
+	// notify the client so the oauth flow can be initiated.
 	return m.bootstrapUpstreamOAuth(ctx, input, s, force, initiatedBy)
 }
 
-// registerMcpServer contains the plain registration flow used once upstream
-// authentication has already been satisfied.
-func (m *MCPService) registerMcpServer(ctx context.Context, s *model.McpServer) error {
-	return m.registerMcpServerWithStoredAuth(ctx, s, true)
+// registerMcpServerWithoutOAuth performs the initial upstream registration
+// attempt without attaching any stored upstream OAuth credentials.
+func (m *MCPService) registerMcpServerWithoutOAuth(ctx context.Context, s *model.McpServer) error {
+	return m.registerMcpServer(ctx, s, false)
 }
 
-// registerMcpServerWithStoredAuth performs the core registration flow and lets
-// the caller choose whether any previously stored upstream OAuth credentials
-// should be attached to the initial upstream connection attempt.
-func (m *MCPService) registerMcpServerWithStoredAuth(ctx context.Context, s *model.McpServer, useStoredAuth bool) error {
+// finalizeMcpServerRegistration performs the plain MCP server registration flow
+// once upstream authentication has already been satisfied and any stored
+// upstream OAuth credentials should be attached to the connection attempt.
+func (m *MCPService) finalizeMcpServerRegistration(ctx context.Context, s *model.McpServer) error {
+	return m.registerMcpServer(ctx, s, true)
+}
+
+// registerMcpServer performs the core MCP server registration flow.
+//
+// It first registers the MCP server in the DB, then registers all the Tools,
+// Prompts, and Resources provided by the server. Tool registration is required,
+// while prompt/resource registration is best-effort. Registered entities are
+// also added to the MCP proxy server.
+//
+// This method assumes that any Oauth nuance is already handled and simply uses existing auth info.
+func (m *MCPService) registerMcpServer(ctx context.Context, s *model.McpServer, useStoredUpstreamAuth bool) error {
 	if err := validateServerName(s.Name); err != nil {
 		return err
 	}
@@ -88,12 +89,13 @@ func (m *MCPService) registerMcpServerWithStoredAuth(ctx context.Context, s *mod
 		}
 	}
 
-	var authDB *gorm.DB
-	if useStoredAuth {
-		authDB = m.db
-	}
-
-	mcpClient, err := createMcpServerConnectionWithDB(ctx, authDB, s, m.mcpServerInitReqTimeoutSec)
+	mcpClient, err := createMcpServerConnectionWithDB(
+		ctx,
+		m.db,
+		s,
+		m.mcpServerInitReqTimeoutSec,
+		useStoredUpstreamAuth,
+	)
 	if err != nil {
 		return err
 	}

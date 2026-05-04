@@ -257,7 +257,7 @@ func (m *MCPService) bootstrapUpstreamOAuth(ctx context.Context, input *types.Re
 		defer c.Close()
 		_, err = initializeHTTPClient(ctx, c, conf.URL, m.mcpServerInitReqTimeoutSec)
 		if err == nil {
-			return m.RegisterMcpServer(ctx, server)
+			return m.finalizeMcpServerRegistration(ctx, server)
 		}
 		if !errors.As(err, &oauthErr) {
 			return err
@@ -278,13 +278,13 @@ func (m *MCPService) bootstrapUpstreamOAuth(ctx context.Context, input *types.Re
 			_, err = c.Initialize(ctx, initReq)
 		}
 		if err == nil {
-			return m.RegisterMcpServer(ctx, server)
+			return m.finalizeMcpServerRegistration(ctx, server)
 		}
 		if !errors.As(err, &oauthErr) {
 			return err
 		}
 	default:
-		return m.RegisterMcpServer(ctx, server)
+		return m.finalizeMcpServerRegistration(ctx, server)
 	}
 
 	oauthHandler := oauthErr.Handler
@@ -583,7 +583,7 @@ func (m *MCPService) CompleteUpstreamOAuthSession(ctx context.Context, sessionID
 		}
 	}
 
-	if err := m.RegisterMcpServer(ctx, server); err != nil {
+	if err := m.finalizeMcpServerRegistration(ctx, server); err != nil {
 		return nil, err
 	}
 

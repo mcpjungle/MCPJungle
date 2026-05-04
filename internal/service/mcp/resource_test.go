@@ -251,6 +251,7 @@ func TestMCPProxyResourceHandlerRoutesReadByURI(t *testing.T) {
 	)
 
 	sessionManager := NewSessionManager(&SessionManagerConfig{
+		DB:                db,
 		IdleTimeoutSec:    0,
 		InitReqTimeoutSec: 10,
 	})
@@ -301,6 +302,7 @@ func TestMCPProxyResourceHandlerEnterpriseRejectsUnauthorizedClient(t *testing.T
 
 	sessionCreated := false
 	sessionManager := NewSessionManager(&SessionManagerConfig{
+		DB:                db,
 		IdleTimeoutSec:    0,
 		InitReqTimeoutSec: 10,
 	})
@@ -360,6 +362,7 @@ func TestMCPProxyResourceHandlerEnterpriseAllowsAuthorizedClient(t *testing.T) {
 	)
 
 	sessionManager := NewSessionManager(&SessionManagerConfig{
+		DB:                db,
 		IdleTimeoutSec:    0,
 		InitReqTimeoutSec: 10,
 	})
@@ -446,6 +449,7 @@ func TestMCPProxyResourceHandlerRoutesDuplicateUpstreamURIs(t *testing.T) {
 	)
 
 	sessionManager := NewSessionManager(&SessionManagerConfig{
+		DB:                db,
 		IdleTimeoutSec:    0,
 		InitReqTimeoutSec: 10,
 	})

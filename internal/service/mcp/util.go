@@ -265,8 +265,15 @@ func initializeHTTPClient(ctx context.Context, c *client.Client, url string, ini
 }
 
 // createHTTPMcpServerConn creates and initializes a streamable HTTP client for
-// an upstream MCP server, optionally attaching stored OAuth credentials from the DB.
-func createHTTPMcpServerConn(ctx context.Context, db *gorm.DB, s *model.McpServer, initReqTimeoutSec int) (*client.Client, error) {
+// an upstream MCP server. When useStoredUpstreamAuth is true, it attempts to
+// attach any stored upstream OAuth credentials loaded from the DB.
+func createHTTPMcpServerConn(
+	ctx context.Context,
+	db *gorm.DB,
+	s *model.McpServer,
+	initReqTimeoutSec int,
+	useStoredUpstreamAuth bool,
+) (*client.Client, error) {
 	conf, err := s.GetStreamableHTTPConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get streamable HTTP config for MCP server %s: %w", s.Name, err)
@@ -275,36 +282,38 @@ func createHTTPMcpServerConn(ctx context.Context, db *gorm.DB, s *model.McpServe
 	opts := prepareSHTTPClientOptions(s.Name, conf)
 
 	var c *client.Client
-	if db != nil {
-		if tokenModel, err := getStoredUpstreamOAuthToken(db, s.Name); err == nil {
-			if tokenModel.AccessToken == "" && tokenModel.RefreshToken == "" {
-				goto plainHTTPClient
-			}
-			scopes, err := scopesFromJSON(tokenModel.Scopes)
-			if err != nil {
-				return nil, fmt.Errorf("failed to decode stored OAuth scopes for server %s: %w", s.Name, err)
-			}
-			oauthConfig := client.OAuthConfig{
-				ClientID:     tokenModel.ClientID,
-				ClientSecret: tokenModel.ClientSecret,
-				RedirectURI:  tokenModel.RedirectURI,
-				Scopes:       scopes,
-				TokenStore: &upstreamOAuthTokenStore{
-					db:         db,
-					serverName: s.Name,
-					transport:  s.Transport,
-				},
-				PKCEEnabled: true,
-			}
-			c, err = client.NewOAuthStreamableHttpClient(conf.URL, oauthConfig, opts...)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create OAuth streamable HTTP client for MCP server: %w", err)
+
+	if useStoredUpstreamAuth && db != nil {
+		tokenModel, err := getStoredUpstreamOAuthToken(db, s.Name)
+		if err == nil {
+			hasStoredOAuthTokens := tokenModel.AccessToken != "" || tokenModel.RefreshToken != ""
+			if hasStoredOAuthTokens {
+				scopes, err := scopesFromJSON(tokenModel.Scopes)
+				if err != nil {
+					return nil, fmt.Errorf("failed to decode stored OAuth scopes for server %s: %w", s.Name, err)
+				}
+				oauthConfig := client.OAuthConfig{
+					ClientID:     tokenModel.ClientID,
+					ClientSecret: tokenModel.ClientSecret,
+					RedirectURI:  tokenModel.RedirectURI,
+					Scopes:       scopes,
+					TokenStore: &upstreamOAuthTokenStore{
+						db:         db,
+						serverName: s.Name,
+						transport:  s.Transport,
+					},
+					PKCEEnabled: true,
+				}
+				c, err = client.NewOAuthStreamableHttpClient(conf.URL, oauthConfig, opts...)
+				if err != nil {
+					return nil, fmt.Errorf("failed to create OAuth streamable HTTP client for MCP server: %w", err)
+				}
 			}
 		} else if !errors.Is(err, apierrors.ErrNotFound) {
 			return nil, fmt.Errorf("failed to load stored OAuth token for server %s: %w", s.Name, err)
 		}
 	}
-plainHTTPClient:
+
 	if c == nil {
 		c, err = client.NewStreamableHttpClient(conf.URL, opts...)
 		if err != nil {
@@ -425,8 +434,14 @@ func defaultSSEInitializeRequest() mcp.InitializeRequest {
 }
 
 // createSSEMcpServerConn creates and initializes an SSE client for an upstream
-// MCP server, optionally attaching stored OAuth credentials from the DB.
-func createSSEMcpServerConn(ctx context.Context, db *gorm.DB, s *model.McpServer) (*client.Client, error) {
+// MCP server. When useStoredUpstreamAuth is true, it attempts to attach any
+// stored upstream OAuth credentials loaded from the DB.
+func createSSEMcpServerConn(
+	ctx context.Context,
+	db *gorm.DB,
+	s *model.McpServer,
+	useStoredUpstreamAuth bool,
+) (*client.Client, error) {
 	conf, err := s.GetSSEConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get SSE transport config for MCP server %s: %w", s.Name, err)
@@ -444,36 +459,35 @@ func createSSEMcpServerConn(ctx context.Context, db *gorm.DB, s *model.McpServer
 		opts = append(opts, o)
 	}
 
-	if db != nil {
+	if useStoredUpstreamAuth && db != nil {
 		if tokenModel, err := getStoredUpstreamOAuthToken(db, s.Name); err == nil {
-			if tokenModel.AccessToken == "" && tokenModel.RefreshToken == "" {
-				goto plainSSEClient
-			}
-			scopes, err := scopesFromJSON(tokenModel.Scopes)
-			if err != nil {
-				return nil, fmt.Errorf("failed to decode stored OAuth scopes for server %s: %w", s.Name, err)
-			}
-			oauthConfig := client.OAuthConfig{
-				ClientID:     tokenModel.ClientID,
-				ClientSecret: tokenModel.ClientSecret,
-				RedirectURI:  tokenModel.RedirectURI,
-				Scopes:       scopes,
-				TokenStore: &upstreamOAuthTokenStore{
-					db:         db,
-					serverName: s.Name,
-					transport:  s.Transport,
-				},
-				PKCEEnabled: true,
-			}
-			c, err = client.NewOAuthSSEClient(conf.URL, oauthConfig, opts...)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create OAuth SSE client for MCP server: %w", err)
+			hasStoredOAuthTokens := tokenModel.AccessToken != "" || tokenModel.RefreshToken != ""
+			if hasStoredOAuthTokens {
+				scopes, err := scopesFromJSON(tokenModel.Scopes)
+				if err != nil {
+					return nil, fmt.Errorf("failed to decode stored OAuth scopes for server %s: %w", s.Name, err)
+				}
+				oauthConfig := client.OAuthConfig{
+					ClientID:     tokenModel.ClientID,
+					ClientSecret: tokenModel.ClientSecret,
+					RedirectURI:  tokenModel.RedirectURI,
+					Scopes:       scopes,
+					TokenStore: &upstreamOAuthTokenStore{
+						db:         db,
+						serverName: s.Name,
+						transport:  s.Transport,
+					},
+					PKCEEnabled: true,
+				}
+				c, err = client.NewOAuthSSEClient(conf.URL, oauthConfig, opts...)
+				if err != nil {
+					return nil, fmt.Errorf("failed to create OAuth SSE client for MCP server: %w", err)
+				}
 			}
 		} else if !errors.Is(err, apierrors.ErrNotFound) {
 			return nil, fmt.Errorf("failed to load stored OAuth token for server %s: %w", s.Name, err)
 		}
 	}
-plainSSEClient:
 	if c == nil {
 		c, err = client.NewSSEMCPClient(conf.URL, opts...)
 		if err != nil {

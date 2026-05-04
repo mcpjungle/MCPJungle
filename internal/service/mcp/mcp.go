@@ -2,14 +2,11 @@
 package mcp
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
-	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
 	"gorm.io/gorm"
 )
@@ -74,12 +71,10 @@ func NewMCPService(c *ServiceConfig) (*MCPService, error) {
 	sessionManager := c.SessionManager
 	if sessionManager == nil {
 		sessionManager = NewSessionManager(&SessionManagerConfig{
+			DB:                c.DB,
 			IdleTimeoutSec:    DefaultSessionIdleTimeoutSec,
 			InitReqTimeoutSec: c.McpServerInitReqTimeout,
 		})
-	}
-	sessionManager.createSessionFunc = func(ctx context.Context, s *model.McpServer, initReqTimeoutSec int) (*client.Client, error) {
-		return createMcpServerConnectionWithDB(ctx, c.DB, s, initReqTimeoutSec)
 	}
 
 	s := &MCPService{

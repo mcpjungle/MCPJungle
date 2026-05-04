@@ -409,6 +409,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 
 	// Create the session manager for stateful MCP connections
 	sessionManager := mcp.NewSessionManager(&mcp.SessionManagerConfig{
+		DB:                dbConn,
 		IdleTimeoutSec:    sessionIdleTimeout,
 		InitReqTimeoutSec: timeout,
 	})
