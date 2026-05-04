@@ -8,11 +8,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const (
-	UpstreamOAuthSessionStatusPending   = "pending"
-	UpstreamOAuthSessionStatusCompleted = "completed"
-)
-
 // UpstreamOAuthPendingSession stores an in-progress OAuth authorization flow for
 // an upstream MCP server registration.
 type UpstreamOAuthPendingSession struct {
@@ -37,7 +32,6 @@ type UpstreamOAuthPendingSession struct {
 	State        string    `json:"state" gorm:"not null"`
 	CodeVerifier string    `json:"code_verifier" gorm:"not null"`
 	ExpiresAt    time.Time `json:"expires_at" gorm:"index;not null"`
-	Status       string    `json:"status" gorm:"type:varchar(20);not null;default:'pending'"`
 
 	InitiatedBy string `json:"initiated_by"`
 }

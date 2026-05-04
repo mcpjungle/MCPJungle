@@ -343,7 +343,7 @@ func (m *MCPService) bootstrapUpstreamOAuth(ctx context.Context, input *types.Re
 	expiresAt := time.Now().Add(upstreamOAuthPendingSessionTTL)
 
 	if err := m.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("server_name = ? AND status = ?", server.Name, model.UpstreamOAuthSessionStatusPending).Delete(&model.UpstreamOAuthPendingSession{}).Error; err != nil {
+		if err := tx.Unscoped().Where("server_name = ?", server.Name).Delete(&model.UpstreamOAuthPendingSession{}).Error; err != nil {
 			return err
 		}
 
@@ -360,7 +360,6 @@ func (m *MCPService) bootstrapUpstreamOAuth(ctx context.Context, input *types.Re
 			State:        state,
 			CodeVerifier: codeVerifier,
 			ExpiresAt:    expiresAt,
-			Status:       model.UpstreamOAuthSessionStatusPending,
 			InitiatedBy:  initiatedBy,
 		}
 		return tx.Create(session).Error
@@ -534,7 +533,7 @@ func (m *MCPService) CompleteUpstreamOAuthSession(ctx context.Context, sessionID
 
 	var session model.UpstreamOAuthPendingSession
 	if err := m.db.WithContext(ctx).
-		Where("session_id = ? AND status = ?", sessionID, model.UpstreamOAuthSessionStatusPending).
+		Where("session_id = ?", sessionID).
 		First(&session).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("upstream OAuth session not found: %w", apierrors.ErrNotFound)
@@ -587,12 +586,7 @@ func (m *MCPService) CompleteUpstreamOAuthSession(ctx context.Context, sessionID
 		return nil, err
 	}
 
-	if err := m.db.WithContext(ctx).Model(&session).Updates(map[string]any{
-		"status": model.UpstreamOAuthSessionStatusCompleted,
-	}).Error; err != nil {
-		return nil, fmt.Errorf("failed to mark upstream OAuth session completed: %w", err)
-	}
-	if err := m.db.WithContext(ctx).Delete(&session).Error; err != nil {
+	if err := m.db.WithContext(ctx).Unscoped().Delete(&session).Error; err != nil {
 		return nil, fmt.Errorf("failed to delete completed upstream OAuth session: %w", err)
 	}
 
