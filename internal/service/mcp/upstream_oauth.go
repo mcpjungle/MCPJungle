@@ -544,6 +544,9 @@ func (m *MCPService) CompleteUpstreamOAuthSession(ctx context.Context, sessionID
 	if time.Now().After(session.ExpiresAt) {
 		return nil, fmt.Errorf("upstream OAuth session expired: %w", apierrors.ErrInvalidInput)
 	}
+	if state != session.State {
+		return nil, fmt.Errorf("upstream OAuth session state mismatch: %w", apierrors.ErrInvalidInput)
+	}
 
 	var input types.RegisterServerInput
 	if err := json.Unmarshal(session.ServerInput, &input); err != nil {

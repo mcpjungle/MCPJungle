@@ -290,6 +290,171 @@ EOF
   OAUTH_MOCK_PID=$!
 }
 
+start_oauth_registration() {
+  local query=${1:-}
+  local request_body
+  request_body=$(cat <<EOF
+{"name":"oauthsrv","description":"OAuth-protected upstream MCP server","transport":"streamable_http","url":"${OAUTH_MOCK_URL}/mcp","oauth_redirect_uri":"http://127.0.0.1:9999/oauth/callback","oauth_scopes":["mcp.read"]}
+EOF
+)
+
+  local response_file
+  response_file=$(mktemp)
+  local status
+  status=$(curl -sS -o "$response_file" -w "%{http_code}" \
+    -X POST \
+    -H "Content-Type: application/json" \
+    --data "$request_body" \
+    "${REGISTRY_URL}/api/v0/servers${query}")
+  local body
+  body="$(cat "$response_file")"
+  rm -f "$response_file"
+
+  if [[ "$status" != "202" ]]; then
+    echo "ERROR: expected OAuth registration to return 202, got ${status}" >&2
+    echo "Body: ${body}" >&2
+    exit 1
+  fi
+
+  OAUTH_SESSION_ID=$(extract_json_string_field "session_id" "$body")
+  OAUTH_AUTH_URL=$(extract_json_string_field "authorization_url" "$body")
+  OAUTH_AUTH_URL=$(decode_json_string "$OAUTH_AUTH_URL")
+  if [[ -z "$OAUTH_SESSION_ID" || -z "$OAUTH_AUTH_URL" ]]; then
+    echo "ERROR: OAuth registration response did not include session_id and authorization_url" >&2
+    echo "Body: ${body}" >&2
+    exit 1
+  fi
+}
+
+complete_oauth_registration() {
+  local auth_headers
+  auth_headers=$(mktemp)
+  curl -sS -D "$auth_headers" -o /dev/null "$OAUTH_AUTH_URL"
+  local callback_url
+  callback_url=$(sed -n 's/^[Ll]ocation: \(.*\)\r$/\1/p' "$auth_headers" | tail -n 1)
+  rm -f "$auth_headers"
+  if [[ -z "$callback_url" ]]; then
+    echo "ERROR: OAuth authorize endpoint did not return a callback redirect" >&2
+    exit 1
+  fi
+
+  local oauth_code
+  oauth_code=$(printf "%s" "$callback_url" | sed -n 's/.*[?&]code=\([^&]*\).*/\1/p')
+  local oauth_state
+  oauth_state=$(printf "%s" "$callback_url" | sed -n 's/.*[?&]state=\([^&]*\).*/\1/p')
+  if [[ -z "$oauth_code" || -z "$oauth_state" ]]; then
+    echo "ERROR: OAuth callback URL did not include both code and state" >&2
+    echo "Callback URL: ${callback_url}" >&2
+    exit 1
+  fi
+
+  local complete_body
+  complete_body=$(cat <<EOF
+{"code":"${oauth_code}","state":"${oauth_state}"}
+EOF
+)
+
+  local response_file
+  response_file=$(mktemp)
+  local status
+  status=$(curl -sS -o "$response_file" -w "%{http_code}" \
+    -X POST \
+    -H "Content-Type: application/json" \
+    --data "$complete_body" \
+    "${REGISTRY_URL}/api/v0/upstream_oauth/sessions/${OAUTH_SESSION_ID}/complete")
+  local body
+  body="$(cat "$response_file")"
+  rm -f "$response_file"
+
+  if [[ "$status" != "201" ]]; then
+    echo "ERROR: expected OAuth completion to return 201, got ${status}" >&2
+    echo "Body: ${body}" >&2
+    exit 1
+  fi
+}
+
+register_stateful_oauth_server() {
+  local request_body
+  request_body=$(cat <<EOF
+{"name":"oauthstateful","description":"OAuth-protected stateful upstream MCP server","transport":"streamable_http","url":"${OAUTH_MOCK_URL}/mcp","session_mode":"stateful","oauth_redirect_uri":"http://127.0.0.1:9998/oauth/callback","oauth_scopes":["mcp.read"]}
+EOF
+)
+
+  local response_file
+  response_file=$(mktemp)
+  local status
+  status=$(curl -sS -o "$response_file" -w "%{http_code}" \
+    -X POST \
+    -H "Content-Type: application/json" \
+    --data "$request_body" \
+    "${REGISTRY_URL}/api/v0/servers")
+  local body
+  body="$(cat "$response_file")"
+  rm -f "$response_file"
+
+  if [[ "$status" != "202" ]]; then
+    echo "ERROR: expected stateful OAuth registration to return 202, got ${status}" >&2
+    echo "Body: ${body}" >&2
+    exit 1
+  fi
+
+  OAUTH_STATEFUL_SESSION_ID=$(extract_json_string_field "session_id" "$body")
+  OAUTH_STATEFUL_AUTH_URL=$(extract_json_string_field "authorization_url" "$body")
+  OAUTH_STATEFUL_AUTH_URL=$(decode_json_string "$OAUTH_STATEFUL_AUTH_URL")
+  if [[ -z "$OAUTH_STATEFUL_SESSION_ID" || -z "$OAUTH_STATEFUL_AUTH_URL" ]]; then
+    echo "ERROR: stateful OAuth registration response did not include session_id and authorization_url" >&2
+    echo "Body: ${body}" >&2
+    exit 1
+  fi
+}
+
+complete_stateful_oauth_registration() {
+  local auth_headers
+  auth_headers=$(mktemp)
+  curl -sS -D "$auth_headers" -o /dev/null "$OAUTH_STATEFUL_AUTH_URL"
+  local callback_url
+  callback_url=$(sed -n 's/^[Ll]ocation: \(.*\)\r$/\1/p' "$auth_headers" | tail -n 1)
+  rm -f "$auth_headers"
+  if [[ -z "$callback_url" ]]; then
+    echo "ERROR: stateful OAuth authorize endpoint did not return a callback redirect" >&2
+    exit 1
+  fi
+
+  local oauth_code
+  oauth_code=$(printf "%s" "$callback_url" | sed -n 's/.*[?&]code=\([^&]*\).*/\1/p')
+  local oauth_state
+  oauth_state=$(printf "%s" "$callback_url" | sed -n 's/.*[?&]state=\([^&]*\).*/\1/p')
+  if [[ -z "$oauth_code" || -z "$oauth_state" ]]; then
+    echo "ERROR: stateful OAuth callback URL did not include both code and state" >&2
+    echo "Callback URL: ${callback_url}" >&2
+    exit 1
+  fi
+
+  local complete_body
+  complete_body=$(cat <<EOF
+{"code":"${oauth_code}","state":"${oauth_state}"}
+EOF
+)
+
+  local response_file
+  response_file=$(mktemp)
+  local status
+  status=$(curl -sS -o "$response_file" -w "%{http_code}" \
+    -X POST \
+    -H "Content-Type: application/json" \
+    --data "$complete_body" \
+    "${REGISTRY_URL}/api/v0/upstream_oauth/sessions/${OAUTH_STATEFUL_SESSION_ID}/complete")
+  local body
+  body="$(cat "$response_file")"
+  rm -f "$response_file"
+
+  if [[ "$status" != "201" ]]; then
+    echo "ERROR: expected stateful OAuth completion to return 201, got ${status}" >&2
+    echo "Body: ${body}" >&2
+    exit 1
+  fi
+}
+
 # Always cleanup on exit
 trap cleanup EXIT
 
@@ -347,72 +512,8 @@ log "Invoking context7__resolve-library-id"
 log "Testing upstream OAuth registration flow with a local mock MCP server"
 start_mock_oauth_upstream
 wait_for_health "${OAUTH_MOCK_URL}/healthz"
-
-OAUTH_REGISTER_BODY=$(cat <<EOF
-{"name":"oauthsrv","description":"OAuth-protected upstream MCP server","transport":"streamable_http","url":"${OAUTH_MOCK_URL}/mcp","oauth_redirect_uri":"http://127.0.0.1:9999/oauth/callback","oauth_scopes":["mcp.read"]}
-EOF
-)
-
-OAUTH_REGISTER_RESPONSE_FILE=$(mktemp)
-OAUTH_REGISTER_STATUS=$(curl -sS -o "$OAUTH_REGISTER_RESPONSE_FILE" -w "%{http_code}" \
-  -X POST \
-  -H "Content-Type: application/json" \
-  --data "$OAUTH_REGISTER_BODY" \
-  "${REGISTRY_URL}/api/v0/servers")
-OAUTH_REGISTER_BODY_CONTENT="$(cat "$OAUTH_REGISTER_RESPONSE_FILE")"
-rm -f "$OAUTH_REGISTER_RESPONSE_FILE"
-
-if [[ "$OAUTH_REGISTER_STATUS" != "202" ]]; then
-  echo "ERROR: expected OAuth registration to return 202, got ${OAUTH_REGISTER_STATUS}" >&2
-  echo "Body: ${OAUTH_REGISTER_BODY_CONTENT}" >&2
-  exit 1
-fi
-
-OAUTH_SESSION_ID=$(extract_json_string_field "session_id" "$OAUTH_REGISTER_BODY_CONTENT")
-OAUTH_AUTH_URL=$(extract_json_string_field "authorization_url" "$OAUTH_REGISTER_BODY_CONTENT")
-OAUTH_AUTH_URL=$(decode_json_string "$OAUTH_AUTH_URL")
-if [[ -z "$OAUTH_SESSION_ID" || -z "$OAUTH_AUTH_URL" ]]; then
-  echo "ERROR: OAuth registration response did not include session_id and authorization_url" >&2
-  echo "Body: ${OAUTH_REGISTER_BODY_CONTENT}" >&2
-  exit 1
-fi
-
-OAUTH_AUTH_HEADERS=$(mktemp)
-curl -sS -D "$OAUTH_AUTH_HEADERS" -o /dev/null "$OAUTH_AUTH_URL"
-OAUTH_CALLBACK_URL=$(sed -n 's/^[Ll]ocation: \(.*\)\r$/\1/p' "$OAUTH_AUTH_HEADERS" | tail -n 1)
-rm -f "$OAUTH_AUTH_HEADERS"
-if [[ -z "$OAUTH_CALLBACK_URL" ]]; then
-  echo "ERROR: OAuth authorize endpoint did not return a callback redirect" >&2
-  exit 1
-fi
-
-OAUTH_CODE=$(printf "%s" "$OAUTH_CALLBACK_URL" | sed -n 's/.*[?&]code=\([^&]*\).*/\1/p')
-OAUTH_STATE=$(printf "%s" "$OAUTH_CALLBACK_URL" | sed -n 's/.*[?&]state=\([^&]*\).*/\1/p')
-if [[ -z "$OAUTH_CODE" || -z "$OAUTH_STATE" ]]; then
-  echo "ERROR: OAuth callback URL did not include both code and state" >&2
-  echo "Callback URL: ${OAUTH_CALLBACK_URL}" >&2
-  exit 1
-fi
-
-OAUTH_COMPLETE_BODY=$(cat <<EOF
-{"code":"${OAUTH_CODE}","state":"${OAUTH_STATE}"}
-EOF
-)
-
-OAUTH_COMPLETE_RESPONSE_FILE=$(mktemp)
-OAUTH_COMPLETE_STATUS=$(curl -sS -o "$OAUTH_COMPLETE_RESPONSE_FILE" -w "%{http_code}" \
-  -X POST \
-  -H "Content-Type: application/json" \
-  --data "$OAUTH_COMPLETE_BODY" \
-  "${REGISTRY_URL}/api/v0/upstream_oauth/sessions/${OAUTH_SESSION_ID}/complete")
-OAUTH_COMPLETE_BODY_CONTENT="$(cat "$OAUTH_COMPLETE_RESPONSE_FILE")"
-rm -f "$OAUTH_COMPLETE_RESPONSE_FILE"
-
-if [[ "$OAUTH_COMPLETE_STATUS" != "201" ]]; then
-  echo "ERROR: expected OAuth completion to return 201, got ${OAUTH_COMPLETE_STATUS}" >&2
-  echo "Body: ${OAUTH_COMPLETE_BODY_CONTENT}" >&2
-  exit 1
-fi
+start_oauth_registration
+complete_oauth_registration
 
 OAUTH_TOOLS_OUTPUT=$("$BIN_PATH" --registry "$REGISTRY_URL" list tools 2>&1)
 if [[ "$OAUTH_TOOLS_OUTPUT" != *"oauthsrv__echo"* ]]; then
@@ -425,6 +526,57 @@ OAUTH_INVOKE_OUTPUT=$("$BIN_PATH" --registry "$REGISTRY_URL" invoke oauthsrv__ec
 if [[ "$OAUTH_INVOKE_OUTPUT" != *"oauth echo: hello oauth"* ]]; then
   echo "ERROR: expected oauth-protected tool invocation to succeed after OAuth completion" >&2
   echo "$OAUTH_INVOKE_OUTPUT" >&2
+  exit 1
+fi
+
+OAUTH_SECOND_INVOKE_OUTPUT=$("$BIN_PATH" --registry "$REGISTRY_URL" invoke oauthsrv__echo --input '{"msg":"hello oauth again"}' 2>&1)
+if [[ "$OAUTH_SECOND_INVOKE_OUTPUT" != *"oauth echo: hello oauth again"* ]]; then
+  echo "ERROR: expected second oauth-protected tool invocation to reuse stored credentials successfully" >&2
+  echo "$OAUTH_SECOND_INVOKE_OUTPUT" >&2
+  exit 1
+fi
+
+log "Testing OAuth re-registration with force=true"
+start_oauth_registration "?force=true"
+complete_oauth_registration
+
+OAUTH_SERVERS_BODY=$(curl -sS "${REGISTRY_URL}/api/v0/servers")
+OAUTH_SERVER_COUNT=$(printf "%s" "$OAUTH_SERVERS_BODY" | grep -o '"name":"oauthsrv"' | wc -l | tr -d ' ')
+if [[ "$OAUTH_SERVER_COUNT" != "1" ]]; then
+  echo "ERROR: expected exactly one oauthsrv entry after force re-registration, got ${OAUTH_SERVER_COUNT}" >&2
+  echo "Body: ${OAUTH_SERVERS_BODY}" >&2
+  exit 1
+fi
+
+OAUTH_FORCE_INVOKE_OUTPUT=$("$BIN_PATH" --registry "$REGISTRY_URL" invoke oauthsrv__echo --input '{"msg":"hello after force"}' 2>&1)
+if [[ "$OAUTH_FORCE_INVOKE_OUTPUT" != *"oauth echo: hello after force"* ]]; then
+  echo "ERROR: expected oauth-protected tool invocation to succeed after force re-registration" >&2
+  echo "$OAUTH_FORCE_INVOKE_OUTPUT" >&2
+  exit 1
+fi
+
+log "Testing upstream OAuth flow with session_mode=stateful"
+register_stateful_oauth_server
+complete_stateful_oauth_registration
+
+OAUTH_STATEFUL_TOOLS_OUTPUT=$("$BIN_PATH" --registry "$REGISTRY_URL" list tools 2>&1)
+if [[ "$OAUTH_STATEFUL_TOOLS_OUTPUT" != *"oauthstateful__echo"* ]]; then
+  echo "ERROR: expected oauthstateful__echo to be registered after stateful OAuth completion" >&2
+  echo "$OAUTH_STATEFUL_TOOLS_OUTPUT" >&2
+  exit 1
+fi
+
+OAUTH_STATEFUL_FIRST_INVOKE=$("$BIN_PATH" --registry "$REGISTRY_URL" invoke oauthstateful__echo --input '{"msg":"hello stateful oauth"}' 2>&1)
+if [[ "$OAUTH_STATEFUL_FIRST_INVOKE" != *"oauth echo: hello stateful oauth"* ]]; then
+  echo "ERROR: expected first stateful OAuth tool invocation to succeed" >&2
+  echo "$OAUTH_STATEFUL_FIRST_INVOKE" >&2
+  exit 1
+fi
+
+OAUTH_STATEFUL_SECOND_INVOKE=$("$BIN_PATH" --registry "$REGISTRY_URL" invoke oauthstateful__echo --input '{"msg":"hello stateful oauth again"}' 2>&1)
+if [[ "$OAUTH_STATEFUL_SECOND_INVOKE" != *"oauth echo: hello stateful oauth again"* ]]; then
+  echo "ERROR: expected second stateful OAuth tool invocation to succeed" >&2
+  echo "$OAUTH_STATEFUL_SECOND_INVOKE" >&2
   exit 1
 fi
 

@@ -15,6 +15,12 @@ API_BASE_URL="${BASE_URL}/api/v0"
 TMP_DIR="$(mktemp -d)"
 SERVER_LOG="${TMP_DIR}/server.log"
 SERVER_PID=""
+OAUTH_MOCK_PID=""
+OAUTH_MOCK_DIR=""
+OAUTH_MOCK_SOURCE=""
+OAUTH_MOCK_LOG=""
+OAUTH_MOCK_PORT="${OAUTH_MOCK_PORT:-19101}"
+OAUTH_MOCK_URL="http://127.0.0.1:${OAUTH_MOCK_PORT}"
 KEEP_TMP_ON_FAILURE="${KEEP_TMP_ON_FAILURE:-0}"
 FAILED=0
 
@@ -51,10 +57,17 @@ cleanup() {
     kill "$SERVER_PID" || true
     wait "$SERVER_PID" 2>/dev/null || true
   fi
+  if [[ -n "$OAUTH_MOCK_PID" ]] && kill -0 "$OAUTH_MOCK_PID" >/dev/null 2>&1; then
+    kill "$OAUTH_MOCK_PID" || true
+    wait "$OAUTH_MOCK_PID" 2>/dev/null || true
+  fi
 
   if [[ "$FAILED" -eq 1 || "$KEEP_TMP_ON_FAILURE" -eq 1 ]]; then
     log "Temporary files kept at $TMP_DIR"
     log "Server log: $SERVER_LOG"
+    if [[ -n "$OAUTH_MOCK_LOG" ]]; then
+      log "OAuth mock log: $OAUTH_MOCK_LOG"
+    fi
     return
   fi
 
@@ -84,6 +97,111 @@ extract_json_string_field() {
   local body=$2
 
   printf "%s" "$body" | sed -n "s/.*\"${field}\"[[:space:]]*:[[:space:]]*\"\\([^\"]*\\)\".*/\\1/p"
+}
+
+start_mock_oauth_upstream() {
+  OAUTH_MOCK_DIR=$(mktemp -d "$TMP_DIR/oauth-mock.XXXXXX")
+  OAUTH_MOCK_SOURCE="$OAUTH_MOCK_DIR/main.go"
+  OAUTH_MOCK_LOG="$TMP_DIR/oauth-mock.log"
+
+  cat >"$OAUTH_MOCK_SOURCE" <<EOF
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/url"
+	"os"
+
+	"github.com/mark3labs/mcp-go/mcp"
+	mcpserver "github.com/mark3labs/mcp-go/server"
+)
+
+func main() {
+	baseURL := os.Getenv("OAUTH_MOCK_BASE_URL")
+	accessToken := "mock-access-token"
+
+	upstreamMCP := mcpserver.NewMCPServer("oauth-upstream", "0.1.0")
+	upstreamMCP.AddTool(
+		mcp.NewTool("echo", mcp.WithDescription("Echoes the msg argument"), mcp.WithString("msg", mcp.Required())),
+		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			msg, _ := req.GetArguments()["msg"].(string)
+			return mcp.NewToolResultText("oauth echo: " + msg), nil
+		},
+	)
+	streamable := mcpserver.NewStreamableHTTPServer(upstreamMCP)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	mux.HandleFunc("/.well-known/oauth-protected-resource/mcp", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"authorization_servers": []string{baseURL},
+			"resource":              baseURL + "/mcp",
+		})
+	})
+	mux.HandleFunc("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"issuer":                 baseURL,
+			"authorization_endpoint": baseURL + "/authorize",
+			"token_endpoint":         baseURL + "/token",
+			"registration_endpoint":  baseURL + "/register",
+			"response_types_supported": []string{
+				"code",
+			},
+		})
+	})
+	mux.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"client_id": "mock-client-id",
+		})
+	})
+	mux.HandleFunc("/authorize", func(w http.ResponseWriter, r *http.Request) {
+		redirectURI := r.URL.Query().Get("redirect_uri")
+		state := r.URL.Query().Get("state")
+		u, err := url.Parse(redirectURI)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		q := u.Query()
+		q.Set("code", "mock-auth-code")
+		q.Set("state", state)
+		u.RawQuery = q.Encode()
+		http.Redirect(w, r, u.String(), http.StatusFound)
+	})
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"access_token":  accessToken,
+			"token_type":    "Bearer",
+			"refresh_token": "mock-refresh-token",
+			"expires_in":    3600,
+			"scope":         "mcp.read",
+		})
+	})
+	mux.Handle("/mcp", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer "+accessToken {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte("unauthorized"))
+			return
+		}
+		streamable.ServeHTTP(w, r)
+	}))
+
+	if err := http.ListenAndServe("127.0.0.1:"+os.Getenv("OAUTH_MOCK_PORT"), mux); err != nil {
+		panic(err)
+	}
+}
+EOF
+
+  OAUTH_MOCK_PORT="$OAUTH_MOCK_PORT" OAUTH_MOCK_BASE_URL="$OAUTH_MOCK_URL" \
+    go run "$OAUTH_MOCK_SOURCE" >"$OAUTH_MOCK_LOG" 2>&1 &
+  OAUTH_MOCK_PID=$!
 }
 
 request() {
@@ -220,6 +338,30 @@ assert_status \
   "cannot unmarshal" \
   "$ADMIN_TOKEN" \
   '{"name":"bad-oauth-scopes","transport":"streamable_http","url":"https://example.com/mcp","oauth_scopes":"mcp.read"}'
+
+log "register oauth server without redirect uri returns machine-readable oauth-required code"
+start_mock_oauth_upstream
+wait_for_health "${OAUTH_MOCK_URL}/healthz"
+oauth_required_result="$(request \
+  "POST" \
+  "/api/v0/servers" \
+  "$ADMIN_TOKEN" \
+  "{\"name\":\"oauth-no-redirect\",\"transport\":\"streamable_http\",\"url\":\"${OAUTH_MOCK_URL}/mcp\"}")"
+oauth_required_status="$(printf "%s" "$oauth_required_result" | sed -n '1p')"
+oauth_required_body="$(printf "%s" "$oauth_required_result" | sed -n '2,$p')"
+if [[ "$oauth_required_status" != "400" ]]; then
+  FAILED=1
+  echo "ERROR: expected oauth-required registration to return 400, got ${oauth_required_status}" >&2
+  echo "Body: ${oauth_required_body}" >&2
+  exit 1
+fi
+if [[ "$oauth_required_body" != *'"code":"upstream_oauth_required"'* ]]; then
+  FAILED=1
+  echo "ERROR: expected oauth-required registration to include machine-readable code upstream_oauth_required" >&2
+  echo "Body: ${oauth_required_body}" >&2
+  exit 1
+fi
+printf "[OK] %s -> %s\n" "register oauth server without redirect uri returns machine-readable oauth-required code" "$oauth_required_status"
 
 assert_status \
   "complete upstream oauth session rejects malformed json" \
