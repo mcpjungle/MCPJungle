@@ -16,6 +16,7 @@ import (
 	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/mcpjungle/mcpjungle/pkg/util"
+	"github.com/mcpjungle/mcpjungle/pkg/version"
 	"gorm.io/gorm"
 )
 
@@ -295,10 +296,13 @@ func (s *ToolGroupService) GetToolGroupSseMCPServer(name string) (*server.MCPSer
 }
 
 // newMCPServer creates a new MCP proxy server for a given tool group name.
+// The advertised version is tied to the mcpjungle server version (pkg/version)
+// so each tool-group proxy reports the host's version instead of a hardcoded
+// string.
 func (s *ToolGroupService) newMCPServer(groupName string) *server.MCPServer {
 	return server.NewMCPServer(
 		fmt.Sprintf("MCPJungle proxy MCP server for tool group: %s", groupName),
-		"0.1.0",
+		version.GetVersion(),
 		server.WithResourceCapabilities(false, false),
 		server.WithToolCapabilities(true),
 		server.WithPromptCapabilities(true),
@@ -310,7 +314,7 @@ func (s *ToolGroupService) newMCPServer(groupName string) *server.MCPServer {
 func (s *ToolGroupService) newSseMCPServer(groupName string) *server.MCPServer {
 	return server.NewMCPServer(
 		fmt.Sprintf("MCPJungle proxy MCP server for SSE transport for tool group: %s", groupName),
-		"0.1.0",
+		version.GetVersion(),
 		server.WithResourceCapabilities(false, false),
 		server.WithToolCapabilities(true),
 		server.WithPromptCapabilities(true),

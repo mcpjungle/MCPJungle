@@ -27,6 +27,7 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
+	"github.com/mcpjungle/mcpjungle/pkg/version"
 	"github.com/spf13/cobra"
 )
 
@@ -373,10 +374,13 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 
 	bindPort := getBindPort()
 
-	// create the MCP proxy servers
+	// create the MCP proxy servers. Tie the advertised proxy version to the
+	// mcpjungle server version (from pkg/version) so the proxies always report
+	// the same version as the host process, instead of a hardcoded string.
+	proxyVersion := version.GetVersion()
 	mcpProxyServer := server.NewMCPServer(
 		"MCPJungle Proxy MCP Server",
-		"0.0.1",
+		proxyVersion,
 		server.WithResourceCapabilities(false, false),
 		server.WithToolCapabilities(true),
 		server.WithPromptCapabilities(true),
@@ -384,7 +388,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 	)
 	sseMcpProxyServer := server.NewMCPServer(
 		"MCPJungle Proxy MCP Server for SSE transport",
-		"0.0.1",
+		proxyVersion,
 		server.WithResourceCapabilities(false, false),
 		server.WithToolCapabilities(true),
 		server.WithPromptCapabilities(true),
