@@ -2,7 +2,7 @@
 
 Instructions for coding agents working on MCPJungle.
 
-This file is the agent-facing companion to [CONTRIBUTION.md](./CONTRIBUTION.md) and [DEVELOPMENT.md](./DEVELOPMENT.md). Read both before making non-trivial changes.
+This file is the agent-facing companion to [contributing](./docs/developers/contributing.mdx) and [development](./docs/developers/development.mdx). Read both before making non-trivial changes.
 
 ## Project overview
 
@@ -15,17 +15,7 @@ MCPJungle is a single-binary Go server that proxies and manages multiple Model C
 - `client/`: Go client library
 - `pkg/`: public packages
 
-Module path: `github.com/mcpjungle/mcpjungle`. Go version: see `go.mod` (currently 1.24+).
-
-## Setup
-
-```bash
-git clone https://github.com/mcpjungle/MCPJungle.git
-cd MCPJungle
-go mod download
-```
-
-The `vendor/` directory is intentionally not committed. Use module-aware mode (`GOPROXY="https://proxy.golang.org,direct"` if needed).
+Module path: `github.com/mcpjungle/mcpjungle`. Go version: see `go.mod`.
 
 ## Build
 
