@@ -21,6 +21,13 @@ import (
 
 var ErrToolGroupNotFound = fmt.Errorf("tool group not found: %w", apierrors.ErrNotFound)
 
+// McpClientBoundChecker is the interface ToolGroupService needs to check whether any clients are
+// bound to a Tool Group before allowing rename or delete.
+// It is satisfied by *mcpclient.McpClientService.
+type McpClientBoundChecker interface {
+	CountBoundClients(toolGroupName string) (int64, error)
+}
+
 // ValidGroupName is a regex that matches valid tool group names.
 // A valid tool group name must start with an alphanumeric character and can contain
 // alphanumeric characters, underscores, and hyphens.
@@ -32,6 +39,10 @@ type ToolGroupService struct {
 	db *gorm.DB
 
 	mcpService *mcp.MCPService
+
+	// mcpClientChecker is used to check whether any MCP clients are bound to a tool group
+	// before allowing rename or delete. May be nil if not configured.
+	mcpClientChecker McpClientBoundChecker
 
 	// mcpServers manages the MCP proxy servers for all the tool groups
 	// key: tool group name, value: MCP proxy server
@@ -66,6 +77,12 @@ func NewToolGroupService(db *gorm.DB, mcpService *mcp.MCPService) (*ToolGroupSer
 		return nil, fmt.Errorf("failed to initialize tool group MCP servers: %w", err)
 	}
 	return s, nil
+}
+
+// SetMcpClientChecker injects the bound-client checker dependency after construction.
+// This breaks the import cycle between toolgroup and mcpclient packages.
+func (s *ToolGroupService) SetMcpClientChecker(c McpClientBoundChecker) {
+	s.mcpClientChecker = c
 }
 
 // CreateToolGroup creates a new tool group in the database and a Proxy MCP server that just exposes the specified tools.
@@ -269,6 +286,20 @@ func (s *ToolGroupService) ListToolGroups() ([]model.ToolGroup, error) {
 }
 
 func (s *ToolGroupService) DeleteToolGroup(name string) error {
+	// Refuse to delete if any MCP clients are bound to this group.
+	if s.mcpClientChecker != nil {
+		count, err := s.mcpClientChecker.CountBoundClients(name)
+		if err != nil {
+			return fmt.Errorf("failed to check bound clients for tool group %q: %w", name, err)
+		}
+		if count > 0 {
+			return fmt.Errorf(
+				"%d client(s) are bound to tool group %q; revoke them first: %w",
+				count, name, apierrors.ErrConflict,
+			)
+		}
+	}
+
 	s.deleteToolGroupMCPServers(name)
 
 	err := s.db.Unscoped().Where("name = ?", name).Delete(&model.ToolGroup{}).Error

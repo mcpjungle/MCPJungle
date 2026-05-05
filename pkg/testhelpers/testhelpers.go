@@ -323,6 +323,11 @@ func (s *TestDBSetup) CreateTestUser(username string, role types.UserRole, acces
 
 // CreateTestMcpClient creates a test MCP client with the given parameters
 func (s *TestDBSetup) CreateTestMcpClient(name, description, accessToken string, allowList []string) *model.McpClient {
+	return s.CreateTestMcpClientBound(name, description, accessToken, allowList, nil)
+}
+
+// CreateTestMcpClientBound creates a test MCP client with the given parameters and an optional BoundToolGroup.
+func (s *TestDBSetup) CreateTestMcpClientBound(name, description, accessToken string, allowList []string, boundToolGroup *string) *model.McpClient {
 	allowListJSON := []byte("[]")
 	if len(allowList) > 0 {
 		// Create a proper JSON array
@@ -338,10 +343,11 @@ func (s *TestDBSetup) CreateTestMcpClient(name, description, accessToken string,
 	}
 
 	client := &model.McpClient{
-		Name:        name,
-		Description: description,
-		AccessToken: accessToken,
-		AllowList:   allowListJSON,
+		Name:           name,
+		Description:    description,
+		AccessToken:    accessToken,
+		AllowList:      allowListJSON,
+		BoundToolGroup: boundToolGroup,
 	}
 
 	err := s.DB.Create(client).Error

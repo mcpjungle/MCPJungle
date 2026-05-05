@@ -136,6 +136,88 @@ func (s *Server) requireServerMode(m model.ServerMode) gin.HandlerFunc {
 	}
 }
 
+// blockBoundClientsFromGlobalMCP is middleware for the global /mcp endpoint.
+// When RequireClientTGBinding (strict mode) is enabled, it rejects clients that have a BoundToolGroup
+// set — those clients must use the group-specific endpoint, not the global one.
+// This middleware must run after checkAuthForMcpProxyAccess.
+func (s *Server) blockBoundClientsFromGlobalMCP() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !s.requireClientTGBinding {
+			c.Next()
+			return
+		}
+
+		raw := c.Request.Context().Value("client")
+		if raw == nil {
+			// dev mode or unauthenticated — let through (other middleware handles auth)
+			c.Next()
+			return
+		}
+		client, ok := raw.(*model.McpClient)
+		if !ok || client == nil {
+			c.Next()
+			return
+		}
+
+		if client.BoundToolGroup != nil {
+			c.AbortWithStatusJSON(
+				http.StatusForbidden,
+				gin.H{
+					"error": fmt.Sprintf(
+						"client %q is bound to tool group %q and must use the group-specific endpoint /v0/groups/%s/mcp",
+						client.Name, *client.BoundToolGroup, *client.BoundToolGroup,
+					),
+				},
+			)
+			return
+		}
+		c.Next()
+	}
+}
+
+// enforceToolGroupBinding is middleware that restricts a bound MCP client to its designated Tool Group.
+// It must run after checkAuthForMcpProxyAccess (which injects the client into the request context).
+// If the client has a BoundToolGroup set, the URL parameter :name must match it exactly.
+// Clients without a binding (BoundToolGroup == nil) may access any group endpoint (legacy behaviour).
+// In dev mode the middleware is a no-op (no client is injected into context).
+func (s *Server) enforceToolGroupBinding() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Retrieve the client injected by checkAuthForMcpProxyAccess.
+		// In dev mode the client is not injected, so we skip enforcement.
+		raw := c.Request.Context().Value("client")
+		if raw == nil {
+			c.Next()
+			return
+		}
+		client, ok := raw.(*model.McpClient)
+		if !ok || client == nil {
+			c.Next()
+			return
+		}
+
+		if client.BoundToolGroup == nil {
+			// Unbound client — legacy behaviour, allow access to any group.
+			c.Next()
+			return
+		}
+
+		groupName := c.Param("name")
+		if *client.BoundToolGroup != groupName {
+			c.AbortWithStatusJSON(
+				http.StatusForbidden,
+				gin.H{
+					"error": fmt.Sprintf(
+						"client %q is bound to tool group %q and may not access group %q",
+						client.Name, *client.BoundToolGroup, groupName,
+					),
+				},
+			)
+			return
+		}
+		c.Next()
+	}
+}
+
 // checkAuthForMcpProxyAccess is middleware for MCP proxy that checks for a valid MCP client token
 // if the server is in enterprise mode.
 // In development mode, mcp clients do not require auth to access the MCP proxy.

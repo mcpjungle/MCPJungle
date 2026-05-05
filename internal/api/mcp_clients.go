@@ -29,6 +29,13 @@ func (s *Server) createMcpClientHandler() gin.HandlerFunc {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "name is required"})
 			return
 		}
+		// In strict mode, every new client must declare its bound tool group.
+		if s.requireClientTGBinding && req.BoundToolGroup == nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "bound_tool_group is required when MCPJUNGLE_REQUIRE_CLIENT_TG_BINDING is enabled",
+			})
+			return
+		}
 		// TODO: if allow list in the request is null, convert it to an empty JSON array
 		client, err := s.mcpClientService.CreateClient(req)
 		if err != nil {

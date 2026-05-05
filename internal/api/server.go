@@ -45,6 +45,11 @@ type ServerOptions struct {
 
 	OtelProviders *telemetry.Providers
 	Metrics       telemetry.CustomMetrics
+
+	// RequireClientTGBinding enables strict mode (env MCPJUNGLE_REQUIRE_CLIENT_TG_BINDING).
+	// When true: POST /api/v0/clients requires a bound_tool_group field,
+	// and clients with a BoundToolGroup are blocked from the global /mcp endpoint.
+	RequireClientTGBinding bool
 }
 
 // Server represents the MCPJungle registry server that handles MCP proxy and API requests
@@ -64,6 +69,9 @@ type Server struct {
 	otelProviders *telemetry.Providers
 	metrics       telemetry.CustomMetrics
 
+	// requireClientTGBinding mirrors ServerOptions.RequireClientTGBinding.
+	requireClientTGBinding bool
+
 	// groupMcpServers keeps track of mcp-go's server.SSEServer instances created for each tool group.
 	// These instances serve the requests made to tool groups' SSE tools.
 	// We need to maintain one instance for each group for sse to work correctly.
@@ -73,15 +81,16 @@ type Server struct {
 // NewServer initializes a new Gin server for MCPJungle registry and MCP proxy
 func NewServer(opts *ServerOptions) (*Server, error) {
 	s := &Server{
-		mcpProxyServer:    opts.MCPProxyServer,
-		sseMcpProxyServer: opts.SseMcpProxyServer,
-		mcpService:        opts.MCPService,
-		mcpClientService:  opts.MCPClientService,
-		configService:     opts.ConfigService,
-		userService:       opts.UserService,
-		toolGroupService:  opts.ToolGroupService,
-		otelProviders:     opts.OtelProviders,
-		metrics:           opts.Metrics,
+		mcpProxyServer:         opts.MCPProxyServer,
+		sseMcpProxyServer:      opts.SseMcpProxyServer,
+		mcpService:             opts.MCPService,
+		mcpClientService:       opts.MCPClientService,
+		configService:          opts.ConfigService,
+		userService:            opts.UserService,
+		toolGroupService:       opts.ToolGroupService,
+		otelProviders:          opts.OtelProviders,
+		metrics:                opts.Metrics,
+		requireClientTGBinding: opts.RequireClientTGBinding,
 	}
 
 	// Set up the router after the server is fully initialized
@@ -176,6 +185,7 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		"/mcp",
 		s.requireInitialized(),
 		s.checkAuthForMcpProxyAccess(),
+		s.blockBoundClientsFromGlobalMCP(),
 		gin.WrapH(streamableHTTPServer),
 	)
 
@@ -183,6 +193,7 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		V0PathPrefix+"/groups/:name/mcp",
 		s.requireInitialized(),
 		s.checkAuthForMcpProxyAccess(),
+		s.enforceToolGroupBinding(),
 		s.toolGroupMCPServerCallHandler(),
 	)
 
@@ -205,12 +216,14 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		V0PathPrefix+"/groups/:name/sse",
 		s.requireInitialized(),
 		s.checkAuthForMcpProxyAccess(),
+		s.enforceToolGroupBinding(),
 		s.toolGroupSseMCPServerCallHandler(),
 	)
 	r.Any(
 		V0PathPrefix+"/groups/:name/message",
 		s.requireInitialized(),
 		s.checkAuthForMcpProxyAccess(),
+		s.enforceToolGroupBinding(),
 		s.toolGroupSseMCPServerCallMessageHandler(),
 	)
 

@@ -21,6 +21,11 @@ type McpClient struct {
 	// storing the list of server names as a JSON array is a convenient way for now.
 	// In the future, this will be removed in favor of a separate table for ACLs.
 	AllowList datatypes.JSON `json:"allow_list" gorm:"type:jsonb; not null"`
+
+	// BoundToolGroup is the name of the Tool Group this client is restricted to.
+	// When non-nil, the client may only access the /v0/groups/<name>/* endpoints
+	// where <name> matches this value. NULL means no restriction (legacy behaviour).
+	BoundToolGroup *string `json:"bound_tool_group,omitempty" gorm:"column:bound_tool_group"`
 }
 
 // CheckHasServerAccess returns true if this client has access to the specified MCP server.

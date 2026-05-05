@@ -9,3 +9,6 @@ var ErrNotFound = errors.New("not found")
 
 // ErrInvalidInput is returned by service methods when user input is invalid (e.g. invalid mcp tool name).
 var ErrInvalidInput = errors.New("invalid user input")
+
+// ErrConflict is returned by service methods when an operation cannot proceed due to a conflicting resource state.
+var ErrConflict = errors.New("conflict")

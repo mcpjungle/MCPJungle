@@ -48,6 +48,11 @@ const (
 )
 
 const (
+	// RequireClientTGBindingEnvVar is the environment variable that enables strict mode.
+	// When set to "true" or "1", POST /api/v0/clients requires a bound_tool_group, and
+	// clients with a bound_tool_group are blocked from the global /mcp endpoint.
+	RequireClientTGBindingEnvVar = "MCPJUNGLE_REQUIRE_CLIENT_TG_BINDING"
+
 	// McpServerInitReqTimeoutSecEnvVar is the environment variable for configuring
 	// the MCP server initialization request timeout.
 	McpServerInitReqTimeoutSecEnvVar = "MCP_SERVER_INIT_REQ_TIMEOUT_SEC"
@@ -436,17 +441,31 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create Tool Group service: %v", err)
 	}
 
+	// Inject the tool-group lookup into the client service so it can validate bound_tool_group on create/update.
+	mcpClientService.SetToolGroupService(toolGroupService)
+	// Inject the bound-client checker into the tool group service so it can refuse to delete a group
+	// that still has clients bound to it.
+	toolGroupService.SetMcpClientChecker(mcpClientService)
+
+	// Determine whether strict binding mode is enabled.
+	requireClientTGBinding := false
+	if v := strings.ToLower(strings.TrimSpace(os.Getenv(RequireClientTGBindingEnvVar))); v == "true" || v == "1" {
+		requireClientTGBinding = true
+		log.Printf("[server] strict client tool-group binding mode is ENABLED (%s=true)\n", RequireClientTGBindingEnvVar)
+	}
+
 	// create the API server
 	opts := &api.ServerOptions{
-		MCPProxyServer:    mcpProxyServer,
-		SseMcpProxyServer: sseMcpProxyServer,
-		MCPService:        mcpService,
-		MCPClientService:  mcpClientService,
-		ConfigService:     configService,
-		UserService:       userService,
-		ToolGroupService:  toolGroupService,
-		OtelProviders:     otelProviders,
-		Metrics:           mcpMetrics,
+		MCPProxyServer:         mcpProxyServer,
+		SseMcpProxyServer:      sseMcpProxyServer,
+		MCPService:             mcpService,
+		MCPClientService:       mcpClientService,
+		ConfigService:          configService,
+		UserService:            userService,
+		ToolGroupService:       toolGroupService,
+		OtelProviders:          otelProviders,
+		Metrics:                mcpMetrics,
+		RequireClientTGBinding: requireClientTGBinding,
 	}
 	s, err := api.NewServer(opts)
 	if err != nil {

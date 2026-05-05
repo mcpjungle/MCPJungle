@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -494,4 +495,148 @@ func TestMiddlewareIntegration(t *testing.T) {
 	if w.Body.String() != expectedBody {
 		t.Errorf("Expected body %s, got %s", expectedBody, w.Body.String())
 	}
+}
+
+// injectClientIntoRequest returns a copy of req with the McpClient injected into its context,
+// simulating what checkAuthForMcpProxyAccess does in the real request path.
+func injectClientIntoRequest(req *http.Request, client *model.McpClient) *http.Request {
+	ctx := context.WithValue(req.Context(), "client", client)
+	return req.WithContext(ctx)
+}
+
+// strPtr is a convenience helper for *string literals in tests.
+func strPtr(s string) *string { return &s }
+
+// TestEnforceToolGroupBinding_BoundClientMatchingGroup verifies that a client bound to "grp-a"
+// can reach /groups/grp-a/* without being blocked.
+func TestEnforceToolGroupBinding_BoundClientMatchingGroup(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	s := &Server{}
+
+	router := gin.New()
+	router.GET("/groups/:name/mcp", s.enforceToolGroupBinding(), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	client := &model.McpClient{Name: "c1", BoundToolGroup: strPtr("grp-a")}
+	req := injectClientIntoRequest(httptest.NewRequest(http.MethodGet, "/groups/grp-a/mcp", nil), client)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	testhelpers.AssertEqual(t, http.StatusOK, w.Code)
+}
+
+// TestEnforceToolGroupBinding_BoundClientWrongGroup verifies that a client bound to "grp-a"
+// gets 403 when it tries to access /groups/grp-b/*.
+func TestEnforceToolGroupBinding_BoundClientWrongGroup(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	s := &Server{}
+
+	router := gin.New()
+	router.GET("/groups/:name/mcp", s.enforceToolGroupBinding(), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	client := &model.McpClient{Name: "c1", BoundToolGroup: strPtr("grp-a")}
+	req := injectClientIntoRequest(httptest.NewRequest(http.MethodGet, "/groups/grp-b/mcp", nil), client)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	testhelpers.AssertEqual(t, http.StatusForbidden, w.Code)
+	testhelpers.AssertStringContains(t, w.Body.String(), "grp-a")
+}
+
+// TestEnforceToolGroupBinding_UnboundClientAnyGroup verifies that a client with no BoundToolGroup
+// (legacy/unbound) can reach any group endpoint — backwards-compat path.
+func TestEnforceToolGroupBinding_UnboundClientAnyGroup(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	s := &Server{}
+
+	router := gin.New()
+	router.GET("/groups/:name/mcp", s.enforceToolGroupBinding(), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	client := &model.McpClient{Name: "legacy", BoundToolGroup: nil}
+	req := injectClientIntoRequest(httptest.NewRequest(http.MethodGet, "/groups/any-group/mcp", nil), client)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	testhelpers.AssertEqual(t, http.StatusOK, w.Code)
+}
+
+// TestEnforceToolGroupBinding_DevModeNoClient verifies that the middleware is a no-op when no
+// client is in the context (dev mode — checkAuthForMcpProxyAccess skips injection).
+func TestEnforceToolGroupBinding_DevModeNoClient(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	s := &Server{}
+
+	router := gin.New()
+	router.GET("/groups/:name/mcp", s.enforceToolGroupBinding(), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/groups/any-group/mcp", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	testhelpers.AssertEqual(t, http.StatusOK, w.Code)
+}
+
+// TestBlockBoundClientsFromGlobalMCP_StrictMode_BoundClientBlocked verifies that in strict mode
+// a client with BoundToolGroup is rejected from the global /mcp endpoint.
+func TestBlockBoundClientsFromGlobalMCP_StrictMode_BoundClientBlocked(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	s := &Server{requireClientTGBinding: true}
+
+	router := gin.New()
+	router.POST("/mcp", s.blockBoundClientsFromGlobalMCP(), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	client := &model.McpClient{Name: "c1", BoundToolGroup: strPtr("code")}
+	req := injectClientIntoRequest(httptest.NewRequest(http.MethodPost, "/mcp", nil), client)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	testhelpers.AssertEqual(t, http.StatusForbidden, w.Code)
+	testhelpers.AssertStringContains(t, w.Body.String(), "code")
+}
+
+// TestBlockBoundClientsFromGlobalMCP_StrictMode_UnboundClientAllowed verifies that in strict mode
+// a client without BoundToolGroup can still hit the global /mcp endpoint.
+func TestBlockBoundClientsFromGlobalMCP_StrictMode_UnboundClientAllowed(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	s := &Server{requireClientTGBinding: true}
+
+	router := gin.New()
+	router.POST("/mcp", s.blockBoundClientsFromGlobalMCP(), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	client := &model.McpClient{Name: "legacy", BoundToolGroup: nil}
+	req := injectClientIntoRequest(httptest.NewRequest(http.MethodPost, "/mcp", nil), client)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	testhelpers.AssertEqual(t, http.StatusOK, w.Code)
+}
+
+// TestBlockBoundClientsFromGlobalMCP_NonStrictMode_BoundClientAllowed verifies that when strict
+// mode is OFF, even a bound client can reach the global /mcp endpoint.
+func TestBlockBoundClientsFromGlobalMCP_NonStrictMode_BoundClientAllowed(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	s := &Server{requireClientTGBinding: false}
+
+	router := gin.New()
+	router.POST("/mcp", s.blockBoundClientsFromGlobalMCP(), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	client := &model.McpClient{Name: "c1", BoundToolGroup: strPtr("code")}
+	req := injectClientIntoRequest(httptest.NewRequest(http.MethodPost, "/mcp", nil), client)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	testhelpers.AssertEqual(t, http.StatusOK, w.Code)
 }

@@ -11,13 +11,26 @@ import (
 	"gorm.io/gorm"
 )
 
+// ToolGroupLookup is the interface McpClientService needs to validate bound_tool_group values.
+// It is satisfied by *toolgroup.ToolGroupService.
+type ToolGroupLookup interface {
+	GetToolGroup(name string) (*model.ToolGroup, error)
+}
+
 // McpClientService provides methods to manage MCP clients in the database.
 type McpClientService struct {
-	db *gorm.DB
+	db             *gorm.DB
+	toolGroupSvc   ToolGroupLookup // may be nil when tool-group features are not used
 }
 
 func NewMCPClientService(db *gorm.DB) *McpClientService {
 	return &McpClientService{db: db}
+}
+
+// SetToolGroupService injects the tool-group lookup dependency after construction.
+// This breaks the import cycle between mcpclient and toolgroup packages.
+func (m *McpClientService) SetToolGroupService(tgs ToolGroupLookup) {
+	m.toolGroupSvc = tgs
 }
 
 // ListClients retrieves all MCP clients known to mcpjungle from the database
@@ -52,10 +65,27 @@ func (m *McpClientService) CreateClient(client model.McpClient) (*model.McpClien
 		client.AllowList = []byte("[]")
 	}
 
+	// If a bound_tool_group is specified, verify that the group exists.
+	if client.BoundToolGroup != nil {
+		if m.toolGroupSvc == nil {
+			return nil, fmt.Errorf("tool group service is not available: %w", apierrors.ErrInvalidInput)
+		}
+		if _, err := m.toolGroupSvc.GetToolGroup(*client.BoundToolGroup); err != nil {
+			return nil, fmt.Errorf("bound_tool_group %q does not exist: %w", *client.BoundToolGroup, apierrors.ErrInvalidInput)
+		}
+	}
+
 	if err := m.db.Create(&client).Error; err != nil {
 		return nil, err
 	}
 	return &client, nil
+}
+
+// CountBoundClients returns the number of MCP clients bound to the specified tool group name.
+func (m *McpClientService) CountBoundClients(toolGroupName string) (int64, error) {
+	var count int64
+	err := m.db.Model(&model.McpClient{}).Where("bound_tool_group = ?", toolGroupName).Count(&count).Error
+	return count, err
 }
 
 // GetClientByToken retrieves an MCP client by its access token from the database.
@@ -79,7 +109,7 @@ func (m *McpClientService) DeleteClient(name string) error {
 }
 
 // UpdateClient updates an existing MCP client's information in the database.
-// Currently, it only supports updating the access token of the client.
+// Currently, it supports updating the access token and bound_tool_group of the client.
 func (m *McpClientService) UpdateClient(updatedClient model.McpClient) (*model.McpClient, error) {
 	var client model.McpClient
 	if err := m.db.Where("name = ?", updatedClient.Name).First(&client).Error; err != nil {
@@ -93,8 +123,19 @@ func (m *McpClientService) UpdateClient(updatedClient model.McpClient) (*model.M
 		return nil, fmt.Errorf("invalid access token: %v: %w", err, apierrors.ErrInvalidInput)
 	}
 
-	// Update only the access token for now
+	// If a new bound_tool_group is specified, verify that the group exists.
+	if updatedClient.BoundToolGroup != nil {
+		if m.toolGroupSvc == nil {
+			return nil, fmt.Errorf("tool group service is not available: %w", apierrors.ErrInvalidInput)
+		}
+		if _, err := m.toolGroupSvc.GetToolGroup(*updatedClient.BoundToolGroup); err != nil {
+			return nil, fmt.Errorf("bound_tool_group %q does not exist: %w", *updatedClient.BoundToolGroup, apierrors.ErrInvalidInput)
+		}
+	}
+
+	// Update access token and bound_tool_group
 	client.AccessToken = updatedClient.AccessToken
+	client.BoundToolGroup = updatedClient.BoundToolGroup
 
 	if err := m.db.Save(&client).Error; err != nil {
 		return nil, err
