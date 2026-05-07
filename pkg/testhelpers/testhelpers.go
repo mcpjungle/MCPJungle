@@ -3,10 +3,14 @@
 package testhelpers
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 
 	"github.com/glebarez/sqlite"
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"gorm.io/gorm"
@@ -38,6 +42,47 @@ func AssertNotNil(t *testing.T, obj any) {
 	t.Helper()
 	if obj == nil {
 		t.Error("Expected not nil, got nil")
+	}
+}
+
+// AssertMCPServerInfo asserts the MCP initialize response advertises the
+// expected server name and version.
+func AssertMCPServerInfo(t *testing.T, srv *server.MCPServer, expectedName, expectedVersion string) {
+	t.Helper()
+
+	message := mcp.JSONRPCRequest{
+		JSONRPC: mcp.JSONRPC_VERSION,
+		ID:      mcp.NewRequestId(int64(1)),
+		Request: mcp.Request{
+			Method: string(mcp.MethodInitialize),
+		},
+	}
+
+	messageBytes, err := json.Marshal(message)
+	if err != nil {
+		t.Fatalf("failed to marshal initialize request: %v", err)
+	}
+
+	response := srv.HandleMessage(context.Background(), messageBytes)
+	if response == nil {
+		t.Fatal("expected initialize response, got nil")
+	}
+
+	resp, ok := response.(mcp.JSONRPCResponse)
+	if !ok {
+		t.Fatalf("expected JSONRPCResponse, got %T", response)
+	}
+
+	initResult, ok := resp.Result.(mcp.InitializeResult)
+	if !ok {
+		t.Fatalf("expected InitializeResult, got %T", resp.Result)
+	}
+
+	if initResult.ServerInfo.Name != expectedName {
+		t.Fatalf("expected server name %q, got %q", expectedName, initResult.ServerInfo.Name)
+	}
+	if initResult.ServerInfo.Version != expectedVersion {
+		t.Fatalf("expected server version %q, got %q", expectedVersion, initResult.ServerInfo.Version)
 	}
 }
 

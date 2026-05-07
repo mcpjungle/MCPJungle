@@ -4,6 +4,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
+	"github.com/mcpjungle/mcpjungle/pkg/version"
 )
 
 func TestStartCommandStructure(t *testing.T) {
@@ -63,6 +66,23 @@ func TestStartCommandFlags(t *testing.T) {
 			t.Error("prod flag should have usage description")
 		}
 	})
+}
+
+func TestNewProxyServers_AdvertiseCurrentVersion(t *testing.T) {
+	mcpProxyServer, sseMcpProxyServer := newProxyServers()
+
+	testhelpers.AssertMCPServerInfo(
+		t,
+		mcpProxyServer,
+		"MCPJungle Proxy MCP Server",
+		version.GetVersion(),
+	)
+	testhelpers.AssertMCPServerInfo(
+		t,
+		sseMcpProxyServer,
+		"MCPJungle Proxy MCP Server for SSE transport",
+		version.GetVersion(),
+	)
 }
 
 // Helper to set and unset env vars for a test

@@ -11,6 +11,7 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
 	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
+	"github.com/mcpjungle/mcpjungle/pkg/version"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -350,4 +351,26 @@ func TestCreateToolGroup_InvalidIncludedServerStillFailsFast(t *testing.T) {
 	if !testhelpers.Contains(err.Error(), "failed to resolve effective tools") {
 		t.Fatalf("expected create error to mention failed resolution, got: %v", err)
 	}
+}
+
+func TestNewMCPServer_AdvertisesCurrentVersion(t *testing.T) {
+	s := &ToolGroupService{}
+
+	testhelpers.AssertMCPServerInfo(
+		t,
+		s.newMCPServer("group-a"),
+		"MCPJungle proxy MCP server for tool group: group-a",
+		version.GetVersion(),
+	)
+}
+
+func TestNewSseMCPServer_AdvertisesCurrentVersion(t *testing.T) {
+	s := &ToolGroupService{}
+
+	testhelpers.AssertMCPServerInfo(
+		t,
+		s.newSseMCPServer("group-a"),
+		"MCPJungle proxy MCP server for SSE transport for tool group: group-a",
+		version.GetVersion(),
+	)
 }
