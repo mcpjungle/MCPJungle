@@ -16,6 +16,8 @@ OAUTH_MOCK_PORT="${OAUTH_MOCK_PORT:-18081}"
 OAUTH_MOCK_URL="http://127.0.0.1:${OAUTH_MOCK_PORT}"
 ENTERPRISE_PORT="${ENTERPRISE_PORT:-18082}"
 ENTERPRISE_URL="http://127.0.0.1:${ENTERPRISE_PORT}"
+HEADER_SCRUB_MOCK_PORT="${HEADER_SCRUB_MOCK_PORT:-18083}"
+HEADER_SCRUB_MOCK_URL="http://127.0.0.1:${HEADER_SCRUB_MOCK_PORT}"
 
 # Simple logger for readable output
 log() { printf "\n[TEST] %s\n" "$*"; }
@@ -76,6 +78,11 @@ cleanup_binary_servers() {
     wait "$OAUTH_MOCK_PID" 2>/dev/null || true
   fi
 
+  if [[ -n "${HEADER_SCRUB_MOCK_PID:-}" ]] && kill -0 "$HEADER_SCRUB_MOCK_PID" >/dev/null 2>&1; then
+    kill "$HEADER_SCRUB_MOCK_PID" || true
+    wait "$HEADER_SCRUB_MOCK_PID" 2>/dev/null || true
+  fi
+
   if [[ -n "${BIN_SERVER_PID:-}" ]] && kill -0 "$BIN_SERVER_PID" >/dev/null 2>&1; then
     kill "$BIN_SERVER_PID" || true
     wait "$BIN_SERVER_PID" 2>/dev/null || true
@@ -97,6 +104,10 @@ cleanup_temp_files() {
 
   if [[ -n "${ENTERPRISE_GROUP_CONFIG:-}" ]]; then
     rm -f "$ENTERPRISE_GROUP_CONFIG"
+  fi
+
+  if [[ -n "${PROXY_HEADERS_CONFIG:-}" ]]; then
+    rm -f "$PROXY_HEADERS_CONFIG"
   fi
 
   if [[ -n "${ENTERPRISE_FS_CONFIG:-}" ]]; then
@@ -125,6 +136,26 @@ cleanup_temp_files() {
 
   if [[ -n "${OAUTH_MOCK_DIR:-}" ]]; then
     rm -rf "$OAUTH_MOCK_DIR"
+  fi
+
+  if [[ -n "${HEADER_SCRUB_MOCK_SOURCE:-}" ]]; then
+    rm -f "$HEADER_SCRUB_MOCK_SOURCE"
+  fi
+
+  if [[ -n "${HEADER_SCRUB_MOCK_DIR:-}" ]]; then
+    rm -rf "$HEADER_SCRUB_MOCK_DIR"
+  fi
+
+  if [[ -n "${HEADER_SCRUB_MOCK_LOG:-}" ]]; then
+    rm -f "$HEADER_SCRUB_MOCK_LOG"
+  fi
+
+  if [[ -n "${MCP_PROXY_CHECK_SOURCE:-}" ]]; then
+    rm -f "$MCP_PROXY_CHECK_SOURCE"
+  fi
+
+  if [[ -n "${MCP_PROXY_CHECK_DIR:-}" ]]; then
+    rm -rf "$MCP_PROXY_CHECK_DIR"
   fi
 
   if [[ -n "${REGISTRY_RUNTIME_DIR:-}" ]]; then
@@ -288,6 +319,167 @@ EOF
   OAUTH_MOCK_PORT="$OAUTH_MOCK_PORT" OAUTH_MOCK_BASE_URL="$OAUTH_MOCK_URL" \
     go run "$OAUTH_MOCK_SOURCE" >"$OAUTH_MOCK_LOG" 2>&1 &
   OAUTH_MOCK_PID=$!
+}
+
+start_mock_header_scrub_upstream() {
+  HEADER_SCRUB_MOCK_DIR=$(mktemp -d "$ROOT_DIR/.mock-header-scrub-mcp.XXXXXX")
+  HEADER_SCRUB_MOCK_SOURCE="$HEADER_SCRUB_MOCK_DIR/main.go"
+  HEADER_SCRUB_MOCK_LOG=$(mktemp)
+
+  cat >"$HEADER_SCRUB_MOCK_SOURCE" <<EOF
+package main
+
+import (
+	"context"
+	"net/http"
+	"os"
+
+	"github.com/mark3labs/mcp-go/mcp"
+	mcpserver "github.com/mark3labs/mcp-go/server"
+)
+
+func main() {
+	upstream := mcpserver.NewMCPServer("header-scrub-upstream", "0.1.0")
+	upstream.AddTool(
+		mcp.NewTool("echo", mcp.WithString("msg", mcp.Required())),
+		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			msg, _ := req.GetArguments()["msg"].(string)
+			return mcp.NewToolResultText(msg), nil
+		},
+	)
+	upstream.AddPrompt(
+		mcp.Prompt{Name: "review"},
+		func(ctx context.Context, req mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+			return &mcp.GetPromptResult{
+				Messages: []mcp.PromptMessage{
+					mcp.NewPromptMessage(mcp.RoleAssistant, mcp.TextContent{Type: "text", Text: "prompt ok"}),
+				},
+			}, nil
+		},
+	)
+	upstream.AddResource(
+		mcp.Resource{
+			URI:      "resource://header-check/status",
+			Name:     "status",
+			MIMEType: "text/plain",
+		},
+		func(ctx context.Context, req mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+			return []mcp.ResourceContents{
+				mcp.TextResourceContents{
+					URI:      req.Params.URI,
+					MIMEType: "text/plain",
+					Text:     "resource ok",
+				},
+			}, nil
+		},
+	)
+
+	streamable := mcpserver.NewStreamableHTTPServer(upstream)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	mux.Handle("/mcp", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "" || r.Header.Get("X-Test-Forward") != "" {
+			http.Error(w, "downstream headers leaked upstream", http.StatusUnauthorized)
+			return
+		}
+		streamable.ServeHTTP(w, r)
+	}))
+
+	if err := http.ListenAndServe("127.0.0.1:"+os.Getenv("HEADER_SCRUB_MOCK_PORT"), mux); err != nil {
+		panic(err)
+	}
+}
+EOF
+
+  HEADER_SCRUB_MOCK_PORT="$HEADER_SCRUB_MOCK_PORT" \
+    go run "$HEADER_SCRUB_MOCK_SOURCE" >"$HEADER_SCRUB_MOCK_LOG" 2>&1 &
+  HEADER_SCRUB_MOCK_PID=$!
+}
+
+run_mcp_proxy_header_scrub_check() {
+  MCP_PROXY_CHECK_DIR=$(mktemp -d "$ROOT_DIR/.mcp-proxy-check.XXXXXX")
+  MCP_PROXY_CHECK_SOURCE="$MCP_PROXY_CHECK_DIR/main.go"
+
+  cat >"$MCP_PROXY_CHECK_SOURCE" <<EOF
+package main
+
+import (
+	"context"
+	"encoding/base64"
+	"fmt"
+	"os"
+
+	"github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/client/transport"
+	"github.com/mark3labs/mcp-go/mcp"
+)
+
+func must(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+func main() {
+	ctx := context.Background()
+	resourceURI := "mcpj://res/proxy-headers/" + base64.RawStdEncoding.EncodeToString([]byte("resource://header-check/status"))
+
+	c, err := client.NewStreamableHttpClient(
+		os.Getenv("MCP_PROXY_BASE_URL"),
+		transport.WithHTTPHeaders(map[string]string{
+			"Authorization":  "Bearer " + os.Getenv("MCP_PROXY_TOKEN"),
+			"X-Test-Forward": "downstream-custom-header",
+		}),
+	)
+	must(err)
+	defer c.Close()
+
+	must(c.Start(ctx))
+	_, err = c.Initialize(ctx, mcp.InitializeRequest{
+		Params: mcp.InitializeParams{
+			ProtocolVersion: mcp.LATEST_PROTOCOL_VERSION,
+			Capabilities:    mcp.ClientCapabilities{},
+			ClientInfo:      mcp.Implementation{Name: "proxy-header-check", Version: "1.0.0"},
+		},
+	})
+	must(err)
+
+	toolRes, err := c.CallTool(ctx, mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name:      "proxy-headers__echo",
+			Arguments: map[string]any{"msg": "tool ok"},
+		},
+	})
+	must(err)
+	if len(toolRes.Content) == 0 {
+		panic("missing tool result content")
+	}
+
+	promptRes, err := c.GetPrompt(ctx, mcp.GetPromptRequest{
+		Params: mcp.GetPromptParams{Name: "proxy-headers__review"},
+	})
+	must(err)
+	if len(promptRes.Messages) == 0 {
+		panic("missing prompt result messages")
+	}
+
+	resourceRes, err := c.ReadResource(ctx, mcp.ReadResourceRequest{
+		Params: mcp.ReadResourceParams{URI: resourceURI},
+	})
+	must(err)
+	if len(resourceRes.Contents) == 0 {
+		panic("missing resource contents")
+	}
+
+	fmt.Println("proxy header scrub checks passed")
+}
+EOF
+
+  MCP_PROXY_BASE_URL="${ENTERPRISE_URL}/mcp" \
+    MCP_PROXY_TOKEN="$HEADER_SCRUB_CLIENT_TOKEN" \
+    go run "$MCP_PROXY_CHECK_SOURCE"
 }
 
 start_oauth_registration() {
@@ -752,6 +944,27 @@ if [[ "$ENTERPRISE_CLIENTS_OUTPUT" != *"enterprise-client"* || "$ENTERPRISE_CLIE
   echo "$ENTERPRISE_CLIENTS_OUTPUT" >&2
   exit 1
 fi
+
+log "Testing MCP proxy header scrubbing for tools, prompts, and resources"
+start_mock_header_scrub_upstream
+wait_for_health "${HEADER_SCRUB_MOCK_URL}/healthz"
+
+PROXY_HEADERS_CONFIG=$(mktemp)
+cat > "$PROXY_HEADERS_CONFIG" <<EOF
+{
+  "name": "proxy-headers",
+  "transport": "streamable_http",
+  "url": "${HEADER_SCRUB_MOCK_URL}/mcp"
+}
+EOF
+
+HOME="$ENTERPRISE_ADMIN_HOME" "$BIN_PATH" --registry "$ENTERPRISE_URL" register -c "$PROXY_HEADERS_CONFIG" >/dev/null
+rm -f "$PROXY_HEADERS_CONFIG"
+unset PROXY_HEADERS_CONFIG
+
+HEADER_SCRUB_CLIENT_TOKEN="proxy_headers_client_token_12345"
+HOME="$ENTERPRISE_ADMIN_HOME" "$BIN_PATH" --registry "$ENTERPRISE_URL" create mcp-client proxy-headers-client --allow "proxy-headers" --access-token "$HEADER_SCRUB_CLIENT_TOKEN" >/dev/null
+run_mcp_proxy_header_scrub_check >/dev/null
 
 ENTERPRISE_GROUP_CONFIG=$(mktemp)
 cat > "$ENTERPRISE_GROUP_CONFIG" <<EOF

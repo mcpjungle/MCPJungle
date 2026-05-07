@@ -69,6 +69,9 @@ func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request mcp.Ca
 
 	// Ensure the tool name is set correctly, ie, without the server name prefix
 	request.Params.Name = toolName
+	// Do not let any client-sent headers get forwarded to the upstream MCP server.
+	// See https://github.com/mcpjungle/MCPJungle/issues/252
+	request.Header = nil
 
 	res, err := session.client.CallTool(ctx, request)
 	if err != nil {
@@ -101,6 +104,10 @@ func (m *MCPService) mcpProxyResourceHandler(ctx context.Context, request mcp.Re
 	defer session.closeIfApplicable()
 
 	request.Params.URI = resource.OriginalURI
+
+	// Do not let any client-sent headers get forwarded to the upstream MCP server.
+	request.Header = nil
+
 	res, err := session.client.ReadResource(ctx, request)
 	if err != nil {
 		session.invalidateOnError(err)
@@ -153,6 +160,8 @@ func (m *MCPService) mcpProxyPromptHandler(ctx context.Context, request mcp.GetP
 
 	// Ensure the prompt name is set correctly, ie, without the server name prefix
 	request.Params.Name = promptName
+	// Do not let any client-sent headers get forwarded to the upstream MCP server.
+	request.Header = nil
 
 	// forward the request to the upstream MCP server and relay the response back
 	res, err := session.client.GetPrompt(ctx, request)

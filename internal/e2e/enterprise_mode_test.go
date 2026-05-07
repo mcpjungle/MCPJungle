@@ -2,11 +2,16 @@ package e2e_test
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"
+	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -186,4 +191,98 @@ func TestE2E_EnterpriseMode_McpProxy_AllowList_ListAndInvoke(t *testing.T) {
 		})
 		assert.Error(t, err, "fetching a prompt from a restricted server must return an error")
 	})
+}
+
+func TestE2E_EnterpriseMode_McpProxy_StripsInboundHeadersForUpstreamCalls(t *testing.T) {
+	env := setupE2EServer(t, model.ModeEnterprise)
+
+	upstream := mcpserver.NewMCPServer("header-check", "0.1.0")
+	upstream.AddTool(
+		mcp.NewTool("echo", mcp.WithString("message", mcp.Required())),
+		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			msg, _ := req.GetArguments()["message"].(string)
+			return mcp.NewToolResultText(msg), nil
+		},
+	)
+	upstream.AddPrompt(
+		mcp.Prompt{Name: "simple-prompt"},
+		func(ctx context.Context, req mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+			return &mcp.GetPromptResult{
+				Messages: []mcp.PromptMessage{
+					mcp.NewPromptMessage(mcp.RoleAssistant, mcp.TextContent{Type: "text", Text: "prompt ok"}),
+				},
+			}, nil
+		},
+	)
+	upstream.AddResource(
+		mcp.Resource{URI: "resource://header-check/status", Name: "status", MIMEType: "text/plain"},
+		func(ctx context.Context, req mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+			return []mcp.ResourceContents{
+				mcp.TextResourceContents{
+					URI:      req.Params.URI,
+					MIMEType: "text/plain",
+					Text:     "resource ok",
+				},
+			}, nil
+		},
+	)
+
+	upstreamHTTP := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "" || r.Header.Get("X-Test-Forward") != "" {
+			http.Error(w, "downstream headers leaked upstream", http.StatusUnauthorized)
+			return
+		}
+		mcpserver.NewStreamableHTTPServer(upstream).ServeHTTP(w, r)
+	}))
+	defer upstreamHTTP.Close()
+
+	resp := env.do(t, http.MethodPost, "/api/v0/servers", map[string]any{
+		"name":        "header-proxy",
+		"description": "Header scrub regression server",
+		"transport":   "streamable_http",
+		"url":         upstreamHTTP.URL,
+	}, env.adminToken)
+	defer drain(resp)
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	clientToken := createMcpClient(t, env, "header-proxy-client", []string{"header-proxy"})
+	c, err := client.NewStreamableHttpClient(env.baseURL+"/mcp", transport.WithHTTPHeaders(map[string]string{
+		"Authorization":  "Bearer " + clientToken,
+		"X-Test-Forward": "downstream-custom-header",
+	}))
+	require.NoError(t, err)
+	defer c.Close()
+
+	_, err = c.Initialize(context.Background(), mcp.InitializeRequest{
+		Params: mcp.InitializeParams{
+			ProtocolVersion: mcp.LATEST_PROTOCOL_VERSION,
+			ClientInfo: mcp.Implementation{
+				Name:    "e2e-header-test-client",
+				Version: "1.0.0",
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	toolRes, err := c.CallTool(context.Background(), mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Name:      "header-proxy__echo",
+			Arguments: map[string]any{"message": "tool ok"},
+		},
+	})
+	require.NoError(t, err)
+	require.False(t, toolRes.IsError)
+
+	promptRes, err := c.GetPrompt(context.Background(), mcp.GetPromptRequest{
+		Params: mcp.GetPromptParams{Name: "header-proxy__simple-prompt"},
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, promptRes.Messages)
+
+	resourceURI := "mcpj://res/header-proxy/" + base64.RawStdEncoding.EncodeToString([]byte("resource://header-check/status"))
+	resourceRes, err := c.ReadResource(context.Background(), mcp.ReadResourceRequest{
+		Params: mcp.ReadResourceParams{URI: resourceURI},
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, resourceRes.Contents)
 }
