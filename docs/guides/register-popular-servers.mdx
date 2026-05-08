@@ -1,0 +1,207 @@
+---
+title: "Register popular MCP Servers"
+description: "Example-driven guide for registering commonly used MCP servers in Mcpjungle."
+---
+
+This page shows practical registration examples for commonly used MCP servers. It complements the transport-specific guides:
+
+- [Add Streamable HTTP MCP servers](/guides/register-http-servers)
+- [Add STDIO MCP servers](/guides/register-stdio-servers)
+
+Use direct CLI flags when a server only needs a name and URL. Use JSON config files when the server needs advanced configurations like authentication, OAuth, custom headers, environment variables, or `stateful` sessions.
+
+For any JSON example on this page, register it with:
+
+```bash
+mcpjungle register -c ./<filename>.json
+```
+
+## Hosted HTTP servers
+
+### Context7: fastest possible registration
+
+If the upstream server is public and does not require extra configuration, register it directly with CLI flags:
+
+```bash
+mcpjungle register --name context7 --url https://mcp.context7.com/mcp
+```
+
+This is the simplest pattern for hosted Streamable HTTP servers.
+
+### DeepWiki: simple config file
+
+If you prefer to keep server registrations in version control, use a JSON config file even for simple HTTP servers:
+
+```json
+{
+  "name": "deepwiki",
+  "transport": "streamable_http",
+  "url": "https://mcp.deepwiki.com/mcp",
+  "description": "DeepWiki MCP server"
+}
+```
+
+### GitHub: bearer token from an environment variable
+
+For servers that require a static token, it is recommended to keep the secret out of the file and inject it from the shell environment:
+
+```json
+{
+  "name": "github",
+  "transport": "streamable_http",
+  "url": "https://api.githubcopilot.com/mcp",
+  "description": "GitHub MCP server",
+  "bearer_token": "${GITHUB_PAT}"
+}
+```
+
+```bash
+export GITHUB_PAT=your_token_here
+```
+
+This is the pattern to reuse for hosted servers that accept standard bearer authentication.
+
+### Figma: upstream OAuth during registration
+
+Some hosted servers use OAuth instead of static API tokens. Figma is a good example:
+
+```json
+{
+  "name": "figma",
+  "transport": "streamable_http",
+  "url": "https://mcp.figma.com/mcp",
+  "description": "Figma MCP server"
+}
+```
+
+If the upstream server advertises OAuth, the CLI opens a browser, you approve access, and Mcpjungle completes registration automatically.
+
+### Todoist: OAuth flow from a direct CLI command
+
+Todoist is a good example of a hosted server where the fastest path is still a direct CLI command:
+
+```bash
+mcpjungle register --name todoist --url https://ai.todoist.net/mcp
+```
+
+Todoist enforces OAuth. Running this command starts the upstream OAuth flow in your browser, and Mcpjungle completes the registration after you approve access.
+
+## Local STDIO servers
+
+### Filesystem: minimal STDIO example
+
+The official filesystem server is the canonical example of local STDIO registration:
+
+```json
+{
+  "name": "filesystem",
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+  "description": "Filesystem MCP server"
+}
+```
+
+This pattern is useful for local tools that do not need extra secrets or long-lived sessions.
+
+If you run Mcpjungle inside Docker and want to use the filesystem server, see the Docker caveat in [Add STDIO MCP servers](/guides/register-stdio-servers#running-in-docker-filesystem-access).
+
+### Playwright: STDIO server with `stateful` sessions
+
+Playwright requires persistent sessions so each tool call can reuse the same running browser process:
+
+```json
+{
+  "name": "playwright",
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "@playwright/mcp@latest"],
+  "description": "Playwright MCP server",
+  "session_mode": "stateful"
+}
+```
+
+<Warning>
+You must use `session_mode: "stateful"` for the Playwright MCP server. In `stateless` mode, Playwright does not work properly because each tool call starts a fresh process instead of reusing the active browser session.
+</Warning>
+
+### n8n: STDIO server with required environment variables
+
+Some STDIO servers need environment variables at process startup:
+
+```json
+{
+  "name": "n8n",
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "n8n-mcp"],
+  "description": "n8n MCP server",
+  "env": {
+    "MCP_MODE": "stdio",
+    "LOG_LEVEL": "error"
+  }
+}
+```
+
+Add secrets the same way:
+
+```json
+{
+  "env": {
+    "API_KEY": "${N8N_API_KEY}"
+  }
+}
+```
+
+### Time: small `uvx`-based server
+
+If your STDIO server is Python-based, `uvx` is often the cleanest launcher:
+
+```json
+{
+  "name": "time",
+  "transport": "stdio",
+  "command": "uvx",
+  "args": ["mcp-server-time"],
+  "description": "Time MCP server",
+  "session_mode": "stateful"
+}
+```
+
+This is a good template for small Python-distributed MCP servers.
+
+## SSE transport
+
+<Warning>
+SSE is a deprecated MCP transport and is discouraged in Mcpjungle. Prefer Streamable HTTP for remote servers unless you specifically need to connect to an older SSE-based deployment.
+</Warning>
+
+If you still need to register an SSE server, use a JSON config file:
+
+```json
+{
+  "name": "test-mcp",
+  "transport": "sse",
+  "url": "http://host.docker.internal:9000/sse",
+  "description": "Legacy SSE MCP server"
+}
+```
+
+This is mainly useful for compatibility with older MCP servers that have not migrated to Streamable HTTP yet.
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="HTTP servers" icon="server" href="/guides/register-http-servers">
+    Register hosted MCP servers over Streamable HTTP.
+  </Card>
+  <Card title="STDIO servers" icon="terminal" href="/guides/register-stdio-servers">
+    Register local MCP servers that run as child processes.
+  </Card>
+  <Card title="Session modes" icon="clock" href="/guides/session-modes">
+    Decide when to use `stateless` versus `stateful` server sessions.
+  </Card>
+  <Card title="Config file reference" icon="file-code" href="/reference/config-file">
+    See the exact JSON config formats and environment substitution rules.
+  </Card>
+</CardGroup>
