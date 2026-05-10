@@ -6,9 +6,13 @@ import type {
   AppSection,
   DashboardDiagnosticsResponse,
   DashboardOverviewResponse,
+  DashboardPrompt,
   DashboardPromptsResponse,
+  DashboardResource,
   DashboardResourcesResponse,
+  DashboardServer,
   DashboardServersResponse,
+  DashboardTool,
   DashboardToolsResponse,
 } from "@/lib/types";
 import { CopyButton } from "@/components/CopyButton";
@@ -27,6 +31,33 @@ interface DashboardData {
   resources?: DashboardResourcesResponse;
   diagnostics?: DashboardDiagnosticsResponse;
 }
+
+const sectionMeta: Record<AppSection, { title: string; subtitle: string }> = {
+  overview: {
+    title: "Overview",
+    subtitle: "High-level view of your MCPJungle gateway.",
+  },
+  servers: {
+    title: "Servers",
+    subtitle: "Registered MCP backends and discovery details.",
+  },
+  tools: {
+    title: "Tools",
+    subtitle: "All discovered tools across registered servers.",
+  },
+  prompts: {
+    title: "Prompts",
+    subtitle: "Prompt templates currently exposed through MCPJungle.",
+  },
+  resources: {
+    title: "Resources",
+    subtitle: "Resources registered and proxied through the gateway.",
+  },
+  diagnostics: {
+    title: "Diagnostics",
+    subtitle: "Runtime health, build info, and troubleshooting signals.",
+  },
+};
 
 function formatDate(value?: string) {
   if (!value) {
@@ -57,6 +88,79 @@ function toneForStatus(status: string) {
   }
 }
 
+function shortVersion(version?: string) {
+  if (!version) {
+    return "";
+  }
+  const match = version.match(/v?\d+\.\d+\.\d+/);
+  if (match) {
+    return match[0];
+  }
+  return version.length > 16 ? version.slice(0, 16) : version;
+}
+
+function transportLabel(value?: string) {
+  return value ? value.split("_").join(" ") : "unknown";
+}
+
+function toolDescription(tool: DashboardTool) {
+  return tool.description || "No description";
+}
+
+function promptDescription(prompt: DashboardPrompt) {
+  return prompt.description || "No description";
+}
+
+function resourceDescription(resource: DashboardResource) {
+  return resource.description || "No description";
+}
+
+function prettyJSON(value?: Record<string, unknown>) {
+  if (!value) {
+    return "No schema available.";
+  }
+  return JSON.stringify(value, null, 2);
+}
+
+function prettyPromptArguments(value?: Array<Record<string, unknown>>) {
+  if (!value || value.length === 0) {
+    return "No arguments";
+  }
+  return JSON.stringify(value, null, 2);
+}
+
+function discoveryState(server: DashboardServer) {
+  if (server.tool_count + server.prompt_count + server.resource_count === 0) {
+    return { label: "No discovery", tone: "warn" };
+  }
+  return { label: "Discovered", tone: "good" };
+}
+
+function collectWarnings(
+  overview?: DashboardOverviewResponse,
+  diagnostics?: DashboardDiagnosticsResponse,
+) {
+  const warnings: string[] = [];
+  if (!overview || !diagnostics) {
+    return warnings;
+  }
+  if (overview.server_count === 0) {
+    warnings.push("No servers registered yet");
+  }
+  if (overview.tool_count === 0) {
+    warnings.push("No tools discovered");
+  }
+  if (!diagnostics.metrics_endpoint) {
+    warnings.push("Metrics disabled");
+  }
+  for (const hint of overview.troubleshooting ?? []) {
+    if (!warnings.includes(hint)) {
+      warnings.push(hint);
+    }
+  }
+  return warnings;
+}
+
 export default function App() {
   const [section, setSection] = useState<AppSection>("overview");
   const [loadState, setLoadState] = useState<LoadState>("loading");
@@ -64,7 +168,10 @@ export default function App() {
   const [data, setData] = useState<DashboardData>({});
   const [serverFilter, setServerFilter] = useState("");
   const [toolFilter, setToolFilter] = useState("");
+  const [toolServerFilter, setToolServerFilter] = useState("all");
   const [expandedServer, setExpandedServer] = useState<string | null>(null);
+  const [selectedTool, setSelectedTool] = useState<DashboardTool | null>(null);
+  const [selectedPrompt, setSelectedPrompt] = useState<DashboardPrompt | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,6 +189,8 @@ export default function App() {
           return;
         }
         setData({ overview, servers, tools, prompts, resources, diagnostics });
+        setSelectedTool(tools.tools[0] ?? null);
+        setSelectedPrompt(prompts.prompts[0] ?? null);
         setLoadState("ready");
       })
       .catch((error: Error) => {
@@ -111,7 +220,10 @@ export default function App() {
   }, [data.servers?.servers, serverFilter]);
 
   const filteredTools = useMemo(() => {
-    const tools = data.tools?.tools ?? [];
+    let tools = data.tools?.tools ?? [];
+    if (toolServerFilter !== "all") {
+      tools = tools.filter((tool) => tool.server === toolServerFilter);
+    }
     if (!toolFilter.trim()) {
       return tools;
     }
@@ -122,10 +234,17 @@ export default function App() {
         tool.server.toLowerCase().includes(term) ||
         tool.canonical_name.toLowerCase().includes(term),
     );
-  }, [data.tools?.tools, toolFilter]);
+  }, [data.tools?.tools, toolFilter, toolServerFilter]);
+
+  const uniqueToolServers = useMemo(() => {
+    const servers = new Set((data.tools?.tools ?? []).map((tool) => tool.server));
+    return Array.from(servers).sort();
+  }, [data.tools?.tools]);
 
   const overview = data.overview;
   const diagnostics = data.diagnostics;
+  const currentSectionMeta = sectionMeta[section];
+  const warnings = collectWarnings(overview, diagnostics);
 
   return (
     <div className="app-shell">
@@ -134,17 +253,20 @@ export default function App() {
         <header className="topbar">
           <div>
             <p className="eyeline">MCPJungle</p>
-            <h1>Overview</h1>
-            <p className="topbar-subtitle">High-level view of your MCPJungle gateway.</p>
+            <h1>{currentSectionMeta.title}</h1>
+            <p className="topbar-subtitle">{currentSectionMeta.subtitle}</p>
           </div>
           <div className="topbar-meta">
             {overview ? (
               <StatusBadge text={overview.status} tone={toneForStatus(overview.status)} />
             ) : null}
-            {overview?.version ? <span className="version-chip">{overview.version}</span> : null}
+            {overview?.version ? (
+              <span className="version-chip">{shortVersion(overview.version)}</span>
+            ) : null}
             {overview?.endpoints[0] ? (
               <div className="topbar-endpoint">
-                <code>{overview.endpoints[0].url}</code>
+                <span className="topbar-endpoint-label">Endpoint</span>
+                <code title={overview.endpoints[0].url}>{overview.endpoints[0].url}</code>
                 <CopyButton value={overview.endpoints[0].url} />
               </div>
             ) : null}
@@ -170,93 +292,126 @@ export default function App() {
           <div className="content-grid">
             {section === "overview" && overview && diagnostics ? (
               <>
-                <section className="hero-grid">
-                  <div className="hero-card">
-                    <div className="hero-header">
-                      <p className="panel-label">Gateway status</p>
-                    </div>
-                    <div className="hero-summary-grid">
-                      <div className="hero-status-block">
-                        <h2>Running</h2>
-                        <p>MCPJungle is serving your local MCP gateway in <strong>{overview.mode}</strong> mode.</p>
-                        <div className="mode-chip">Mode: {overview.mode}</div>
-                      </div>
-                      <div className="hero-endpoint-block">
-                        <span>Primary MCP endpoint</span>
-                        <code>{overview.endpoints[0]?.url}</code>
-                        <div className="hero-endpoint-actions">
-                          <CopyButton value={overview.endpoints[0]?.url ?? ""} />
-                        </div>
+                <section className="overview-strip panel">
+                  <div className="overview-strip-grid">
+                    <div className="overview-strip-item">
+                      <span className="panel-label">Gateway status</span>
+                      <div className="strip-value-row">
+                        <StatusBadge text={overview.status} tone={toneForStatus(overview.status)} />
+                        <span className="strip-support">Mode {overview.mode}</span>
                       </div>
                     </div>
-                    <p className="hero-copy">
-                      Use this single local endpoint in your MCP clients to access the registered servers, tools, prompts, and resources behind MCPJungle.
-                    </p>
+                    <div className="overview-strip-item overview-endpoint-item">
+                      <span className="panel-label">Endpoint</span>
+                      <div className="overview-endpoint-row">
+                        <code title={overview.endpoints[0]?.url}>{overview.endpoints[0]?.url}</code>
+                        <CopyButton value={overview.endpoints[0]?.url ?? ""} />
+                      </div>
+                    </div>
+                    <div className="overview-strip-item">
+                      <span className="panel-label">Metrics</span>
+                      <div className="strip-value-row">
+                        <StatusBadge
+                          text={diagnostics.metrics_endpoint ? "Enabled" : "Disabled"}
+                          tone={diagnostics.metrics_endpoint ? "good" : "warn"}
+                        />
+                      </div>
+                    </div>
+                    <div className="overview-strip-item">
+                      <span className="panel-label">Warnings</span>
+                      <strong className="compact-count">{warnings.length}</strong>
+                    </div>
+                    <div className="overview-strip-item">
+                      <span className="panel-label">Updated</span>
+                      <span className="strip-support">
+                        {filteredServers[0]?.updated_at
+                          ? formatDate(filteredServers[0].updated_at)
+                          : "No recent updates"}
+                      </span>
+                    </div>
                   </div>
-
-                  <aside className="hero-side">
-                    <div className="metric-card">
-                      <span>Registered servers</span>
-                      <strong>{overview.server_count}</strong>
-                    </div>
-                    <div className="metric-card">
-                      <span>Discovered tools</span>
-                      <strong>{overview.tool_count}</strong>
-                    </div>
-                    <div className="metric-card">
-                      <span>Prompts</span>
-                      <strong>{overview.prompt_count}</strong>
-                    </div>
-                    <div className="metric-card">
-                      <span>Resources</span>
-                      <strong>{overview.resource_count}</strong>
-                    </div>
-                  </aside>
                 </section>
 
-                <section className="overview-lower-grid">
+                <section className="dense-metrics-grid">
+                  <div className="metric-card compact-metric">
+                    <span>Servers</span>
+                    <strong>{overview.server_count}</strong>
+                  </div>
+                  <div className="metric-card compact-metric">
+                    <span>Tools</span>
+                    <strong>{overview.tool_count}</strong>
+                  </div>
+                  <div className="metric-card compact-metric">
+                    <span>Prompts</span>
+                    <strong>{overview.prompt_count}</strong>
+                  </div>
+                  <div className="metric-card compact-metric">
+                    <span>Resources</span>
+                    <strong>{overview.resource_count}</strong>
+                  </div>
+                </section>
+
+                <section className="overview-lower-grid dense-overview-grid">
                   <SectionCard
-                    title="Server inventory"
-                    subtitle="Registered MCP servers"
-                    action={<input className="table-filter" onChange={(event) => setServerFilter(event.target.value)} placeholder="Filter servers" value={serverFilter} />}
+                    title="Recent servers"
+                    subtitle="Recent discovery and connection state"
+                    action={
+                      <input
+                        className="table-filter compact-filter"
+                        onChange={(event) => setServerFilter(event.target.value)}
+                        placeholder="Filter servers"
+                        value={serverFilter}
+                      />
+                    }
                   >
                     {filteredServers.length === 0 && data.servers?.empty_state ? (
                       <EmptyStateCard emptyState={data.servers.empty_state} />
                     ) : (
-                      <table className="data-table">
+                      <table className="data-table compact-table">
                         <thead>
                           <tr>
                             <th>Server</th>
+                            <th>Conn.</th>
+                            <th>Discovery</th>
                             <th>Transport</th>
-                            <th>Status</th>
                             <th>Tools</th>
-                            <th>Prompts</th>
-                            <th>Resources</th>
                             <th>Last discovered</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {filteredServers.slice(0, 5).map((server) => (
-                            <tr key={server.name}>
-                              <td>{server.name}</td>
-                              <td>{server.transport}</td>
-                              <td>
-                                <StatusBadge text={server.status} tone={toneForStatus(server.status)} />
-                              </td>
-                              <td>{server.tool_count}</td>
-                              <td>{server.prompt_count}</td>
-                              <td>{server.resource_count}</td>
-                              <td>{formatDate(server.last_discovered_at)}</td>
-                            </tr>
-                          ))}
+                          {filteredServers.slice(0, 6).map((server) => {
+                            const discovery = discoveryState(server);
+                            return (
+                              <tr key={server.name}>
+                                <td>
+                                  <div className="table-primary">{server.name}</div>
+                                  <div className="table-secondary">{server.connection_summary}</div>
+                                </td>
+                                <td>
+                                  <StatusBadge
+                                    text={server.status}
+                                    tone={toneForStatus(server.status)}
+                                  />
+                                </td>
+                                <td>
+                                  <StatusBadge text={discovery.label} tone={discovery.tone} />
+                                </td>
+                                <td>
+                                  <code>{transportLabel(server.transport)}</code>
+                                </td>
+                                <td>{server.tool_count}</td>
+                                <td>{formatDate(server.last_discovered_at)}</td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     )}
                   </SectionCard>
 
-                  <div className="side-column">
-                    <SectionCard title="System" subtitle="Diagnostics at a glance">
-                      <dl className="diagnostic-list">
+                  <div className="side-column compact-side-column">
+                    <SectionCard title="Diagnostics summary" subtitle="Safe runtime details">
+                      <dl className="diagnostic-list compact-diagnostic-list">
                         <div>
                           <dt>Database</dt>
                           <dd>{diagnostics.database}</dd>
@@ -266,31 +421,47 @@ export default function App() {
                           <dd>{diagnostics.mode}</dd>
                         </div>
                         <div>
-                          <dt>Metrics</dt>
+                          <dt>Build</dt>
+                          <dd>
+                            <code>{diagnostics.version}</code>
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Metrics endpoint</dt>
                           <dd>{diagnostics.metrics_endpoint ?? "Disabled"}</dd>
                         </div>
                         <div>
-                          <dt>Enabled transports</dt>
-                          <dd>{diagnostics.enabled_transports.join(", ")}</dd>
+                          <dt>Transports</dt>
+                          <dd>
+                            <code>{diagnostics.enabled_transports.join(", ")}</code>
+                          </dd>
                         </div>
                       </dl>
                     </SectionCard>
 
+                    <SectionCard title="Warnings" subtitle="What needs attention">
+                      <div className="warning-stack">
+                        {warnings.length > 0 ? (
+                          warnings.slice(0, 5).map((warning) => (
+                            <div className="warning-card" key={warning}>
+                              {warning}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="warning-card is-healthy">No active warnings</div>
+                        )}
+                      </div>
+                    </SectionCard>
+
                     <SectionCard title="Brand map" subtitle="Gateway mental model">
-                      <img alt="MCPJungle architecture diagram" className="diagram-card" src={diagramUrl} />
+                      <img
+                        alt="MCPJungle architecture diagram"
+                        className="diagram-card compact-diagram"
+                        src={diagramUrl}
+                      />
                     </SectionCard>
                   </div>
                 </section>
-
-                <SectionCard title="Troubleshooting" subtitle="What to check first">
-                  <div className="hint-grid">
-                    {(overview.troubleshooting ?? []).map((hint) => (
-                      <div className="hint-card" key={hint}>
-                        {hint}
-                      </div>
-                    ))}
-                  </div>
-                </SectionCard>
               </>
             ) : null}
 
@@ -298,28 +469,40 @@ export default function App() {
               <SectionCard
                 title="Servers"
                 subtitle="Registered MCP servers"
-                action={<input className="table-filter" onChange={(event) => setServerFilter(event.target.value)} placeholder="Search name, transport, or summary" value={serverFilter} />}
+                action={
+                  <input
+                    className="table-filter compact-filter"
+                    onChange={(event) => setServerFilter(event.target.value)}
+                    placeholder="Search name, transport, or summary"
+                    value={serverFilter}
+                  />
+                }
               >
                 {data.servers.empty_state && filteredServers.length === 0 ? (
                   <EmptyStateCard emptyState={data.servers.empty_state} />
                 ) : (
-                  <div className="server-list">
+                  <div className="server-list compact-server-list">
                     {filteredServers.map((server) => {
                       const expanded = expandedServer === server.name;
+                      const discovery = discoveryState(server);
                       return (
-                        <article className="server-row" key={server.name}>
+                        <article className="server-row compact-server-row" key={server.name}>
                           <button
-                            className="server-row-head"
+                            className="server-row-head compact-server-head"
                             onClick={() => setExpandedServer(expanded ? null : server.name)}
                             type="button"
                           >
-                            <div>
+                            <div className="server-head-main">
                               <h3>{server.name}</h3>
                               <p>{server.connection_summary}</p>
                             </div>
-                            <div className="server-row-meta">
-                              <StatusBadge text={server.status} tone={toneForStatus(server.status)} />
-                              <span>{server.transport}</span>
+                            <div className="server-row-meta compact-server-meta">
+                              <code>{transportLabel(server.transport)}</code>
+                              <StatusBadge
+                                text={server.status}
+                                tone={toneForStatus(server.status)}
+                              />
+                              <StatusBadge text={discovery.label} tone={discovery.tone} />
                               <strong>{server.tool_count} tools</strong>
                             </div>
                           </button>
@@ -327,20 +510,38 @@ export default function App() {
                             <div className="server-detail">
                               <dl>
                                 <div>
-                                  <dt>Session mode</dt>
-                                  <dd>{server.config_summary.session_mode ?? "Unknown"}</dd>
+                                  <dt>Target</dt>
+                                  <dd>
+                                    <code>
+                                      {server.config_summary.target ??
+                                        server.config_summary.command ??
+                                        "Unknown"}
+                                    </code>
+                                  </dd>
                                 </div>
                                 <div>
-                                  <dt>Target</dt>
-                                  <dd>{server.config_summary.target ?? server.config_summary.command ?? "Unknown"}</dd>
+                                  <dt>Session mode</dt>
+                                  <dd>
+                                    <code>
+                                      {server.config_summary.session_mode ?? "Unknown"}
+                                    </code>
+                                  </dd>
                                 </div>
                                 <div>
                                   <dt>Header keys</dt>
-                                  <dd>{server.config_summary.header_keys?.join(", ") || "None"}</dd>
+                                  <dd>
+                                    <code>
+                                      {server.config_summary.header_keys?.join(", ") || "None"}
+                                    </code>
+                                  </dd>
                                 </div>
                                 <div>
                                   <dt>Env keys</dt>
-                                  <dd>{server.config_summary.env_keys?.join(", ") || "None"}</dd>
+                                  <dd>
+                                    <code>
+                                      {server.config_summary.env_keys?.join(", ") || "None"}
+                                    </code>
+                                  </dd>
                                 </div>
                                 <div>
                                   <dt>Last discovered</dt>
@@ -364,34 +565,118 @@ export default function App() {
             {section === "tools" && data.tools ? (
               <SectionCard
                 title="Tools"
-                subtitle="All discovered tools"
-                action={<input className="table-filter" onChange={(event) => setToolFilter(event.target.value)} placeholder="Search tool or server" value={toolFilter} />}
+                subtitle="Discovered tools with canonical names and schema inspector"
+                action={
+                  <div className="toolbar-cluster">
+                    <input
+                      className="table-filter compact-filter"
+                      onChange={(event) => setToolFilter(event.target.value)}
+                      placeholder="Search tool or server"
+                      value={toolFilter}
+                    />
+                    <select
+                      className="table-filter compact-filter compact-select"
+                      onChange={(event) => setToolServerFilter(event.target.value)}
+                      value={toolServerFilter}
+                    >
+                      <option value="all">All servers</option>
+                      {uniqueToolServers.map((server) => (
+                        <option key={server} value={server}>
+                          {server}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                }
               >
                 {data.tools.empty_state && filteredTools.length === 0 ? (
                   <EmptyStateCard emptyState={data.tools.empty_state} />
                 ) : (
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Tool</th>
-                        <th>Canonical name</th>
-                        <th>Server</th>
-                        <th>Description</th>
-                        <th>Input schema</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredTools.map((tool) => (
-                        <tr key={tool.canonical_name}>
-                          <td>{tool.name}</td>
-                          <td><code>{tool.canonical_name}</code></td>
-                          <td>{tool.server}</td>
-                          <td>{tool.description || "No description"}</td>
-                          <td><code>{tool.input_preview || "No schema"}</code></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <div className="tools-layout">
+                    <div className="tools-table-wrap">
+                      <table className="data-table compact-table tools-table">
+                        <thead>
+                          <tr>
+                            <th>Tool</th>
+                            <th>Canonical name</th>
+                            <th>Server</th>
+                            <th>Description</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredTools.map((tool) => (
+                            <tr
+                              className={selectedTool?.canonical_name === tool.canonical_name ? "is-selected" : ""}
+                              key={tool.canonical_name}
+                            >
+                              <td>
+                                <div className="table-primary">{tool.name}</div>
+                                <div className="table-secondary">
+                                  <code>{transportLabel(tool.transport)}</code>
+                                </div>
+                              </td>
+                              <td>
+                                <code className="identifier-code" title={tool.canonical_name}>
+                                  {tool.canonical_name}
+                                </code>
+                              </td>
+                              <td>{tool.server}</td>
+                              <td>{toolDescription(tool)}</td>
+                              <td>
+                                <div className="row-actions">
+                                  <CopyButton value={tool.canonical_name} />
+                                  <button
+                                    className="secondary-action"
+                                    onClick={() => setSelectedTool(tool)}
+                                    type="button"
+                                  >
+                                    View schema
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <aside className="schema-panel">
+                      <div className="schema-panel-header">
+                        <div>
+                          <p className="panel-label">Tool schema</p>
+                          <h3>{selectedTool?.name ?? "Select a tool"}</h3>
+                          {selectedTool ? (
+                            <code className="identifier-code">{selectedTool.canonical_name}</code>
+                          ) : null}
+                        </div>
+                        {selectedTool ? <CopyButton value={selectedTool.canonical_name} /> : null}
+                      </div>
+                      <div className="schema-panel-body">
+                        {selectedTool ? (
+                          <>
+                            <dl className="schema-meta">
+                              <div>
+                                <dt>Server</dt>
+                                <dd>{selectedTool.server}</dd>
+                              </div>
+                              <div>
+                                <dt>Description</dt>
+                                <dd>{toolDescription(selectedTool)}</dd>
+                              </div>
+                            </dl>
+                            <pre className="schema-code">
+                              <code>{prettyJSON(selectedTool.input_schema)}</code>
+                            </pre>
+                          </>
+                        ) : (
+                          <p className="empty-inline">
+                            Select a tool row to inspect and pretty-print its input schema.
+                          </p>
+                        )}
+                      </div>
+                    </aside>
+                  </div>
                 )}
               </SectionCard>
             ) : null}
@@ -401,26 +686,102 @@ export default function App() {
                 {data.prompts.empty_state && data.prompts.prompts.length === 0 ? (
                   <EmptyStateCard emptyState={data.prompts.empty_state} />
                 ) : (
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>Prompt</th>
-                        <th>Server</th>
-                        <th>Description</th>
-                        <th>Arguments</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.prompts.prompts.map((prompt) => (
-                        <tr key={prompt.canonical_name}>
-                          <td>{prompt.name}</td>
-                          <td>{prompt.server}</td>
-                          <td>{prompt.description || "No description"}</td>
-                          <td><code>{prompt.arguments_preview || "No arguments"}</code></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <div className="tools-layout">
+                    <div className="tools-table-wrap">
+                      <table className="data-table compact-table prompts-table">
+                        <thead>
+                          <tr>
+                            <th>Prompt</th>
+                            <th>Canonical name</th>
+                            <th>Server</th>
+                            <th>Description</th>
+                            <th>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.prompts.prompts.map((prompt) => (
+                            <tr
+                              className={
+                                selectedPrompt?.canonical_name === prompt.canonical_name
+                                  ? "is-selected"
+                                  : ""
+                              }
+                              key={prompt.canonical_name}
+                            >
+                              <td>
+                                <div className="table-primary">{prompt.name}</div>
+                              </td>
+                              <td>
+                                <code
+                                  className="identifier-code"
+                                  title={prompt.canonical_name}
+                                >
+                                  {prompt.canonical_name}
+                                </code>
+                              </td>
+                              <td>{prompt.server}</td>
+                              <td>
+                                <div
+                                  className="clamped-description"
+                                  title={promptDescription(prompt)}
+                                >
+                                  {promptDescription(prompt)}
+                                </div>
+                              </td>
+                              <td>
+                                <button
+                                  className="secondary-action"
+                                  onClick={() => setSelectedPrompt(prompt)}
+                                  type="button"
+                                >
+                                  View arguments
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <aside className="schema-panel">
+                      <div className="schema-panel-header">
+                        <div>
+                          <p className="panel-label">Prompt arguments</p>
+                          <h3>{selectedPrompt?.name ?? "Select a prompt"}</h3>
+                          {selectedPrompt ? (
+                            <code className="identifier-code">
+                              {selectedPrompt.canonical_name}
+                            </code>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="schema-panel-body">
+                        {selectedPrompt ? (
+                          <>
+                            <dl className="schema-meta">
+                              <div>
+                                <dt>Server</dt>
+                                <dd>{selectedPrompt.server}</dd>
+                              </div>
+                              <div>
+                                <dt>Description</dt>
+                                <dd>{promptDescription(selectedPrompt)}</dd>
+                              </div>
+                            </dl>
+                            <pre className="schema-code">
+                              <code>
+                                {prettyPromptArguments(selectedPrompt.arguments)}
+                              </code>
+                            </pre>
+                          </>
+                        ) : (
+                          <p className="empty-inline">
+                            Select a prompt row to inspect its arguments.
+                          </p>
+                        )}
+                      </div>
+                    </aside>
+                  </div>
                 )}
               </SectionCard>
             ) : null}
@@ -430,7 +791,7 @@ export default function App() {
                 {data.resources.empty_state && data.resources.resources.length === 0 ? (
                   <EmptyStateCard emptyState={data.resources.empty_state} />
                 ) : (
-                  <table className="data-table">
+                  <table className="data-table compact-table">
                     <thead>
                       <tr>
                         <th>Name</th>
@@ -444,10 +805,14 @@ export default function App() {
                       {data.resources.resources.map((resource) => (
                         <tr key={resource.uri}>
                           <td>{resource.name}</td>
-                          <td><code>{resource.uri}</code></td>
+                          <td>
+                            <code className="identifier-code">{resource.uri}</code>
+                          </td>
                           <td>{resource.server}</td>
-                          <td>{resource.mime_type || "Unknown"}</td>
-                          <td>{resource.description || "No description"}</td>
+                          <td>
+                            <code>{resource.mime_type || "Unknown"}</code>
+                          </td>
+                          <td>{resourceDescription(resource)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -459,34 +824,43 @@ export default function App() {
             {section === "diagnostics" && diagnostics ? (
               <>
                 <SectionCard title="Diagnostics" subtitle="Runtime and troubleshooting">
-                  <div className="diagnostics-grid">
-                    <div className="diag-card">
+                  <div className="diagnostics-grid compact-diagnostics-grid">
+                    <div className="diag-card compact-metric">
                       <span>Version</span>
-                      <strong>{diagnostics.version}</strong>
+                      <strong>{shortVersion(diagnostics.version)}</strong>
                     </div>
-                    <div className="diag-card">
-                      <span>Runtime mode</span>
+                    <div className="diag-card compact-metric">
+                      <span>Mode</span>
                       <strong>{diagnostics.mode}</strong>
                     </div>
-                    <div className="diag-card">
+                    <div className="diag-card compact-metric">
                       <span>Database</span>
                       <strong>{diagnostics.database}</strong>
                     </div>
-                    <div className="diag-card">
-                      <span>Primary endpoint</span>
-                      <div className="inline-copy">
-                        <code>{diagnostics.primary_endpoint}</code>
-                        <CopyButton value={diagnostics.primary_endpoint} />
-                      </div>
+                    <div className="diag-card compact-metric">
+                      <span>Warnings</span>
+                      <strong>{warnings.length}</strong>
                     </div>
                   </div>
                 </SectionCard>
 
                 <SectionCard title="Runtime details" subtitle="Safe system information">
-                  <dl className="diagnostic-list">
+                  <dl className="diagnostic-list compact-diagnostic-list">
+                    <div>
+                      <dt>Full build</dt>
+                      <dd>
+                        <code>{diagnostics.version}</code>
+                      </dd>
+                    </div>
                     <div>
                       <dt>Config source</dt>
                       <dd>{diagnostics.config_source ?? "Unknown"}</dd>
+                    </div>
+                    <div>
+                      <dt>Primary endpoint</dt>
+                      <dd>
+                        <code>{diagnostics.primary_endpoint}</code>
+                      </dd>
                     </div>
                     <div>
                       <dt>Metrics endpoint</dt>
@@ -494,20 +868,24 @@ export default function App() {
                     </div>
                     <div>
                       <dt>Enabled transports</dt>
-                      <dd>{diagnostics.enabled_transports.join(", ")}</dd>
+                      <dd>
+                        <code>{diagnostics.enabled_transports.join(", ")}</code>
+                      </dd>
                     </div>
                   </dl>
                 </SectionCard>
 
                 <SectionCard title="Troubleshooting" subtitle="Common local issues">
-                  <div className="hint-grid">
+                  <div className="hint-grid compact-hint-grid">
                     {diagnostics.troubleshooting_hints.map((hint) => (
-                      <div className="hint-card" key={hint}>
+                      <div className="hint-card compact-hint-card" key={hint}>
                         {hint}
                       </div>
                     ))}
                   </div>
-                  {diagnostics.empty_state ? <EmptyStateCard emptyState={diagnostics.empty_state} /> : null}
+                  {diagnostics.empty_state ? (
+                    <EmptyStateCard emptyState={diagnostics.empty_state} />
+                  ) : null}
                 </SectionCard>
               </>
             ) : null}
