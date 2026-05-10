@@ -78,10 +78,9 @@ code {
   margin: 0;
   font-size: 1rem;
   font-weight: 700;
+  line-height: 1;
 }
 
-.brand-subtitle,
-.sidebar-note span,
 .eyeline {
   margin: 0;
   color: var(--muted);
@@ -111,15 +110,7 @@ code {
   border-color: var(--border);
 }
 
-.sidebar-note {
-  margin-top: 18px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: #ffffff;
-}
-
-.sidebar-note p,
+.panel-header h3,
 .panel-header h3,
 .hero-header h2,
 .loading-screen h2 {
@@ -223,7 +214,7 @@ code {
 }
 
 .overview-lower-grid {
-  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .topbar-endpoint {
@@ -252,65 +243,10 @@ code {
   flex: 1 1 auto;
 }
 
-.overview-strip {
-  padding: 10px 12px;
-}
-
-.overview-strip-grid {
-  display: grid;
-  grid-template-columns: 1.3fr 2fr 1fr 0.7fr 1fr;
-  gap: 10px;
-  align-items: end;
-}
-
-.overview-strip-item {
-  min-width: 0;
-}
-
-.strip-value-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.strip-support {
-  color: var(--muted);
-  font-size: 0.88rem;
-}
-
-.compact-count {
-  font-size: 1.15rem;
-}
-
-.overview-endpoint-item {
-  min-width: 0;
-}
-
-.overview-endpoint-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.overview-endpoint-row code {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .dense-metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
-}
-
-.hero-side,
-.side-column {
-  display: grid;
-  gap: 12px;
 }
 
 .metric-card,
@@ -502,16 +438,6 @@ code {
   text-align: right;
 }
 
-.diagram-card {
-  width: 100%;
-  border-radius: 16px;
-  border: 1px solid var(--border);
-}
-
-.compact-diagram {
-  border-radius: 12px;
-}
-
 .hint-grid {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
@@ -527,25 +453,6 @@ code {
 
 .compact-hint-card {
   font-size: 0.92rem;
-}
-
-.warning-stack {
-  display: grid;
-  gap: 8px;
-}
-
-.warning-card {
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: #ffffff;
-  color: var(--muted);
-}
-
-.warning-card.is-healthy {
-  border-color: rgba(31, 136, 61, 0.18);
-  background: rgba(31, 136, 61, 0.06);
-  color: #1a7f37;
 }
 
 .server-row {
@@ -761,7 +668,6 @@ code {
   .hero-grid,
   .overview-lower-grid,
   .hero-summary-grid,
-  .overview-strip-grid,
   .dense-metrics-grid,
   .tools-layout {
     grid-template-columns: 1fr;

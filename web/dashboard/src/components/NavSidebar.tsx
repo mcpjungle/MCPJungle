@@ -22,10 +22,7 @@ export function NavSidebar({
     <aside className="sidebar">
       <div className="brand-lockup">
         <img alt="MCPJungle logo" className="brand-logo" src={logoUrl} />
-        <div>
-          <p className="brand-title">MCPJungle</p>
-          <p className="brand-subtitle">Local gateway dashboard</p>
-        </div>
+        <p className="brand-title">MCPJungle</p>
       </div>
       <nav className="nav-list" aria-label="Dashboard sections">
         {items.map((item) => (
@@ -39,10 +36,6 @@ export function NavSidebar({
           </button>
         ))}
       </nav>
-      <div className="sidebar-note">
-        <p>Read-only v1</p>
-        <span>Built for local visibility, not shared administration.</span>
-      </div>
     </aside>
   );
 }

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import logoUrl from "@repo-assets/logo.png";
-import diagramUrl from "@repo-assets/mcpjungle-diagram/april-2026/mcpjungle-diagram.png";
 import { api } from "@/lib/api";
 import type {
   AppSection,
@@ -35,7 +34,7 @@ interface DashboardData {
 const sectionMeta: Record<AppSection, { title: string; subtitle: string }> = {
   overview: {
     title: "Overview",
-    subtitle: "High-level view of your MCPJungle gateway.",
+    subtitle: "",
   },
   servers: {
     title: "Servers",
@@ -136,31 +135,6 @@ function discoveryState(server: DashboardServer) {
   return { label: "Discovered", tone: "good" };
 }
 
-function collectWarnings(
-  overview?: DashboardOverviewResponse,
-  diagnostics?: DashboardDiagnosticsResponse,
-) {
-  const warnings: string[] = [];
-  if (!overview || !diagnostics) {
-    return warnings;
-  }
-  if (overview.server_count === 0) {
-    warnings.push("No servers registered yet");
-  }
-  if (overview.tool_count === 0) {
-    warnings.push("No tools discovered");
-  }
-  if (!diagnostics.metrics_endpoint) {
-    warnings.push("Metrics disabled");
-  }
-  for (const hint of overview.troubleshooting ?? []) {
-    if (!warnings.includes(hint)) {
-      warnings.push(hint);
-    }
-  }
-  return warnings;
-}
-
 export default function App() {
   const [section, setSection] = useState<AppSection>("overview");
   const [loadState, setLoadState] = useState<LoadState>("loading");
@@ -244,7 +218,6 @@ export default function App() {
   const overview = data.overview;
   const diagnostics = data.diagnostics;
   const currentSectionMeta = sectionMeta[section];
-  const warnings = collectWarnings(overview, diagnostics);
 
   return (
     <div className="app-shell">
@@ -252,16 +225,14 @@ export default function App() {
       <main className="main-shell">
         <header className="topbar">
           <div>
-            <p className="eyeline">MCPJungle</p>
             <h1>{currentSectionMeta.title}</h1>
-            <p className="topbar-subtitle">{currentSectionMeta.subtitle}</p>
+            {currentSectionMeta.subtitle ? (
+              <p className="topbar-subtitle">{currentSectionMeta.subtitle}</p>
+            ) : null}
           </div>
           <div className="topbar-meta">
-            {overview ? (
-              <StatusBadge text={overview.status} tone={toneForStatus(overview.status)} />
-            ) : null}
             {overview?.version ? (
-              <span className="version-chip">{shortVersion(overview.version)}</span>
+              <span className="version-chip">{`Server version ${shortVersion(overview.version)}`}</span>
             ) : null}
             {overview?.endpoints[0] ? (
               <div className="topbar-endpoint">
@@ -292,46 +263,6 @@ export default function App() {
           <div className="content-grid">
             {section === "overview" && overview && diagnostics ? (
               <>
-                <section className="overview-strip panel">
-                  <div className="overview-strip-grid">
-                    <div className="overview-strip-item">
-                      <span className="panel-label">Gateway status</span>
-                      <div className="strip-value-row">
-                        <StatusBadge text={overview.status} tone={toneForStatus(overview.status)} />
-                        <span className="strip-support">Mode {overview.mode}</span>
-                      </div>
-                    </div>
-                    <div className="overview-strip-item overview-endpoint-item">
-                      <span className="panel-label">Endpoint</span>
-                      <div className="overview-endpoint-row">
-                        <code title={overview.endpoints[0]?.url}>{overview.endpoints[0]?.url}</code>
-                        <CopyButton value={overview.endpoints[0]?.url ?? ""} />
-                      </div>
-                    </div>
-                    <div className="overview-strip-item">
-                      <span className="panel-label">Metrics</span>
-                      <div className="strip-value-row">
-                        <StatusBadge
-                          text={diagnostics.metrics_endpoint ? "Enabled" : "Disabled"}
-                          tone={diagnostics.metrics_endpoint ? "good" : "warn"}
-                        />
-                      </div>
-                    </div>
-                    <div className="overview-strip-item">
-                      <span className="panel-label">Warnings</span>
-                      <strong className="compact-count">{warnings.length}</strong>
-                    </div>
-                    <div className="overview-strip-item">
-                      <span className="panel-label">Updated</span>
-                      <span className="strip-support">
-                        {filteredServers[0]?.updated_at
-                          ? formatDate(filteredServers[0].updated_at)
-                          : "No recent updates"}
-                      </span>
-                    </div>
-                  </div>
-                </section>
-
                 <section className="dense-metrics-grid">
                   <div className="metric-card compact-metric">
                     <span>Servers</span>
@@ -354,7 +285,7 @@ export default function App() {
                 <section className="overview-lower-grid dense-overview-grid">
                   <SectionCard
                     title="Recent servers"
-                    subtitle="Recent discovery and connection state"
+                    subtitle="Recent connection state"
                     action={
                       <input
                         className="table-filter compact-filter"
@@ -371,16 +302,13 @@ export default function App() {
                         <thead>
                           <tr>
                             <th>Server</th>
-                            <th>Conn.</th>
-                            <th>Discovery</th>
+                            <th>Connection</th>
                             <th>Transport</th>
                             <th>Tools</th>
-                            <th>Last discovered</th>
                           </tr>
                         </thead>
                         <tbody>
                           {filteredServers.slice(0, 6).map((server) => {
-                            const discovery = discoveryState(server);
                             return (
                               <tr key={server.name}>
                                 <td>
@@ -394,13 +322,9 @@ export default function App() {
                                   />
                                 </td>
                                 <td>
-                                  <StatusBadge text={discovery.label} tone={discovery.tone} />
-                                </td>
-                                <td>
                                   <code>{transportLabel(server.transport)}</code>
                                 </td>
                                 <td>{server.tool_count}</td>
-                                <td>{formatDate(server.last_discovered_at)}</td>
                               </tr>
                             );
                           })}
@@ -409,58 +333,6 @@ export default function App() {
                     )}
                   </SectionCard>
 
-                  <div className="side-column compact-side-column">
-                    <SectionCard title="Diagnostics summary" subtitle="Safe runtime details">
-                      <dl className="diagnostic-list compact-diagnostic-list">
-                        <div>
-                          <dt>Database</dt>
-                          <dd>{diagnostics.database}</dd>
-                        </div>
-                        <div>
-                          <dt>Runtime mode</dt>
-                          <dd>{diagnostics.mode}</dd>
-                        </div>
-                        <div>
-                          <dt>Build</dt>
-                          <dd>
-                            <code>{diagnostics.version}</code>
-                          </dd>
-                        </div>
-                        <div>
-                          <dt>Metrics endpoint</dt>
-                          <dd>{diagnostics.metrics_endpoint ?? "Disabled"}</dd>
-                        </div>
-                        <div>
-                          <dt>Transports</dt>
-                          <dd>
-                            <code>{diagnostics.enabled_transports.join(", ")}</code>
-                          </dd>
-                        </div>
-                      </dl>
-                    </SectionCard>
-
-                    <SectionCard title="Warnings" subtitle="What needs attention">
-                      <div className="warning-stack">
-                        {warnings.length > 0 ? (
-                          warnings.slice(0, 5).map((warning) => (
-                            <div className="warning-card" key={warning}>
-                              {warning}
-                            </div>
-                          ))
-                        ) : (
-                          <div className="warning-card is-healthy">No active warnings</div>
-                        )}
-                      </div>
-                    </SectionCard>
-
-                    <SectionCard title="Brand map" subtitle="Gateway mental model">
-                      <img
-                        alt="MCPJungle architecture diagram"
-                        className="diagram-card compact-diagram"
-                        src={diagramUrl}
-                      />
-                    </SectionCard>
-                  </div>
                 </section>
               </>
             ) : null}
@@ -839,7 +711,7 @@ export default function App() {
                     </div>
                     <div className="diag-card compact-metric">
                       <span>Warnings</span>
-                      <strong>{warnings.length}</strong>
+                      <strong>{diagnostics.troubleshooting_hints.length}</strong>
                     </div>
                   </div>
                 </SectionCard>
