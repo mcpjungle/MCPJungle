@@ -1,5 +1,4 @@
 export type AppSection =
-  | "overview"
   | "servers"
   | "tools"
   | "prompts"

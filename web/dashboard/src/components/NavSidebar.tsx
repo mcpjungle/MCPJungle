@@ -1,7 +1,6 @@
 import type { AppSection } from "@/lib/types";
 
 const items: Array<{ key: AppSection; label: string }> = [
-  { key: "overview", label: "Overview" },
   { key: "servers", label: "Servers" },
   { key: "tools", label: "Tools" },
   { key: "prompts", label: "Prompts" },

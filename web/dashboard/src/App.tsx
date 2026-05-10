@@ -32,10 +32,6 @@ interface DashboardData {
 }
 
 const sectionMeta: Record<AppSection, { title: string; subtitle: string }> = {
-  overview: {
-    title: "Overview",
-    subtitle: "",
-  },
   servers: {
     title: "Servers",
     subtitle: "Registered MCP backends and discovery details.",
@@ -136,7 +132,7 @@ function discoveryState(server: DashboardServer) {
 }
 
 export default function App() {
-  const [section, setSection] = useState<AppSection>("overview");
+  const [section, setSection] = useState<AppSection>("servers");
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [errorMessage, setErrorMessage] = useState("");
   const [data, setData] = useState<DashboardData>({});
@@ -261,177 +257,124 @@ export default function App() {
 
         {loadState === "ready" ? (
           <div className="content-grid">
-            {section === "overview" && overview && diagnostics ? (
-              <>
-                <section className="dense-metrics-grid">
-                  <div className="metric-card compact-metric">
-                    <span>Servers</span>
-                    <strong>{overview.server_count}</strong>
-                  </div>
-                  <div className="metric-card compact-metric">
-                    <span>Tools</span>
-                    <strong>{overview.tool_count}</strong>
-                  </div>
-                  <div className="metric-card compact-metric">
-                    <span>Prompts</span>
-                    <strong>{overview.prompt_count}</strong>
-                  </div>
-                  <div className="metric-card compact-metric">
-                    <span>Resources</span>
-                    <strong>{overview.resource_count}</strong>
-                  </div>
-                </section>
-
-                <section className="overview-lower-grid dense-overview-grid">
-                  <SectionCard
-                    title="Recent servers"
-                    subtitle="Recent connection state"
-                    action={
-                      <input
-                        className="table-filter compact-filter"
-                        onChange={(event) => setServerFilter(event.target.value)}
-                        placeholder="Filter servers"
-                        value={serverFilter}
-                      />
-                    }
-                  >
-                    {filteredServers.length === 0 && data.servers?.empty_state ? (
-                      <EmptyStateCard emptyState={data.servers.empty_state} />
-                    ) : (
-                      <table className="data-table compact-table">
-                        <thead>
-                          <tr>
-                            <th>Server</th>
-                            <th>Connection</th>
-                            <th>Transport</th>
-                            <th>Tools</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredServers.slice(0, 6).map((server) => {
-                            return (
-                              <tr key={server.name}>
-                                <td>
-                                  <div className="table-primary">{server.name}</div>
-                                  <div className="table-secondary">{server.connection_summary}</div>
-                                </td>
-                                <td>
-                                  <StatusBadge
-                                    text={server.status}
-                                    tone={toneForStatus(server.status)}
-                                  />
-                                </td>
-                                <td>
-                                  <code>{transportLabel(server.transport)}</code>
-                                </td>
-                                <td>{server.tool_count}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    )}
-                  </SectionCard>
-
-                </section>
-              </>
-            ) : null}
-
             {section === "servers" && data.servers ? (
-              <SectionCard
-                title="Servers"
-                subtitle="Registered MCP servers"
-                action={
-                  <input
-                    className="table-filter compact-filter"
-                    onChange={(event) => setServerFilter(event.target.value)}
-                    placeholder="Search name, transport, or summary"
-                    value={serverFilter}
-                  />
-                }
-              >
-                {data.servers.empty_state && filteredServers.length === 0 ? (
-                  <EmptyStateCard emptyState={data.servers.empty_state} />
-                ) : (
-                  <div className="server-list compact-server-list">
-                    {filteredServers.map((server) => {
-                      const expanded = expandedServer === server.name;
-                      const discovery = discoveryState(server);
-                      return (
-                        <article className="server-row compact-server-row" key={server.name}>
-                          <button
-                            className="server-row-head compact-server-head"
-                            onClick={() => setExpandedServer(expanded ? null : server.name)}
-                            type="button"
-                          >
-                            <div className="server-head-main">
-                              <h3>{server.name}</h3>
-                              <p>{server.connection_summary}</p>
-                            </div>
-                            <div className="server-row-meta compact-server-meta">
-                              <code>{transportLabel(server.transport)}</code>
-                              <StatusBadge
-                                text={server.status}
-                                tone={toneForStatus(server.status)}
-                              />
-                              <StatusBadge text={discovery.label} tone={discovery.tone} />
-                              <strong>{server.tool_count} tools</strong>
-                            </div>
-                          </button>
-                          {expanded ? (
-                            <div className="server-detail">
-                              <dl>
-                                <div>
-                                  <dt>Target</dt>
-                                  <dd>
-                                    <code>
-                                      {server.config_summary.target ??
-                                        server.config_summary.command ??
-                                        "Unknown"}
-                                    </code>
-                                  </dd>
-                                </div>
-                                <div>
-                                  <dt>Session mode</dt>
-                                  <dd>
-                                    <code>
-                                      {server.config_summary.session_mode ?? "Unknown"}
-                                    </code>
-                                  </dd>
-                                </div>
-                                <div>
-                                  <dt>Header keys</dt>
-                                  <dd>
-                                    <code>
-                                      {server.config_summary.header_keys?.join(", ") || "None"}
-                                    </code>
-                                  </dd>
-                                </div>
-                                <div>
-                                  <dt>Env keys</dt>
-                                  <dd>
-                                    <code>
-                                      {server.config_summary.env_keys?.join(", ") || "None"}
-                                    </code>
-                                  </dd>
-                                </div>
-                                <div>
-                                  <dt>Last discovered</dt>
-                                  <dd>{formatDate(server.last_discovered_at)}</dd>
-                                </div>
-                                <div>
-                                  <dt>Updated</dt>
-                                  <dd>{formatDate(server.updated_at)}</dd>
-                                </div>
-                              </dl>
-                            </div>
-                          ) : null}
-                        </article>
-                      );
-                    })}
-                  </div>
-                )}
-              </SectionCard>
+              <>
+                {overview ? (
+                  <section className="dense-metrics-grid">
+                    <div className="metric-card compact-metric">
+                      <span>Servers</span>
+                      <strong>{overview.server_count}</strong>
+                    </div>
+                    <div className="metric-card compact-metric">
+                      <span>Tools</span>
+                      <strong>{overview.tool_count}</strong>
+                    </div>
+                    <div className="metric-card compact-metric">
+                      <span>Prompts</span>
+                      <strong>{overview.prompt_count}</strong>
+                    </div>
+                    <div className="metric-card compact-metric">
+                      <span>Resources</span>
+                      <strong>{overview.resource_count}</strong>
+                    </div>
+                  </section>
+                ) : null}
+
+                <SectionCard
+                  title="Servers"
+                  subtitle="Registered MCP servers"
+                  action={
+                    <input
+                      className="table-filter compact-filter"
+                      onChange={(event) => setServerFilter(event.target.value)}
+                      placeholder="Search name, transport, or summary"
+                      value={serverFilter}
+                    />
+                  }
+                >
+                  {data.servers.empty_state && filteredServers.length === 0 ? (
+                    <EmptyStateCard emptyState={data.servers.empty_state} />
+                  ) : (
+                    <div className="server-list compact-server-list">
+                      {filteredServers.map((server) => {
+                        const expanded = expandedServer === server.name;
+                        const discovery = discoveryState(server);
+                        return (
+                          <article className="server-row compact-server-row" key={server.name}>
+                            <button
+                              className="server-row-head compact-server-head"
+                              onClick={() => setExpandedServer(expanded ? null : server.name)}
+                              type="button"
+                            >
+                              <div className="server-head-main">
+                                <h3>{server.name}</h3>
+                                <p>{server.connection_summary}</p>
+                              </div>
+                              <div className="server-row-meta compact-server-meta">
+                                <code>{transportLabel(server.transport)}</code>
+                                <StatusBadge
+                                  text={server.status}
+                                  tone={toneForStatus(server.status)}
+                                />
+                                <StatusBadge text={discovery.label} tone={discovery.tone} />
+                                <strong>{server.tool_count} tools</strong>
+                              </div>
+                            </button>
+                            {expanded ? (
+                              <div className="server-detail">
+                                <dl>
+                                  <div>
+                                    <dt>Target</dt>
+                                    <dd>
+                                      <code>
+                                        {server.config_summary.target ??
+                                          server.config_summary.command ??
+                                          "Unknown"}
+                                      </code>
+                                    </dd>
+                                  </div>
+                                  <div>
+                                    <dt>Session mode</dt>
+                                    <dd>
+                                      <code>
+                                        {server.config_summary.session_mode ?? "Unknown"}
+                                      </code>
+                                    </dd>
+                                  </div>
+                                  <div>
+                                    <dt>Header keys</dt>
+                                    <dd>
+                                      <code>
+                                        {server.config_summary.header_keys?.join(", ") || "None"}
+                                      </code>
+                                    </dd>
+                                  </div>
+                                  <div>
+                                    <dt>Env keys</dt>
+                                    <dd>
+                                      <code>
+                                        {server.config_summary.env_keys?.join(", ") || "None"}
+                                      </code>
+                                    </dd>
+                                  </div>
+                                  <div>
+                                    <dt>Last discovered</dt>
+                                    <dd>{formatDate(server.last_discovered_at)}</dd>
+                                  </div>
+                                  <div>
+                                    <dt>Updated</dt>
+                                    <dd>{formatDate(server.updated_at)}</dd>
+                                  </div>
+                                </dl>
+                              </div>
+                            ) : null}
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                </SectionCard>
+              </>
             ) : null}
 
             {section === "tools" && data.tools ? (
