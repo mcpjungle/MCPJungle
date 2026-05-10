@@ -1,0 +1,149 @@
+---
+title: "Local Dashboard"
+description: "Use the MCPJungle v1 dashboard for local visibility into registered servers, tools, prompts, resources, and runtime diagnostics."
+---
+
+# MCPJungle local dashboard
+
+The MCPJungle dashboard is a lightweight, local-first web UI for developers running MCPJungle on their own machine.
+
+It is intentionally narrow in scope:
+
+- It is **not** an enterprise admin portal
+- It is **not** a SaaS dashboard
+- It is **not** a replacement for the CLI on day one
+- It is a **read-only v1** surface focused on visibility and troubleshooting
+
+## Who it is for
+
+The dashboard is built for an individual developer who wants to answer a few questions quickly:
+
+1. Is MCPJungle running?
+2. Which MCP servers are registered?
+3. Which tools, prompts, and resources are currently available?
+4. Which endpoint should my MCP client connect to?
+5. What looks broken if discovery did not work?
+
+## How to access it
+
+Start MCPJungle in development mode:
+
+```bash
+mcpjungle start
+```
+
+Then open:
+
+```text
+http://localhost:8080/
+```
+
+The dashboard is only available in **development/local mode**.
+
+If the server is started in enterprise mode:
+
+```bash
+mcpjungle start --enterprise
+```
+
+the root dashboard route is not exposed. MCPJungle returns `404` for the dashboard surface and its internal dashboard API routes in enterprise mode.
+
+## What the dashboard shows
+
+### Overview
+
+- MCPJungle runtime status
+- Current mode
+- MCP endpoint URLs
+- Registered server count
+- Discovered tool, prompt, and resource counts
+- Basic version information
+- Empty-state guidance when no servers are registered
+
+### Servers
+
+- Registered MCP servers
+- Transport type
+- Best-effort status signal
+- Tool, prompt, and resource counts
+- Last updated/discovered timestamp
+- Safe connection summary without secrets
+- Expandable per-server details
+
+### Tools
+
+- Tool name
+- Canonical MCPJungle name
+- Source server
+- Description
+- Input schema preview
+- Client-side search/filter
+
+### Prompts
+
+- Prompt name
+- Source server
+- Description
+- Argument/schema preview when available
+
+### Resources
+
+- Resource name and URI
+- Source server
+- MIME type
+- Description
+
+### Diagnostics
+
+- Server version
+- Runtime mode
+- Config source when available
+- Database type
+- Enabled transports
+- Metrics endpoint hint when enabled
+- Basic troubleshooting hints
+
+## Security and limitations
+
+- The v1 dashboard is **read-only**
+- It is **not exposed in enterprise mode**
+- It does **not** expose bearer tokens, OAuth credentials, authorization headers, environment variable values, or other raw secrets
+- It does not yet support registering, editing, or deleting servers from the UI
+- It does not replace enterprise admin workflows, access control workflows, or the existing CLI
+
+## Development notes
+
+The dashboard frontend lives under [`web/dashboard`](</Users/raghav/Desktop/code/MCPJungle/web/dashboard>).
+
+Use the frontend dev server for iterative UI work:
+
+```bash
+cd web/dashboard
+npm install
+npm run dev
+```
+
+The Vite dev server proxies `/api/*` requests to the Go server on `http://localhost:8080`.
+
+To produce the embedded UI bundle:
+
+```bash
+cd web/dashboard
+npm run build
+cp -R dist/. ../../internal/dashboardui/dist/
+```
+
+The Go server serves the built assets from the embedded bundle in [`internal/dashboardui`](</Users/raghav/Desktop/code/MCPJungle/internal/dashboardui>).
+
+That means normal MCPJungle usage does **not** require a separate frontend dev server after the dashboard assets are built and embedded.
+
+## Deferred v2 ideas
+
+- Register, edit, or remove servers from the UI
+- OAuth connection flow from the UI
+- Tool call history
+- Metrics charts
+- Per-client access control visualization
+- Config file or runtime config editor
+- Import/export flows
+- Shared or team-oriented deployment surfaces

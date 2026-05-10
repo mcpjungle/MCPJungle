@@ -25,6 +25,28 @@ func (s *Server) requireInitialized() gin.HandlerFunc {
 	}
 }
 
+// requireDashboardMode returns 404 for dashboard routes outside development mode.
+// This keeps the dashboard explicitly local-only even though the server may be running in enterprise mode.
+func (s *Server) requireDashboardMode() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		mode, exists := c.Get("mode")
+		if !exists {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "server mode not found in context"})
+			return
+		}
+		currentMode, ok := mode.(model.ServerMode)
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "invalid server mode in context"})
+			return
+		}
+		if currentMode != model.ModeDev {
+			c.AbortWithStatus(http.StatusNotFound)
+			return
+		}
+		c.Next()
+	}
+}
+
 // verifyUserAuthForAPIAccess is middleware that checks for a valid user token if the server is in enterprise mode.
 // this middleware doesn't care about the role of the user, it just verifies that they're authenticated.
 func (s *Server) verifyUserAuthForAPIAccess() gin.HandlerFunc {

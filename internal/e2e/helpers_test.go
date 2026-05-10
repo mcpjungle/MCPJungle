@@ -30,6 +30,7 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/migrations"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	configSvc "github.com/mcpjungle/mcpjungle/internal/service/config"
+	"github.com/mcpjungle/mcpjungle/internal/service/dashboard"
 	mcpSvc "github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
@@ -152,6 +153,7 @@ func setupE2EServer(t *testing.T, mode model.ServerMode) *e2eEnv {
 		MCPService:        mcpService,
 		MCPClientService:  mcpclient.NewMCPClientService(db),
 		ConfigService:     cfgSvc,
+		DashboardService:  dashboard.NewService(db, false),
 		UserService:       usrSvc,
 		ToolGroupService:  tgSvc,
 		Metrics:           telemetry.NewNoopCustomMetrics(),

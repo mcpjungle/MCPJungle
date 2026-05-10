@@ -8,8 +8,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/mcpjungle/mcpjungle/internal/dashboardui"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
+	"github.com/mcpjungle/mcpjungle/internal/service/dashboard"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcpclient"
 	"github.com/mcpjungle/mcpjungle/internal/service/toolgroup"
@@ -42,6 +44,7 @@ type ServerOptions struct {
 	ConfigService    *config.ServerConfigService
 	UserService      *user.UserService
 	ToolGroupService *toolgroup.ToolGroupService
+	DashboardService *dashboard.Service
 
 	OtelProviders *telemetry.Providers
 	Metrics       telemetry.CustomMetrics
@@ -60,6 +63,7 @@ type Server struct {
 	configService    *config.ServerConfigService
 	userService      *user.UserService
 	toolGroupService *toolgroup.ToolGroupService
+	dashboardService *dashboard.Service
 
 	otelProviders *telemetry.Providers
 	metrics       telemetry.CustomMetrics
@@ -80,6 +84,7 @@ func NewServer(opts *ServerOptions) (*Server, error) {
 		configService:     opts.ConfigService,
 		userService:       opts.UserService,
 		toolGroupService:  opts.ToolGroupService,
+		dashboardService:  opts.DashboardService,
 		otelProviders:     opts.OtelProviders,
 		metrics:           opts.Metrics,
 	}
@@ -169,6 +174,17 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 	r.POST("/init", s.registerInitServerHandler())
 
 	requireEnterpriseMode := s.requireServerMode(model.ModeEnterprise)
+	requireDashboardMode := s.requireDashboardMode()
+
+	if s.dashboardService != nil {
+		dashboardFileServer, err := dashboardui.FileServer()
+		if err != nil {
+			return nil, err
+		}
+		r.GET("/", s.requireInitialized(), requireDashboardMode, gin.WrapH(dashboardFileServer))
+		r.GET("/index.html", s.requireInitialized(), requireDashboardMode, gin.WrapH(dashboardFileServer))
+		r.GET("/assets/*filepath", s.requireInitialized(), requireDashboardMode, gin.WrapH(dashboardFileServer))
+	}
 
 	// Set up the MCP proxy server on /mcp
 	streamableHTTPServer := server.NewStreamableHTTPServer(s.mcpProxyServer)
@@ -312,6 +328,22 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		adminAPI.GET("/tool-groups", s.listToolGroupsHandler())
 		adminAPI.DELETE("/tool-groups/:name", s.deleteToolGroupHandler())
 		adminAPI.PUT("/tool-groups/:name", s.updateToolGroupHandler())
+	}
+
+	if s.dashboardService != nil {
+		dashboardAPI := r.Group(
+			"/api/dashboard",
+			s.requireInitialized(),
+			requireDashboardMode,
+		)
+		{
+			dashboardAPI.GET("/overview", s.dashboardOverviewHandler())
+			dashboardAPI.GET("/servers", s.dashboardServersHandler())
+			dashboardAPI.GET("/tools", s.dashboardToolsHandler())
+			dashboardAPI.GET("/prompts", s.dashboardPromptsHandler())
+			dashboardAPI.GET("/resources", s.dashboardResourcesHandler())
+			dashboardAPI.GET("/diagnostics", s.dashboardDiagnosticsHandler())
+		}
 	}
 
 	return r, nil
