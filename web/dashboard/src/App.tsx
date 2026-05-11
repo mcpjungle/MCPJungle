@@ -1410,7 +1410,7 @@ export default function App() {
                 {data.resources.empty_state && data.resources.resources.length === 0 ? (
                   <EmptyStateCard emptyState={data.resources.empty_state} />
                 ) : (
-                  <table className="data-table compact-table">
+                  <table className="data-table compact-table resources-table">
                     <thead>
                       <tr>
                         <th>Name</th>
@@ -1425,7 +1425,16 @@ export default function App() {
                         <tr key={resource.uri}>
                           <td>{resource.name}</td>
                           <td>
-                            <code className="identifier-code">{resource.uri}</code>
+                            <div className="inline-copy resource-uri-cell">
+                              <code className="identifier-code" title={resource.uri}>
+                                {resource.uri}
+                              </code>
+                              <CopyButton
+                                ariaLabel="Copy resource URI"
+                                title="Copy resource URI"
+                                value={resource.uri}
+                              />
+                            </div>
                           </td>
                           <td>{resource.server}</td>
                           <td>

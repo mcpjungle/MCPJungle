@@ -698,6 +698,24 @@ button:disabled {
   flex-wrap: wrap;
 }
 
+.resource-uri-cell {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  min-width: 0;
+  gap: 8px;
+  width: 100%;
+}
+
+.resource-uri-cell .identifier-code {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.resources-table td {
+  vertical-align: middle;
+}
+
 .tools-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(300px, 0.9fr);
