@@ -749,22 +749,26 @@ button:disabled {
   vertical-align: middle;
 }
 
-.tools-table .tool-summary-row.is-selected td {
+.tools-table .tool-summary-row.is-selected td,
+.prompts-table .tool-summary-row.is-selected td {
   background: #f6f8fa;
   border-bottom-color: transparent;
 }
 
-.tools-table .tool-summary-row.is-selected td:first-child {
+.tools-table .tool-summary-row.is-selected td:first-child,
+.prompts-table .tool-summary-row.is-selected td:first-child {
   border-top-left-radius: 12px;
   border-left: 1px solid var(--border);
 }
 
-.tools-table .tool-summary-row.is-selected td:last-child {
+.tools-table .tool-summary-row.is-selected td:last-child,
+.prompts-table .tool-summary-row.is-selected td:last-child {
   border-top-right-radius: 12px;
   border-right: 1px solid var(--border);
 }
 
-.tools-table .tool-summary-row.is-selected td {
+.tools-table .tool-summary-row.is-selected td,
+.prompts-table .tool-summary-row.is-selected td {
   border-top: 1px solid var(--border);
 }
 

@@ -268,6 +268,62 @@ function parseToolSchemaFields(schema?: Record<string, unknown>) {
   return fields;
 }
 
+function parsePromptArgumentFields(argumentsValue?: Array<Record<string, unknown>>) {
+  if (!argumentsValue || argumentsValue.length === 0) {
+    return [] as SchemaFieldSummary[];
+  }
+
+  const fields: SchemaFieldSummary[] = [];
+
+  argumentsValue.forEach((argument, index) => {
+    const name =
+      (typeof argument.name === "string" && argument.name) ||
+      (typeof argument.title === "string" && argument.title) ||
+      `arg${index + 1}`;
+
+    const entry: SchemaFieldSummary = {
+      path: name,
+      type: schemaTypeLabel(argument),
+      required: Boolean(argument.required),
+    };
+
+    if (typeof argument.description === "string" && argument.description.trim()) {
+      entry.description = argument.description;
+    }
+    if (Array.isArray(argument.enum) && argument.enum.length > 0) {
+      entry.enumValues = argument.enum.map((value) => formatSchemaValue(value));
+    }
+    if (argument.default !== undefined) {
+      entry.defaultValue = formatSchemaValue(argument.default);
+    }
+    const note = schemaNote(argument);
+    if (note) {
+      entry.note = note;
+    }
+    fields.push(entry);
+
+    if (isRecord(argument.properties)) {
+      const requiredFields = new Set(
+        Array.isArray(argument.required)
+          ? argument.required.filter((value): value is string => typeof value === "string")
+          : [],
+      );
+      Object.entries(argument.properties).forEach(([key, value]) => {
+        if (!isRecord(value)) {
+          return;
+        }
+        collectSchemaFields(value, `${name}.${key}`, requiredFields.has(key), fields);
+      });
+    }
+
+    if (argument.items && isRecord(argument.items)) {
+      collectSchemaFields(argument.items, `${name}[]`, true, fields);
+    }
+  });
+
+  return fields;
+}
+
 function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
     <svg
@@ -380,9 +436,10 @@ export default function App() {
   const [serverFilter, setServerFilter] = useState("");
   const [toolFilter, setToolFilter] = useState("");
   const [toolServerFilter, setToolServerFilter] = useState("all");
+  const [promptFilter, setPromptFilter] = useState("");
   const [expandedServer, setExpandedServer] = useState<string | null>(null);
   const [expandedTool, setExpandedTool] = useState<string | null>(null);
-  const [selectedPrompt, setSelectedPrompt] = useState<DashboardPrompt | null>(null);
+  const [expandedPrompt, setExpandedPrompt] = useState<string | null>(null);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [registerForm, setRegisterForm] = useState<RegisterServerFormState>(createInitialRegisterForm());
   const [registerError, setRegisterError] = useState("");
@@ -390,7 +447,6 @@ export default function App() {
   const [busyKeys, setBusyKeys] = useState<Record<string, boolean>>({});
 
   async function loadDashboardData(silent = false) {
-    const selectedPromptName = selectedPrompt?.canonical_name ?? null;
     if (!silent) {
       setLoadState("loading");
     }
@@ -408,10 +464,8 @@ export default function App() {
       setExpandedTool((current) =>
         current && tools.tools.some((tool) => tool.canonical_name === current) ? current : null,
       );
-      setSelectedPrompt(
-        prompts.prompts.find((prompt) => prompt.canonical_name === selectedPromptName) ??
-          prompts.prompts[0] ??
-          null,
+      setExpandedPrompt((current) =>
+        current && prompts.prompts.some((prompt) => prompt.canonical_name === current) ? current : null,
       );
       setLoadState("ready");
     } catch (error) {
@@ -461,6 +515,21 @@ export default function App() {
     const servers = new Set((data.tools?.tools ?? []).map((tool) => tool.server));
     return Array.from(servers).sort();
   }, [data.tools?.tools]);
+
+  const filteredPrompts = useMemo(() => {
+    const prompts = data.prompts?.prompts ?? [];
+    if (!promptFilter.trim()) {
+      return prompts;
+    }
+    const term = promptFilter.toLowerCase();
+    return prompts.filter(
+      (prompt) =>
+        prompt.name.toLowerCase().includes(term) ||
+        prompt.canonical_name.toLowerCase().includes(term) ||
+        prompt.server.toLowerCase().includes(term) ||
+        promptDescription(prompt).toLowerCase().includes(term),
+    );
+  }, [data.prompts?.prompts, promptFilter]);
 
   const overview = data.overview;
   const diagnostics = data.diagnostics;
@@ -1141,45 +1210,55 @@ export default function App() {
             ) : null}
 
             {section === "prompts" && data.prompts ? (
-              <SectionCard title="Prompts" subtitle="Discovered prompt templates">
-                {data.prompts.empty_state && data.prompts.prompts.length === 0 ? (
+              <SectionCard
+                title="Prompts"
+                subtitle="Discovered prompt templates"
+                action={
+                  <div className="toolbar-cluster">
+                    <input
+                      className="table-filter compact-filter"
+                      onChange={(event) => setPromptFilter(event.target.value)}
+                      placeholder="Search prompts"
+                      value={promptFilter}
+                    />
+                  </div>
+                }
+              >
+                {data.prompts.empty_state && filteredPrompts.length === 0 ? (
                   <EmptyStateCard emptyState={data.prompts.empty_state} />
                 ) : (
-                  <div className="tools-layout">
-                    <div className="tools-table-wrap">
-                      <table className="data-table compact-table prompts-table">
-                        <thead>
-                          <tr>
-                            <th>Prompt</th>
-                            <th>Canonical name</th>
-                            <th>Server</th>
-                            <th>Description</th>
-                            <th>Action</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {data.prompts.prompts.map((prompt) => {
-                            const muted = !prompt.enabled || !prompt.server_enabled;
-                            return (
+                  <div className="tools-table-wrap">
+                    <table className="data-table compact-table prompts-table">
+                      <thead>
+                        <tr>
+                          <th aria-hidden="true" className="expand-column"></th>
+                          <th>Prompt</th>
+                          <th>Canonical name</th>
+                          <th>Server</th>
+                          <th>Description</th>
+                          <th>Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredPrompts.map((prompt) => {
+                          const muted = !prompt.enabled || !prompt.server_enabled;
+                          const expanded = expandedPrompt === prompt.canonical_name;
+                          const fields = parsePromptArgumentFields(prompt.arguments);
+                          return (
+                            <Fragment key={prompt.canonical_name}>
                               <tr
-                                className={`${
-                                  selectedPrompt?.canonical_name === prompt.canonical_name
-                                    ? "is-selected"
-                                    : ""
-                                } ${muted ? "is-muted" : ""}`}
-                                key={prompt.canonical_name}
+                                aria-expanded={expanded}
+                                className={`${expanded ? "is-selected" : ""} ${muted ? "is-muted" : ""} tool-summary-row`}
+                                onClick={() =>
+                                  setExpandedPrompt(expanded ? null : prompt.canonical_name)
+                                }
                               >
+                                <td className="expand-column">
+                                  <ChevronIcon expanded={expanded} />
+                                </td>
                                 <td>
                                   <div className="table-primary">{prompt.name}</div>
-                                  <div className="table-secondary tool-state-line">
-                                    <StatusBadge
-                                      text={prompt.enabled ? "Enabled" : "Disabled"}
-                                      tone={prompt.enabled ? "good" : "muted"}
-                                    />
-                                    {!prompt.server_enabled ? (
-                                      <StatusBadge text="Server disabled" tone="warn" />
-                                    ) : null}
-                                  </div>
                                 </td>
                                 <td>
                                   <code className="identifier-code" title={prompt.canonical_name}>
@@ -1193,7 +1272,26 @@ export default function App() {
                                   </div>
                                 </td>
                                 <td>
-                                  <div className="row-actions">
+                                  <div className="tool-state-line">
+                                    <StatusBadge
+                                      text={prompt.enabled ? "Enabled" : "Disabled"}
+                                      tone={prompt.enabled ? "good" : "muted"}
+                                    />
+                                    {!prompt.server_enabled ? (
+                                      <StatusBadge text="Server disabled" tone="warn" />
+                                    ) : null}
+                                  </div>
+                                </td>
+                                <td>
+                                  <div
+                                    className="row-actions"
+                                    onClick={(event) => event.stopPropagation()}
+                                  >
+                                    <CopyButton
+                                      ariaLabel="Copy canonical name"
+                                      title="Copy canonical name"
+                                      value={prompt.canonical_name}
+                                    />
                                     <button
                                       className="secondary-action"
                                       disabled={isBusy(`prompt-toggle:${prompt.canonical_name}`)}
@@ -1206,64 +1304,102 @@ export default function App() {
                                           ? "Disable"
                                           : "Enable"}
                                     </button>
-                                    <button
-                                      className="secondary-action"
-                                      onClick={() => setSelectedPrompt(prompt)}
-                                      type="button"
-                                    >
-                                      View arguments
-                                    </button>
                                   </div>
                                 </td>
                               </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                              {expanded ? (
+                                <tr className="tool-expanded-row">
+                                  <td className="tool-expanded-cell" colSpan={7}>
+                                    <div className="tool-detail-panel">
+                                      <div className="tool-detail-header">
+                                        <p className="panel-label">Prompt details</p>
+                                      </div>
 
-                    <aside className="schema-panel">
-                      <div className="schema-panel-header">
-                        <div>
-                          <p className="panel-label">Prompt arguments</p>
-                          <h3>{selectedPrompt?.name ?? "Select a prompt"}</h3>
-                          {selectedPrompt ? (
-                            <code className="identifier-code">{selectedPrompt.canonical_name}</code>
-                          ) : null}
-                        </div>
-                      </div>
-                      <div className="schema-panel-body">
-                        {selectedPrompt ? (
-                          <>
-                            <dl className="schema-meta">
-                              <div>
-                                <dt>Server</dt>
-                                <dd>{selectedPrompt.server}</dd>
-                              </div>
-                              <div>
-                                <dt>Description</dt>
-                                <dd>{promptDescription(selectedPrompt)}</dd>
-                              </div>
-                              <div>
-                                <dt>Exposure</dt>
-                                <dd>
-                                  {selectedPrompt.enabled
-                                    ? selectedPrompt.server_enabled
-                                      ? "Enabled"
-                                      : "Blocked by disabled server"
-                                    : "Disabled"}
-                                </dd>
-                              </div>
-                            </dl>
-                            <pre className="schema-code">
-                              <code>{prettyPromptArguments(selectedPrompt.arguments)}</code>
-                            </pre>
-                          </>
-                        ) : (
-                          <p className="empty-inline">Select a prompt row to inspect its arguments.</p>
-                        )}
-                      </div>
-                    </aside>
+                                      <dl className="tool-detail-meta">
+                                        <div className="tool-detail-description">
+                                          <dt>Description</dt>
+                                          <dd>{promptDescription(prompt)}</dd>
+                                        </div>
+                                      </dl>
+
+                                      <div className="tool-schema-section">
+                                        <div className="tool-schema-header">
+                                          <h4>Arguments</h4>
+                                        </div>
+                                        {fields.length > 0 ? (
+                                          <div className="schema-field-list">
+                                            {fields.map((field) => (
+                                              <article className="schema-field-card" key={field.path}>
+                                                <div className="schema-field-head">
+                                                  <code>{field.path}</code>
+                                                  <span className="schema-type-pill">
+                                                    <code>{field.type}</code>
+                                                  </span>
+                                                </div>
+                                                <dl className="schema-field-meta">
+                                                  <div>
+                                                    <dt>Required</dt>
+                                                    <dd>{field.required ? "yes" : "no"}</dd>
+                                                  </div>
+                                                  {field.description ? (
+                                                    <div>
+                                                      <dt>Description</dt>
+                                                      <dd>{field.description}</dd>
+                                                    </div>
+                                                  ) : null}
+                                                  {field.enumValues?.length ? (
+                                                    <div>
+                                                      <dt>Enum</dt>
+                                                      <dd>
+                                                        <code>{field.enumValues.join(", ")}</code>
+                                                      </dd>
+                                                    </div>
+                                                  ) : null}
+                                                  {field.defaultValue ? (
+                                                    <div>
+                                                      <dt>Default</dt>
+                                                      <dd>
+                                                        <code>{field.defaultValue}</code>
+                                                      </dd>
+                                                    </div>
+                                                  ) : null}
+                                                  {field.note ? (
+                                                    <div>
+                                                      <dt>Notes</dt>
+                                                      <dd>{field.note}</dd>
+                                                    </div>
+                                                  ) : null}
+                                                </dl>
+                                              </article>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <p className="empty-inline">No arguments.</p>
+                                        )}
+                                      </div>
+
+                                      <details className="raw-schema-disclosure">
+                                        <summary>Raw arguments</summary>
+                                        <div className="raw-schema-actions">
+                                          <CopyButton
+                                            ariaLabel="Copy raw arguments"
+                                            title="Copy raw arguments"
+                                            value={prettyPromptArguments(prompt.arguments)}
+                                          />
+                                        </div>
+                                        <pre className="schema-code">
+                                          <code>{prettyPromptArguments(prompt.arguments)}</code>
+                                        </pre>
+                                      </details>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ) : null}
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </SectionCard>
