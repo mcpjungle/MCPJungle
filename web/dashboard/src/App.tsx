@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import logoUrl from "@repo-assets/logo.png";
 import { api } from "@/lib/api";
 import type {
@@ -78,6 +78,16 @@ interface RegisterOAuthState {
   error: string;
 }
 
+interface SchemaFieldSummary {
+  path: string;
+  type: string;
+  required: boolean;
+  description?: string;
+  enumValues?: string[];
+  defaultValue?: string;
+  note?: string;
+}
+
 const sectionMeta: Record<AppSection, { title: string; subtitle: string }> = {
   servers: {
     title: "Servers",
@@ -140,6 +150,143 @@ function prettyPromptArguments(value?: Array<Record<string, unknown>>) {
     return "No arguments";
   }
   return JSON.stringify(value, null, 2);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function schemaTypeLabel(schema: Record<string, unknown>) {
+  const type = schema.type;
+  if (typeof type === "string") {
+    return type;
+  }
+  if (Array.isArray(type) && type.every((item) => typeof item === "string")) {
+    return type.join(" | ");
+  }
+  if (isRecord(schema.properties)) {
+    return "object";
+  }
+  if (schema.items) {
+    return "array";
+  }
+  if (Array.isArray(schema.enum) && schema.enum.length > 0) {
+    return "enum";
+  }
+  return "unknown";
+}
+
+function formatSchemaValue(value: unknown) {
+  if (value === undefined) {
+    return "";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  return JSON.stringify(value);
+}
+
+function schemaNote(schema: Record<string, unknown>) {
+  const notes: string[] = [];
+  if (Array.isArray(schema.oneOf) && schema.oneOf.length > 0) {
+    notes.push(`${schema.oneOf.length} oneOf variants`);
+  }
+  if (Array.isArray(schema.anyOf) && schema.anyOf.length > 0) {
+    notes.push(`${schema.anyOf.length} anyOf variants`);
+  }
+  if (schema.additionalProperties === true) {
+    notes.push("additional properties allowed");
+  }
+  return notes.join(", ");
+}
+
+function collectSchemaFields(
+  schema: Record<string, unknown>,
+  path: string,
+  required: boolean,
+  fields: SchemaFieldSummary[],
+) {
+  const entry: SchemaFieldSummary = {
+    path,
+    type: schemaTypeLabel(schema),
+    required,
+  };
+
+  if (typeof schema.description === "string" && schema.description.trim()) {
+    entry.description = schema.description;
+  }
+  if (Array.isArray(schema.enum) && schema.enum.length > 0) {
+    entry.enumValues = schema.enum.map((value) => formatSchemaValue(value));
+  }
+  if (schema.default !== undefined) {
+    entry.defaultValue = formatSchemaValue(schema.default);
+  }
+  const note = schemaNote(schema);
+  if (note) {
+    entry.note = note;
+  }
+  fields.push(entry);
+
+  if (isRecord(schema.properties)) {
+    const requiredFields = new Set(
+      Array.isArray(schema.required) ? schema.required.filter((value): value is string => typeof value === "string") : [],
+    );
+    Object.entries(schema.properties).forEach(([key, value]) => {
+      if (!isRecord(value)) {
+        return;
+      }
+      const childPath = path ? `${path}.${key}` : key;
+      collectSchemaFields(value, childPath, requiredFields.has(key), fields);
+    });
+  }
+
+  if (schema.items && isRecord(schema.items)) {
+    collectSchemaFields(schema.items, `${path}[]`, true, fields);
+  }
+}
+
+function parseToolSchemaFields(schema?: Record<string, unknown>) {
+  if (!schema) {
+    return [] as SchemaFieldSummary[];
+  }
+
+  const fields: SchemaFieldSummary[] = [];
+  if (isRecord(schema.properties)) {
+    const requiredFields = new Set(
+      Array.isArray(schema.required) ? schema.required.filter((value): value is string => typeof value === "string") : [],
+    );
+    Object.entries(schema.properties).forEach(([key, value]) => {
+      if (!isRecord(value)) {
+        return;
+      }
+      collectSchemaFields(value, key, requiredFields.has(key), fields);
+    });
+    return fields;
+  }
+
+  collectSchemaFields(schema, "(root)", true, fields);
+  return fields;
+}
+
+function ChevronIcon({ expanded }: { expanded: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={`row-chevron ${expanded ? "is-expanded" : ""}`}
+      fill="none"
+      height="16"
+      viewBox="0 0 16 16"
+      width="16"
+    >
+      <path
+        d="m5.5 3.75 4.25 4.25-4.25 4.25"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
 }
 
 function createEmptyPair(): KeyValueRow {
@@ -234,7 +381,7 @@ export default function App() {
   const [toolFilter, setToolFilter] = useState("");
   const [toolServerFilter, setToolServerFilter] = useState("all");
   const [expandedServer, setExpandedServer] = useState<string | null>(null);
-  const [selectedTool, setSelectedTool] = useState<DashboardTool | null>(null);
+  const [expandedTool, setExpandedTool] = useState<string | null>(null);
   const [selectedPrompt, setSelectedPrompt] = useState<DashboardPrompt | null>(null);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [registerForm, setRegisterForm] = useState<RegisterServerFormState>(createInitialRegisterForm());
@@ -243,7 +390,6 @@ export default function App() {
   const [busyKeys, setBusyKeys] = useState<Record<string, boolean>>({});
 
   async function loadDashboardData(silent = false) {
-    const selectedToolName = selectedTool?.canonical_name ?? null;
     const selectedPromptName = selectedPrompt?.canonical_name ?? null;
     if (!silent) {
       setLoadState("loading");
@@ -259,8 +405,8 @@ export default function App() {
         api.diagnostics(),
       ]);
       setData({ overview, servers, tools, prompts, resources, diagnostics });
-      setSelectedTool(
-        tools.tools.find((tool) => tool.canonical_name === selectedToolName) ?? tools.tools[0] ?? null,
+      setExpandedTool((current) =>
+        current && tools.tools.some((tool) => tool.canonical_name === current) ? current : null,
       );
       setSelectedPrompt(
         prompts.prompts.find((prompt) => prompt.canonical_name === selectedPromptName) ??
@@ -306,7 +452,8 @@ export default function App() {
       (tool) =>
         tool.name.toLowerCase().includes(term) ||
         tool.server.toLowerCase().includes(term) ||
-        tool.canonical_name.toLowerCase().includes(term),
+        tool.canonical_name.toLowerCase().includes(term) ||
+        toolDescription(tool).toLowerCase().includes(term),
     );
   }, [data.tools?.tools, toolFilter, toolServerFilter]);
 
@@ -788,13 +935,13 @@ export default function App() {
             {section === "tools" && data.tools ? (
               <SectionCard
                 title="Tools"
-                subtitle="Discovered tools with canonical names and schema inspector"
+                subtitle="Discovered tools across registered servers"
                 action={
                   <div className="toolbar-cluster">
                     <input
                       className="table-filter compact-filter"
                       onChange={(event) => setToolFilter(event.target.value)}
-                      placeholder="Search tool or server"
+                      placeholder="Search tools"
                       value={toolFilter}
                     />
                     <select
@@ -815,40 +962,38 @@ export default function App() {
                 {data.tools.empty_state && filteredTools.length === 0 ? (
                   <EmptyStateCard emptyState={data.tools.empty_state} />
                 ) : (
-                  <div className="tools-layout">
-                    <div className="tools-table-wrap">
-                      <table className="data-table compact-table tools-table">
-                        <thead>
-                          <tr>
-                            <th>Tool</th>
-                            <th>Canonical name</th>
-                            <th>Server</th>
-                            <th>Description</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredTools.map((tool) => {
-                            const muted = !tool.enabled || !tool.server_enabled;
-                            return (
+                  <div className="tools-table-wrap">
+                    <table className="data-table compact-table tools-table">
+                      <thead>
+                        <tr>
+                          <th aria-hidden="true" className="expand-column"></th>
+                          <th>Tool</th>
+                          <th>Canonical name</th>
+                          <th>Server</th>
+                          <th>Description</th>
+                          <th>Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredTools.map((tool) => {
+                          const muted = !tool.enabled || !tool.server_enabled;
+                          const expanded = expandedTool === tool.canonical_name;
+                          const fields = parseToolSchemaFields(tool.input_schema);
+                          return (
+                            <Fragment key={tool.canonical_name}>
                               <tr
-                                className={`${selectedTool?.canonical_name === tool.canonical_name ? "is-selected" : ""} ${
-                                  muted ? "is-muted" : ""
-                                }`}
-                                key={tool.canonical_name}
+                                aria-expanded={expanded}
+                                className={`${expanded ? "is-selected" : ""} ${muted ? "is-muted" : ""} tool-summary-row`}
+                                onClick={() =>
+                                  setExpandedTool(expanded ? null : tool.canonical_name)
+                                }
                               >
+                                <td className="expand-column">
+                                  <ChevronIcon expanded={expanded} />
+                                </td>
                                 <td>
                                   <div className="table-primary">{tool.name}</div>
-                                  <div className="table-secondary tool-state-line">
-                                    <code>{transportLabel(tool.transport)}</code>
-                                    <StatusBadge
-                                      text={tool.enabled ? "Enabled" : "Disabled"}
-                                      tone={tool.enabled ? "good" : "muted"}
-                                    />
-                                    {!tool.server_enabled ? (
-                                      <StatusBadge text="Server disabled" tone="warn" />
-                                    ) : null}
-                                  </div>
                                 </td>
                                 <td>
                                   <code className="identifier-code" title={tool.canonical_name}>
@@ -862,8 +1007,26 @@ export default function App() {
                                   </div>
                                 </td>
                                 <td>
-                                  <div className="row-actions">
-                                    <CopyButton ariaLabel="Copy canonical name" title="Copy canonical name" value={tool.canonical_name} />
+                                  <div className="tool-state-line">
+                                    <StatusBadge
+                                      text={tool.enabled ? "Enabled" : "Disabled"}
+                                      tone={tool.enabled ? "good" : "muted"}
+                                    />
+                                    {!tool.server_enabled ? (
+                                      <StatusBadge text="Server disabled" tone="warn" />
+                                    ) : null}
+                                  </div>
+                                </td>
+                                <td>
+                                  <div
+                                    className="row-actions"
+                                    onClick={(event) => event.stopPropagation()}
+                                  >
+                                    <CopyButton
+                                      ariaLabel="Copy canonical name"
+                                      title="Copy canonical name"
+                                      value={tool.canonical_name}
+                                    />
                                     <button
                                       className="secondary-action"
                                       disabled={isBusy(`tool-toggle:${tool.canonical_name}`)}
@@ -876,73 +1039,102 @@ export default function App() {
                                           ? "Disable"
                                           : "Enable"}
                                     </button>
-                                    <button
-                                      className="secondary-action"
-                                      onClick={() => setSelectedTool(tool)}
-                                      type="button"
-                                    >
-                                      View schema
-                                    </button>
                                   </div>
                                 </td>
                               </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                              {expanded ? (
+                                <tr className="tool-expanded-row">
+                                  <td className="tool-expanded-cell" colSpan={7}>
+                                    <div className="tool-detail-panel">
+                                      <div className="tool-detail-header">
+                                        <p className="panel-label">Tool details</p>
+                                      </div>
 
-                    <aside className="schema-panel">
-                      <div className="schema-panel-header">
-                        <div>
-                          <p className="panel-label">Tool schema</p>
-                          <h3>{selectedTool?.name ?? "Select a tool"}</h3>
-                          {selectedTool ? (
-                            <code className="identifier-code">{selectedTool.canonical_name}</code>
-                          ) : null}
-                        </div>
-                        {selectedTool ? (
-                          <CopyButton
-                            ariaLabel="Copy canonical name"
-                            title="Copy canonical name"
-                            value={selectedTool.canonical_name}
-                          />
-                        ) : null}
-                      </div>
-                      <div className="schema-panel-body">
-                        {selectedTool ? (
-                          <>
-                            <dl className="schema-meta">
-                              <div>
-                                <dt>Server</dt>
-                                <dd>{selectedTool.server}</dd>
-                              </div>
-                              <div>
-                                <dt>Description</dt>
-                                <dd>{toolDescription(selectedTool)}</dd>
-                              </div>
-                              <div>
-                                <dt>Exposure</dt>
-                                <dd>
-                                  {selectedTool.enabled
-                                    ? selectedTool.server_enabled
-                                      ? "Enabled"
-                                      : "Blocked by disabled server"
-                                    : "Disabled"}
-                                </dd>
-                              </div>
-                            </dl>
-                            <pre className="schema-code">
-                              <code>{prettyJSON(selectedTool.input_schema)}</code>
-                            </pre>
-                          </>
-                        ) : (
-                          <p className="empty-inline">
-                            Select a tool row to inspect and pretty-print its input schema.
-                          </p>
-                        )}
-                      </div>
-                    </aside>
+                                      <dl className="tool-detail-meta">
+                                        <div className="tool-detail-description">
+                                          <dt>Description</dt>
+                                          <dd>{toolDescription(tool)}</dd>
+                                        </div>
+                                      </dl>
+
+                                      <div className="tool-schema-section">
+                                        <div className="tool-schema-header">
+                                          <h4>Input fields</h4>
+                                        </div>
+                                        {fields.length > 0 ? (
+                                          <div className="schema-field-list">
+                                            {fields.map((field) => (
+                                              <article className="schema-field-card" key={field.path}>
+                                                <div className="schema-field-head">
+                                                  <code>{field.path}</code>
+                                                  <span className="schema-type-pill">
+                                                    <code>{field.type}</code>
+                                                  </span>
+                                                </div>
+                                                <dl className="schema-field-meta">
+                                                  <div>
+                                                    <dt>Required</dt>
+                                                    <dd>{field.required ? "yes" : "no"}</dd>
+                                                  </div>
+                                                  {field.description ? (
+                                                    <div>
+                                                      <dt>Description</dt>
+                                                      <dd>{field.description}</dd>
+                                                    </div>
+                                                  ) : null}
+                                                  {field.enumValues?.length ? (
+                                                    <div>
+                                                      <dt>Enum</dt>
+                                                      <dd>
+                                                        <code>{field.enumValues.join(", ")}</code>
+                                                      </dd>
+                                                    </div>
+                                                  ) : null}
+                                                  {field.defaultValue ? (
+                                                    <div>
+                                                      <dt>Default</dt>
+                                                      <dd>
+                                                        <code>{field.defaultValue}</code>
+                                                      </dd>
+                                                    </div>
+                                                  ) : null}
+                                                  {field.note ? (
+                                                    <div>
+                                                      <dt>Notes</dt>
+                                                      <dd>{field.note}</dd>
+                                                    </div>
+                                                  ) : null}
+                                                </dl>
+                                              </article>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <p className="empty-inline">No structured input fields were provided.</p>
+                                        )}
+                                      </div>
+
+                                      <details className="raw-schema-disclosure">
+                                        <summary>Raw schema</summary>
+                                        <div className="raw-schema-actions">
+                                          <CopyButton
+                                            ariaLabel="Copy raw schema"
+                                            title="Copy raw schema"
+                                            value={prettyJSON(tool.input_schema)}
+                                          />
+                                        </div>
+                                        <pre className="schema-code">
+                                          <code>{prettyJSON(tool.input_schema)}</code>
+                                        </pre>
+                                      </details>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ) : null}
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </SectionCard>
