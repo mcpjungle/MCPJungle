@@ -235,6 +235,9 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 		}
 
 		if enabled {
+			if !s.Enabled {
+				return []string{entity}, nil
+			}
 			// if the tool was enabled, add it back to the appropriate MCP proxy server
 			mcpTool, err := convertToolModelToMcpObject(&tool)
 			if err != nil {
@@ -294,6 +297,10 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 		canonicalToolName := mergeServerToolNames(s.Name, tools[i].Name)
 
 		if enabled {
+			if !s.Enabled {
+				changedToolNames = append(changedToolNames, canonicalToolName)
+				continue
+			}
 			mcpTool, err := convertToolModelToMcpObject(&tools[i])
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert tool model to MCP object for tool %s: %w", tools[i].Name, err)

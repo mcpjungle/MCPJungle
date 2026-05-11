@@ -14,7 +14,7 @@ export function EmptyStateCard({ emptyState }: { emptyState: DashboardEmptyState
           {emptyState.commands.map((command) => (
             <div className="command-chip" key={command}>
               <code>{command}</code>
-              <CopyButton value={command} />
+              <CopyButton ariaLabel="Copy command" title="Copy command" value={command} />
             </div>
           ))}
         </div>

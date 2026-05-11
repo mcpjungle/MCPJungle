@@ -339,8 +339,13 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		{
 			dashboardAPI.GET("/overview", s.dashboardOverviewHandler())
 			dashboardAPI.GET("/servers", s.dashboardServersHandler())
+			dashboardAPI.POST("/servers", s.dashboardRegisterServerHandler())
+			dashboardAPI.DELETE("/servers/:name", s.dashboardDeleteServerHandler())
+			dashboardAPI.PATCH("/servers/:name/enabled", s.dashboardSetServerEnabledHandler())
 			dashboardAPI.GET("/tools", s.dashboardToolsHandler())
+			dashboardAPI.PATCH("/tools/:name/enabled", s.dashboardSetToolEnabledHandler())
 			dashboardAPI.GET("/prompts", s.dashboardPromptsHandler())
+			dashboardAPI.PATCH("/prompts/:name/enabled", s.dashboardSetPromptEnabledHandler())
 			dashboardAPI.GET("/resources", s.dashboardResourcesHandler())
 			dashboardAPI.GET("/diagnostics", s.dashboardDiagnosticsHandler())
 		}

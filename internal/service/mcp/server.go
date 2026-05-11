@@ -68,6 +68,7 @@ func (m *MCPService) registerMcpServer(ctx context.Context, s *model.McpServer, 
 	if err := validateServerName(s.Name); err != nil {
 		return err
 	}
+	s.Enabled = true
 
 	// Only validate URLs for transports that actually carry a URL in their config.
 	switch s.Transport {
@@ -200,6 +201,9 @@ func (m *MCPService) EnableMcpServer(name string) ([]string, []string, error) {
 	if err := validateServerName(name); err != nil {
 		return nil, nil, err
 	}
+	if err := m.setMcpServerEnabled(name, true); err != nil {
+		return nil, nil, fmt.Errorf("failed to mark server %s enabled: %w", name, err)
+	}
 	toolsEnabled, err := m.EnableTools(name)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to enable tools for server %s: %w", name, err)
@@ -221,6 +225,9 @@ func (m *MCPService) DisableMcpServer(name string) ([]string, []string, error) {
 	if err := validateServerName(name); err != nil {
 		return nil, nil, err
 	}
+	if err := m.setMcpServerEnabled(name, false); err != nil {
+		return nil, nil, fmt.Errorf("failed to mark server %s disabled: %w", name, err)
+	}
 	toolsDisabled, err := m.DisableTools(name)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to disable tools for server %s: %w", name, err)
@@ -233,4 +240,149 @@ func (m *MCPService) DisableMcpServer(name string) ([]string, []string, error) {
 		return nil, nil, fmt.Errorf("failed to disable resources for server %s: %w", name, err)
 	}
 	return toolsDisabled, promptsDisabled, nil
+}
+
+// SetDashboardServerEnabled toggles whether a registered server participates in proxy exposure
+// without mutating the individual enabled flags of its tools, prompts, and resources.
+func (m *MCPService) SetDashboardServerEnabled(name string, enabled bool) error {
+	if err := validateServerName(name); err != nil {
+		return err
+	}
+	if err := m.setMcpServerEnabled(name, enabled); err != nil {
+		return err
+	}
+	server, err := m.GetMcpServer(name)
+	if err != nil {
+		return err
+	}
+	if enabled {
+		return m.addServerEnabledEntitiesToProxy(server)
+	}
+	return m.removeServerEntitiesFromProxy(server)
+}
+
+func (m *MCPService) setMcpServerEnabled(name string, enabled bool) error {
+	server, err := m.GetMcpServer(name)
+	if err != nil {
+		return err
+	}
+	if server.Enabled == enabled {
+		return nil
+	}
+	server.Enabled = enabled
+	if err := m.db.Save(server).Error; err != nil {
+		return fmt.Errorf("failed to set server %s enabled=%t: %w", name, enabled, err)
+	}
+	return nil
+}
+
+func (m *MCPService) addServerEnabledEntitiesToProxy(s *model.McpServer) error {
+	var tools []model.Tool
+	if err := m.db.Where("server_id = ? AND enabled = ?", s.ID, true).Find(&tools).Error; err != nil {
+		return fmt.Errorf("failed to load enabled tools for server %s: %w", s.Name, err)
+	}
+	for _, tool := range tools {
+		mcpTool, err := convertToolModelToMcpObject(&tool)
+		if err != nil {
+			return fmt.Errorf("failed to convert tool %s for server %s: %w", tool.Name, s.Name, err)
+		}
+		mcpTool.Name = mergeServerToolNames(s.Name, tool.Name)
+		if s.Transport == types.TransportSSE {
+			m.sseMcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
+		} else {
+			m.mcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
+		}
+		m.addToolInstance(mcpTool)
+		m.notifyToolAddition(mcpTool.Name)
+	}
+
+	var prompts []model.Prompt
+	if err := m.db.Where("server_id = ? AND enabled = ?", s.ID, true).Find(&prompts).Error; err != nil {
+		return fmt.Errorf("failed to load enabled prompts for server %s: %w", s.Name, err)
+	}
+	for _, prompt := range prompts {
+		mcpPrompt, err := convertPromptModelToMcpObject(&prompt)
+		if err != nil {
+			return fmt.Errorf("failed to convert prompt %s for server %s: %w", prompt.Name, s.Name, err)
+		}
+		mcpPrompt.Name = mergeServerPromptNames(s.Name, prompt.Name)
+		if s.Transport == types.TransportSSE {
+			m.sseMcpProxyServer.AddPrompt(mcpPrompt, m.mcpProxyPromptHandler)
+		} else {
+			m.mcpProxyServer.AddPrompt(mcpPrompt, m.mcpProxyPromptHandler)
+		}
+	}
+
+	var resources []model.Resource
+	if err := m.db.Where("server_id = ? AND enabled = ?", s.ID, true).Find(&resources).Error; err != nil {
+		return fmt.Errorf("failed to load enabled resources for server %s: %w", s.Name, err)
+	}
+	for _, resource := range resources {
+		mcpResource, err := convertResourceModelToMcpObject(&resource)
+		if err != nil {
+			return fmt.Errorf("failed to convert resource %s for server %s: %w", resource.URI, s.Name, err)
+		}
+		mcpResource.Name = mergeServerResourceNames(s.Name, resource.Name)
+		if s.Transport == types.TransportSSE {
+			m.sseMcpProxyServer.AddResource(mcpResource, m.mcpProxyResourceHandler)
+		} else {
+			m.mcpProxyServer.AddResource(mcpResource, m.mcpProxyResourceHandler)
+		}
+	}
+
+	return nil
+}
+
+func (m *MCPService) removeServerEntitiesFromProxy(s *model.McpServer) error {
+	tools, err := m.ListToolsByServer(s.Name)
+	if err != nil {
+		return fmt.Errorf("failed to list tools for server %s: %w", s.Name, err)
+	}
+	if len(tools) > 0 {
+		toolNames := make([]string, 0, len(tools))
+		for _, tool := range tools {
+			toolNames = append(toolNames, tool.Name)
+		}
+		if s.Transport == types.TransportSSE {
+			m.sseMcpProxyServer.DeleteTools(toolNames...)
+		} else {
+			m.mcpProxyServer.DeleteTools(toolNames...)
+		}
+		m.deleteToolInstances(toolNames...)
+		m.notifyToolDeletion(toolNames...)
+	}
+
+	prompts, err := m.ListPromptsByServer(s.Name)
+	if err != nil {
+		return fmt.Errorf("failed to list prompts for server %s: %w", s.Name, err)
+	}
+	if len(prompts) > 0 {
+		promptNames := make([]string, 0, len(prompts))
+		for _, prompt := range prompts {
+			promptNames = append(promptNames, prompt.Name)
+		}
+		if s.Transport == types.TransportSSE {
+			m.sseMcpProxyServer.DeletePrompts(promptNames...)
+		} else {
+			m.mcpProxyServer.DeletePrompts(promptNames...)
+		}
+	}
+
+	resources, err := m.ListResourcesByServer(s.Name)
+	if err != nil {
+		return fmt.Errorf("failed to list resources for server %s: %w", s.Name, err)
+	}
+	if len(resources) > 0 {
+		resourceURIs := make([]string, 0, len(resources))
+		for _, resource := range resources {
+			resourceURIs = append(resourceURIs, resource.URI)
+		}
+		if s.Transport == types.TransportSSE {
+			m.sseMcpProxyServer.DeleteResources(resourceURIs...)
+		} else {
+			m.mcpProxyServer.DeleteResources(resourceURIs...)
+		}
+	}
+
+	return nil
 }

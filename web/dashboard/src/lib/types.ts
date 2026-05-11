@@ -44,6 +44,7 @@ export interface DashboardServerConfigSummary {
 export interface DashboardServer {
   name: string;
   transport: string;
+  enabled: boolean;
   status: "connected" | "reachable" | "failed" | "unknown";
   tool_count: number;
   prompt_count: number;
@@ -65,6 +66,7 @@ export interface DashboardTool {
   server: string;
   description: string;
   enabled: boolean;
+  server_enabled: boolean;
   input_schema?: Record<string, unknown>;
   input_preview?: string;
   transport?: string;
@@ -83,6 +85,7 @@ export interface DashboardPrompt {
   server: string;
   description: string;
   enabled: boolean;
+  server_enabled: boolean;
   arguments?: Array<Record<string, unknown>>;
   arguments_preview?: string;
   transport?: string;
@@ -125,4 +128,17 @@ export interface DashboardDiagnosticsResponse {
   prompt_count: number;
   resource_count: number;
   empty_state?: DashboardEmptyState;
+}
+
+export interface DashboardRegisterServerInput {
+  name: string;
+  transport: "stdio" | "streamable_http" | "sse";
+  description?: string;
+  url?: string;
+  bearer_token?: string;
+  headers?: Record<string, string>;
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+  session_mode?: "stateless" | "stateful";
 }

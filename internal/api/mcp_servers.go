@@ -28,69 +28,10 @@ func (s *Server) registerServerHandler() gin.HandlerFunc {
 			return
 		}
 
-		transport, err := types.ValidateTransport(input.Transport)
+		server, err := createServerModelFromInput(&input)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
-		}
-
-		sessionMode, err := types.ValidateSessionMode(input.SessionMode)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		var server *model.McpServer
-
-		switch transport {
-		case types.TransportStreamableHTTP:
-			server, err = model.NewStreamableHTTPServer(
-				input.Name,
-				input.Description,
-				input.URL,
-				input.BearerToken,
-				input.Headers,
-				sessionMode,
-			)
-			if err != nil {
-				c.JSON(
-					http.StatusBadRequest,
-					gin.H{"error": fmt.Sprintf("Error creating streamable http server: %v", err)},
-				)
-				return
-			}
-		case types.TransportStdio:
-			server, err = model.NewStdioServer(
-				input.Name,
-				input.Description,
-				input.Command,
-				input.Args,
-				input.Env,
-				sessionMode,
-			)
-			if err != nil {
-				c.JSON(
-					http.StatusBadRequest,
-					gin.H{"error": fmt.Sprintf("Error creating stdio server: %v", err)},
-				)
-				return
-			}
-		default:
-			// transport is SSE
-			server, err = model.NewSSEServer(
-				input.Name,
-				input.Description,
-				input.URL,
-				input.BearerToken,
-				sessionMode,
-			)
-			if err != nil {
-				c.JSON(
-					http.StatusBadRequest,
-					gin.H{"error": fmt.Sprintf("Error creating SSE server: %v", err)},
-				)
-				return
-			}
 		}
 
 		if force {
@@ -143,6 +84,7 @@ func (s *Server) registerServerHandler() gin.HandlerFunc {
 		c.JSON(http.StatusCreated, types.RegisterServerResult{Server: &types.McpServer{
 			Name:        server.Name,
 			Transport:   string(server.Transport),
+			Enabled:     server.Enabled,
 			Description: server.Description,
 			SessionMode: string(server.SessionMode),
 			URL:         input.URL,
@@ -185,6 +127,7 @@ func (s *Server) completeUpstreamOAuthSessionHandler() gin.HandlerFunc {
 		resp := &types.McpServer{
 			Name:        server.Name,
 			Transport:   string(server.Transport),
+			Enabled:     server.Enabled,
 			Description: server.Description,
 			SessionMode: string(server.SessionMode),
 		}
@@ -239,6 +182,7 @@ func (s *Server) listServersHandler() gin.HandlerFunc {
 			servers[i] = &types.McpServer{
 				Name:        record.Name,
 				Transport:   string(record.Transport),
+				Enabled:     record.Enabled,
 				Description: record.Description,
 				SessionMode: string(record.SessionMode),
 			}
@@ -343,12 +287,12 @@ func (s *Server) getServerConfigsHandler() gin.HandlerFunc {
 		servers := make([]*types.RegisterServerInput, len(records))
 
 		for i, record := range records {
-			servers[i] = &types.RegisterServerInput{
-				Name:        record.Name,
-				Transport:   string(record.Transport),
-				Description: record.Description,
-				SessionMode: string(record.SessionMode),
-			}
+		servers[i] = &types.RegisterServerInput{
+			Name:        record.Name,
+			Transport:   string(record.Transport),
+			Description: record.Description,
+			SessionMode: string(record.SessionMode),
+		}
 
 			switch record.Transport {
 			case types.TransportStreamableHTTP:
@@ -407,5 +351,58 @@ func (s *Server) getServerConfigsHandler() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, servers)
+	}
+}
+
+func createServerModelFromInput(input *types.RegisterServerInput) (*model.McpServer, error) {
+	transport, err := types.ValidateTransport(input.Transport)
+	if err != nil {
+		return nil, err
+	}
+
+	sessionMode, err := types.ValidateSessionMode(input.SessionMode)
+	if err != nil {
+		return nil, err
+	}
+
+	switch transport {
+	case types.TransportStreamableHTTP:
+		server, err := model.NewStreamableHTTPServer(
+			input.Name,
+			input.Description,
+			input.URL,
+			input.BearerToken,
+			input.Headers,
+			sessionMode,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("Error creating streamable http server: %v", err)
+		}
+		return server, nil
+	case types.TransportStdio:
+		server, err := model.NewStdioServer(
+			input.Name,
+			input.Description,
+			input.Command,
+			input.Args,
+			input.Env,
+			sessionMode,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("Error creating stdio server: %v", err)
+		}
+		return server, nil
+	default:
+		server, err := model.NewSSEServer(
+			input.Name,
+			input.Description,
+			input.URL,
+			input.BearerToken,
+			sessionMode,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("Error creating SSE server: %v", err)
+		}
+		return server, nil
 	}
 }

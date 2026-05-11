@@ -212,6 +212,9 @@ func (m *MCPService) initMCPProxyServer() error {
 			// store the server model in cache so we don't have to query the DB again for the same server
 			mcpServerModelsCache[serverName] = server
 		}
+		if !server.Enabled {
+			continue
+		}
 
 		if server.Transport == types.TransportSSE {
 			m.sseMcpProxyServer.AddTool(tool, m.MCPProxyToolCallHandler)
@@ -254,6 +257,9 @@ func (m *MCPService) initMCPProxyServer() error {
 			}
 			mcpServerModelsCache[serverName] = server
 		}
+		if !server.Enabled {
+			continue
+		}
 
 		if server.Transport == types.TransportSSE {
 			m.sseMcpProxyServer.AddPrompt(prompt, m.mcpProxyPromptHandler)
@@ -270,6 +276,9 @@ func (m *MCPService) initMCPProxyServer() error {
 
 	for _, rm := range resources {
 		if !rm.Enabled {
+			continue
+		}
+		if !rm.Server.Enabled {
 			continue
 		}
 

@@ -28,6 +28,9 @@ type serverInventory struct {
 	ToolCount      int
 	PromptCount    int
 	ResourceCount  int
+	ActiveToolCount int
+	ActivePromptCount int
+	ActiveResourceCount int
 	LastEntitySeen time.Time
 }
 
@@ -80,6 +83,7 @@ func (s *Service) Servers() (*types.DashboardServersResponse, error) {
 		resp.Servers = append(resp.Servers, types.DashboardServer{
 			Name:              inv.Name,
 			Transport:         string(inv.Transport),
+			Enabled:           inv.Enabled,
 			Status:            deriveServerStatus(inv),
 			ToolCount:         inv.ToolCount,
 			PromptCount:       inv.PromptCount,
@@ -115,6 +119,7 @@ func (s *Service) Tools() (*types.DashboardToolsResponse, error) {
 			Server:         tool.Server.Name,
 			Description:    tool.Description,
 			Enabled:        tool.Enabled,
+			ServerEnabled:  tool.Server.Enabled,
 			InputSchema:    decodeJSONMap(tool.InputSchema),
 			InputPreview:   compactJSON(tool.InputSchema),
 			Transport:      string(tool.Server.Transport),
@@ -149,6 +154,7 @@ func (s *Service) Prompts() (*types.DashboardPromptsResponse, error) {
 			Server:           prompt.Server.Name,
 			Description:      prompt.Description,
 			Enabled:          prompt.Enabled,
+			ServerEnabled:    prompt.Server.Enabled,
 			Arguments:        arguments,
 			ArgumentsPreview: compactJSONArray(arguments),
 			Transport:        string(prompt.Server.Transport),
@@ -247,15 +253,38 @@ func (s *Service) loadServerInventory() ([]serverInventory, error) {
 	if err != nil {
 		return nil, err
 	}
+	activeToolCounts, err := groupedEnabledCounts[model.Tool](s.db)
+	if err != nil {
+		return nil, err
+	}
+	activePromptCounts, err := groupedEnabledCounts[model.Prompt](s.db)
+	if err != nil {
+		return nil, err
+	}
+	activeResourceCounts, err := groupedEnabledCounts[model.Resource](s.db)
+	if err != nil {
+		return nil, err
+	}
 
 	inventory := make([]serverInventory, 0, len(servers))
 	for _, server := range servers {
+		activeToolCount := activeToolCounts[server.ID]
+		activePromptCount := activePromptCounts[server.ID]
+		activeResourceCount := activeResourceCounts[server.ID]
+		if !server.Enabled {
+			activeToolCount = 0
+			activePromptCount = 0
+			activeResourceCount = 0
+		}
 		inventory = append(inventory, serverInventory{
-			McpServer:      server,
-			ToolCount:      toolCounts[server.ID],
-			PromptCount:    promptCounts[server.ID],
-			ResourceCount:  resourceCounts[server.ID],
-			LastEntitySeen: server.UpdatedAt,
+			McpServer:           server,
+			ToolCount:           toolCounts[server.ID],
+			PromptCount:         promptCounts[server.ID],
+			ResourceCount:       resourceCounts[server.ID],
+			ActiveToolCount:     activeToolCount,
+			ActivePromptCount:   activePromptCount,
+			ActiveResourceCount: activeResourceCount,
+			LastEntitySeen:      server.UpdatedAt,
 		})
 	}
 	return inventory, nil
@@ -263,15 +292,24 @@ func (s *Service) loadServerInventory() ([]serverInventory, error) {
 
 func (s *Service) loadEntityCounts() (int, int, int, error) {
 	var toolCount int64
-	if err := s.db.Model(&model.Tool{}).Count(&toolCount).Error; err != nil {
+	if err := s.db.Model(&model.Tool{}).
+		Joins("JOIN mcp_servers ON mcp_servers.id = tools.server_id").
+		Where("tools.enabled = ? AND mcp_servers.enabled = ?", true, true).
+		Count(&toolCount).Error; err != nil {
 		return 0, 0, 0, err
 	}
 	var promptCount int64
-	if err := s.db.Model(&model.Prompt{}).Count(&promptCount).Error; err != nil {
+	if err := s.db.Model(&model.Prompt{}).
+		Joins("JOIN mcp_servers ON mcp_servers.id = prompts.server_id").
+		Where("prompts.enabled = ? AND mcp_servers.enabled = ?", true, true).
+		Count(&promptCount).Error; err != nil {
 		return 0, 0, 0, err
 	}
 	var resourceCount int64
-	if err := s.db.Model(&model.Resource{}).Count(&resourceCount).Error; err != nil {
+	if err := s.db.Model(&model.Resource{}).
+		Joins("JOIN mcp_servers ON mcp_servers.id = resources.server_id").
+		Where("resources.enabled = ? AND mcp_servers.enabled = ?", true, true).
+		Count(&resourceCount).Error; err != nil {
 		return 0, 0, 0, err
 	}
 	return int(toolCount), int(promptCount), int(resourceCount), nil
@@ -298,8 +336,25 @@ func groupedCounts[T any](db *gorm.DB) (map[uint]int, error) {
 	return counts, nil
 }
 
+func groupedEnabledCounts[T any](db *gorm.DB) (map[uint]int, error) {
+	var rows []groupedCountRow
+	if err := db.Model(new(T)).
+		Select("server_id, COUNT(*) AS count").
+		Where("enabled = ?", true).
+		Group("server_id").
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	counts := make(map[uint]int, len(rows))
+	for _, row := range rows {
+		counts[row.ServerID] = row.Count
+	}
+	return counts, nil
+}
+
 func deriveServerStatus(inv serverInventory) types.DashboardServerStatus {
-	return deriveServerStatusFromCounts(inv.Transport, inv.ToolCount, inv.PromptCount, inv.ResourceCount)
+	return deriveServerStatusFromCounts(inv.Transport, inv.ActiveToolCount, inv.ActivePromptCount, inv.ActiveResourceCount)
 }
 
 func deriveServerStatusFromCounts(transport types.McpServerTransport, toolCount, promptCount, resourceCount int) types.DashboardServerStatus {
@@ -325,28 +380,20 @@ func summarizeServerConfig(server model.McpServer) types.DashboardServerConfigSu
 		if conf, err := server.GetStreamableHTTPConfig(); err == nil {
 			summary.Target = sanitizeURL(conf.URL)
 			summary.HeaderKeys = sortedHeaderKeys(conf.Headers)
-			summary.SanitizedSummary = fmt.Sprintf(
-				"%s via streamable HTTP%s",
-				summary.Target,
-				formatHeaderKeySuffix(summary.HeaderKeys),
-			)
+			summary.SanitizedSummary = summary.Target
 		}
 	case types.TransportSSE:
 		if conf, err := server.GetSSEConfig(); err == nil {
 			summary.Target = sanitizeURL(conf.URL)
-			summary.SanitizedSummary = fmt.Sprintf("%s via SSE", summary.Target)
+			summary.SanitizedSummary = summary.Target
 		}
 	case types.TransportStdio:
 		if conf, err := server.GetStdioConfig(); err == nil {
 			summary.Command = conf.Command
+			summary.Target = buildServerCommand(conf.Command, conf.Args)
 			summary.ArgumentCount = len(conf.Args)
 			summary.EnvKeys = sortedKeysString(conf.Env)
-			summary.SanitizedSummary = fmt.Sprintf(
-				"%s (%d args%s)",
-				conf.Command,
-				len(conf.Args),
-				formatEnvKeySuffix(summary.EnvKeys),
-			)
+			summary.SanitizedSummary = truncateServerCommand(conf.Command, conf.Args, 80)
 		}
 	}
 
@@ -366,6 +413,25 @@ func sanitizeURL(raw string) string {
 	parsed.RawQuery = ""
 	parsed.Fragment = ""
 	return parsed.String()
+}
+
+func truncateServerCommand(command string, args []string, limit int) string {
+	text := buildServerCommand(command, args)
+	if text == "" {
+		return ""
+	}
+	if len(text) <= limit {
+		return text
+	}
+	if limit <= 3 {
+		return text[:limit]
+	}
+	return strings.TrimSpace(text[:limit-3]) + "..."
+}
+
+func buildServerCommand(command string, args []string) string {
+	parts := append([]string{command}, args...)
+	return strings.TrimSpace(strings.Join(parts, " "))
 }
 
 func buildEndpoints(baseURL string) []types.DashboardEndpoint {

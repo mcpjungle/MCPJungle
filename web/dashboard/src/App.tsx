@@ -7,6 +7,7 @@ import type {
   DashboardOverviewResponse,
   DashboardPrompt,
   DashboardPromptsResponse,
+  DashboardRegisterServerInput,
   DashboardResource,
   DashboardResourcesResponse,
   DashboardServer,
@@ -20,7 +21,23 @@ import { NavSidebar } from "@/components/NavSidebar";
 import { SectionCard } from "@/components/SectionCard";
 import { StatusBadge } from "@/components/StatusBadge";
 
+function TrashIcon() {
+  return (
+    <svg aria-hidden="true" fill="none" height="18" viewBox="0 0 16 16" width="18">
+      <path
+        d="M2.75 4.25h10.5M6.25 2.75h3.5m-5.75 1.5.44 7.04A1.5 1.5 0 0 0 5.94 12.75h4.12a1.5 1.5 0 0 0 1.5-1.46L12 4.25"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.25"
+      />
+      <path d="M6.5 6.5v3.5M9.5 6.5v3.5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.25" />
+    </svg>
+  );
+}
+
 type LoadState = "idle" | "loading" | "ready" | "error";
+type FeedbackTone = "success" | "error";
 
 interface DashboardData {
   overview?: DashboardOverviewResponse;
@@ -31,10 +48,33 @@ interface DashboardData {
   diagnostics?: DashboardDiagnosticsResponse;
 }
 
+interface FeedbackMessage {
+  tone: FeedbackTone;
+  message: string;
+}
+
+interface KeyValueRow {
+  key: string;
+  value: string;
+}
+
+interface RegisterServerFormState {
+  name: string;
+  description: string;
+  transport: "stdio" | "streamable_http" | "sse";
+  session_mode: "stateless" | "stateful";
+  command: string;
+  args_text: string;
+  env_rows: KeyValueRow[];
+  url: string;
+  bearer_token: string;
+  header_rows: KeyValueRow[];
+}
+
 const sectionMeta: Record<AppSection, { title: string; subtitle: string }> = {
   servers: {
     title: "Servers",
-    subtitle: "Registered MCP backends and discovery details.",
+    subtitle: "",
   },
   tools: {
     title: "Tools",
@@ -53,35 +93,6 @@ const sectionMeta: Record<AppSection, { title: string; subtitle: string }> = {
     subtitle: "Runtime health, build info, and troubleshooting signals.",
   },
 };
-
-function formatDate(value?: string) {
-  if (!value) {
-    return "Unknown";
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "Unknown";
-  }
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
-}
-
-function toneForStatus(status: string) {
-  switch (status) {
-    case "running":
-    case "connected":
-    case "reachable":
-      return "good";
-    case "degraded":
-      return "warn";
-    case "failed":
-      return "bad";
-    default:
-      return "muted";
-  }
-}
 
 function shortVersion(version?: string) {
   if (!version) {
@@ -124,17 +135,93 @@ function prettyPromptArguments(value?: Array<Record<string, unknown>>) {
   return JSON.stringify(value, null, 2);
 }
 
-function discoveryState(server: DashboardServer) {
-  if (server.tool_count + server.prompt_count + server.resource_count === 0) {
-    return { label: "No discovery", tone: "warn" };
+function createEmptyPair(): KeyValueRow {
+  return { key: "", value: "" };
+}
+
+function createInitialRegisterForm(): RegisterServerFormState {
+  return {
+    name: "",
+    description: "",
+    transport: "stdio",
+    session_mode: "stateless",
+    command: "",
+    args_text: "",
+    env_rows: [createEmptyPair()],
+    url: "",
+    bearer_token: "",
+    header_rows: [createEmptyPair()],
+  };
+}
+
+function rowsToMap(rows: KeyValueRow[]) {
+  const output: Record<string, string> = {};
+  rows.forEach((row) => {
+    const key = row.key.trim();
+    if (!key) {
+      return;
+    }
+    output[key] = row.value;
+  });
+  return output;
+}
+
+function splitArgs(input: string) {
+  return input
+    .split("\n")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function getRegisterValidationError(form: RegisterServerFormState) {
+  if (!form.name.trim()) {
+    return "Server name is required.";
   }
-  return { label: "Discovered", tone: "good" };
+  if (form.transport === "stdio" && !form.command.trim()) {
+    return "Command is required for stdio servers.";
+  }
+  if ((form.transport === "streamable_http" || form.transport === "sse") && !form.url.trim()) {
+    return "Target URL is required for HTTP and SSE servers.";
+  }
+  return "";
+}
+
+function buildRegisterPayload(form: RegisterServerFormState): DashboardRegisterServerInput {
+  const payload: DashboardRegisterServerInput = {
+    name: form.name.trim(),
+    description: form.description.trim(),
+    transport: form.transport,
+    session_mode: form.session_mode,
+  };
+
+  if (form.transport === "stdio") {
+    payload.command = form.command.trim();
+    payload.args = splitArgs(form.args_text);
+    const env = rowsToMap(form.env_rows);
+    if (Object.keys(env).length > 0) {
+      payload.env = env;
+    }
+    return payload;
+  }
+
+  payload.url = form.url.trim();
+  if (form.bearer_token.trim()) {
+    payload.bearer_token = form.bearer_token.trim();
+  }
+  if (form.transport === "streamable_http") {
+    const headers = rowsToMap(form.header_rows);
+    if (Object.keys(headers).length > 0) {
+      payload.headers = headers;
+    }
+  }
+  return payload;
 }
 
 export default function App() {
   const [section, setSection] = useState<AppSection>("servers");
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [errorMessage, setErrorMessage] = useState("");
+  const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
   const [data, setData] = useState<DashboardData>({});
   const [serverFilter, setServerFilter] = useState("");
   const [toolFilter, setToolFilter] = useState("");
@@ -142,37 +229,46 @@ export default function App() {
   const [expandedServer, setExpandedServer] = useState<string | null>(null);
   const [selectedTool, setSelectedTool] = useState<DashboardTool | null>(null);
   const [selectedPrompt, setSelectedPrompt] = useState<DashboardPrompt | null>(null);
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [registerForm, setRegisterForm] = useState<RegisterServerFormState>(createInitialRegisterForm());
+  const [registerError, setRegisterError] = useState("");
+  const [busyKeys, setBusyKeys] = useState<Record<string, boolean>>({});
+
+  async function loadDashboardData(silent = false) {
+    const selectedToolName = selectedTool?.canonical_name ?? null;
+    const selectedPromptName = selectedPrompt?.canonical_name ?? null;
+    if (!silent) {
+      setLoadState("loading");
+    }
+    setErrorMessage("");
+    try {
+      const [overview, servers, tools, prompts, resources, diagnostics] = await Promise.all([
+        api.overview(),
+        api.servers(),
+        api.tools(),
+        api.prompts(),
+        api.resources(),
+        api.diagnostics(),
+      ]);
+      setData({ overview, servers, tools, prompts, resources, diagnostics });
+      setSelectedTool(
+        tools.tools.find((tool) => tool.canonical_name === selectedToolName) ?? tools.tools[0] ?? null,
+      );
+      setSelectedPrompt(
+        prompts.prompts.find((prompt) => prompt.canonical_name === selectedPromptName) ??
+          prompts.prompts[0] ??
+          null,
+      );
+      setLoadState("ready");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setErrorMessage(message);
+      setLoadState("error");
+    }
+  }
 
   useEffect(() => {
-    let cancelled = false;
-    setLoadState("loading");
-    Promise.all([
-      api.overview(),
-      api.servers(),
-      api.tools(),
-      api.prompts(),
-      api.resources(),
-      api.diagnostics(),
-    ])
-      .then(([overview, servers, tools, prompts, resources, diagnostics]) => {
-        if (cancelled) {
-          return;
-        }
-        setData({ overview, servers, tools, prompts, resources, diagnostics });
-        setSelectedTool(tools.tools[0] ?? null);
-        setSelectedPrompt(prompts.prompts[0] ?? null);
-        setLoadState("ready");
-      })
-      .catch((error: Error) => {
-        if (cancelled) {
-          return;
-        }
-        setErrorMessage(error.message);
-        setLoadState("error");
-      });
-    return () => {
-      cancelled = true;
-    };
+    void loadDashboardData();
   }, []);
 
   const filteredServers = useMemo(() => {
@@ -215,6 +311,148 @@ export default function App() {
   const diagnostics = data.diagnostics;
   const currentSectionMeta = sectionMeta[section];
 
+  function setBusy(key: string, value: boolean) {
+    setBusyKeys((current) => {
+      const next = { ...current };
+      if (value) {
+        next[key] = true;
+      } else {
+        delete next[key];
+      }
+      return next;
+    });
+  }
+
+  function isBusy(key: string) {
+    return Boolean(busyKeys[key]);
+  }
+
+  async function runMutation(key: string, action: () => Promise<void>, successMessage: string) {
+    setFeedback(null);
+    setBusy(key, true);
+    try {
+      await action();
+      await loadDashboardData(true);
+      setFeedback({ tone: "success", message: successMessage });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Request failed";
+      setFeedback({ tone: "error", message });
+      throw error;
+    } finally {
+      setBusy(key, false);
+    }
+  }
+
+  function updateRegisterField<K extends keyof RegisterServerFormState>(field: K, value: RegisterServerFormState[K]) {
+    setRegisterForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateKeyValueRow(
+    field: "env_rows" | "header_rows",
+    index: number,
+    key: "key" | "value",
+    value: string,
+  ) {
+    setRegisterForm((current) => {
+      const rows = current[field].map((row, rowIndex) =>
+        rowIndex === index ? { ...row, [key]: value } : row,
+      );
+      return { ...current, [field]: rows };
+    });
+  }
+
+  function addKeyValueRow(field: "env_rows" | "header_rows") {
+    setRegisterForm((current) => ({ ...current, [field]: [...current[field], createEmptyPair()] }));
+  }
+
+  function removeKeyValueRow(field: "env_rows" | "header_rows", index: number) {
+    setRegisterForm((current) => {
+      const rows = current[field].filter((_, rowIndex) => rowIndex !== index);
+      return { ...current, [field]: rows.length > 0 ? rows : [createEmptyPair()] };
+    });
+  }
+
+  function openRegisterModal() {
+    setRegisterForm(createInitialRegisterForm());
+    setRegisterError("");
+    setRegisterOpen(true);
+  }
+
+  async function submitRegisterServer() {
+    const validationError = getRegisterValidationError(registerForm);
+    if (validationError) {
+      setRegisterError(validationError);
+      return;
+    }
+
+    setRegisterError("");
+    try {
+      await runMutation(
+        "register-server",
+        async () => {
+          await api.registerServer(buildRegisterPayload(registerForm));
+        },
+        `Server ${registerForm.name.trim()} registered.`,
+      );
+      setRegisterOpen(false);
+      setRegisterForm(createInitialRegisterForm());
+    } catch {
+      return;
+    }
+  }
+
+  async function toggleServerEnabled(server: DashboardServer) {
+    const nextEnabled = !server.enabled;
+    await runMutation(
+      `server-toggle:${server.name}`,
+      async () => {
+        await api.setServerEnabled(server.name, nextEnabled);
+      },
+      `${server.name} ${nextEnabled ? "enabled" : "disabled"}.`,
+    );
+  }
+
+  async function deleteServer(server: DashboardServer) {
+    const confirmed = window.confirm(
+      `Delete server "${server.name}"? This removes the registration and all discovered tools, prompts, and resources from MCPJungle.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+    await runMutation(
+      `server-delete:${server.name}`,
+      async () => {
+        await api.deleteServer(server.name);
+      },
+      `${server.name} deleted.`,
+    );
+    if (expandedServer === server.name) {
+      setExpandedServer(null);
+    }
+  }
+
+  async function toggleToolEnabled(tool: DashboardTool) {
+    const nextEnabled = !tool.enabled;
+    await runMutation(
+      `tool-toggle:${tool.canonical_name}`,
+      async () => {
+        await api.setToolEnabled(tool.canonical_name, nextEnabled);
+      },
+      `${tool.canonical_name} ${nextEnabled ? "enabled" : "disabled"}.`,
+    );
+  }
+
+  async function togglePromptEnabled(prompt: DashboardPrompt) {
+    const nextEnabled = !prompt.enabled;
+    await runMutation(
+      `prompt-toggle:${prompt.canonical_name}`,
+      async () => {
+        await api.setPromptEnabled(prompt.canonical_name, nextEnabled);
+      },
+      `${prompt.canonical_name} ${nextEnabled ? "enabled" : "disabled"}.`,
+    );
+  }
+
   return (
     <div className="app-shell">
       <NavSidebar active={section} logoUrl={logoUrl} onSelect={setSection} />
@@ -234,11 +472,18 @@ export default function App() {
               <div className="topbar-endpoint">
                 <span className="topbar-endpoint-label">Endpoint</span>
                 <code title={overview.endpoints[0].url}>{overview.endpoints[0].url}</code>
-                <CopyButton value={overview.endpoints[0].url} />
+                <CopyButton ariaLabel="Copy endpoint" title="Copy endpoint" value={overview.endpoints[0].url} />
               </div>
             ) : null}
           </div>
         </header>
+
+        {feedback ? (
+          <section className={`feedback-banner feedback-${feedback.tone}`}>
+            <strong>{feedback.tone === "success" ? "Updated" : "Request failed"}</strong>
+            <span>{feedback.message}</span>
+          </section>
+        ) : null}
 
         {loadState === "loading" ? (
           <section className="loading-screen panel">
@@ -284,12 +529,17 @@ export default function App() {
                   title="Servers"
                   subtitle="Registered MCP servers"
                   action={
-                    <input
-                      className="table-filter compact-filter"
-                      onChange={(event) => setServerFilter(event.target.value)}
-                      placeholder="Search name, transport, or summary"
-                      value={serverFilter}
-                    />
+                    <div className="toolbar-cluster">
+                      <input
+                        className="table-filter compact-filter"
+                        onChange={(event) => setServerFilter(event.target.value)}
+                        placeholder="Search servers"
+                        value={serverFilter}
+                      />
+                      <button className="primary-action" onClick={openRegisterModal} type="button">
+                        + Add Server
+                      </button>
+                    </div>
                   }
                 >
                   {data.servers.empty_state && filteredServers.length === 0 ? (
@@ -298,72 +548,116 @@ export default function App() {
                     <div className="server-list compact-server-list">
                       {filteredServers.map((server) => {
                         const expanded = expandedServer === server.name;
-                        const discovery = discoveryState(server);
                         return (
-                          <article className="server-row compact-server-row" key={server.name}>
-                            <button
-                              className="server-row-head compact-server-head"
-                              onClick={() => setExpandedServer(expanded ? null : server.name)}
-                              type="button"
-                            >
-                              <div className="server-head-main">
-                                <h3>{server.name}</h3>
-                                <p>{server.connection_summary}</p>
+                          <article
+                            className={`server-row compact-server-row ${
+                              server.enabled ? "" : "server-row-disabled"
+                            }`}
+                            key={server.name}
+                          >
+                            <div className="server-row-head compact-server-head">
+                              <div className="server-row-layout">
+                                <button
+                                  className="server-expand-button"
+                                  onClick={() => setExpandedServer(expanded ? null : server.name)}
+                                  type="button"
+                                >
+                                  <div className="server-head-main">
+                                    <h3>{server.name}</h3>
+                                    <p>{server.connection_summary}</p>
+                                  </div>
+                                </button>
+                                <div className="server-row-meta compact-server-meta">
+                                  <div className="server-meta-cell">
+                                    <code>{transportLabel(server.transport)}</code>
+                                  </div>
+                                  <div className="server-meta-cell">
+                                    <StatusBadge
+                                      text={server.enabled ? "Enabled" : "Disabled"}
+                                      tone={server.enabled ? "good" : "muted"}
+                                    />
+                                  </div>
+                                  <div className="server-meta-cell server-tool-count">
+                                    <strong>{server.tool_count} tools</strong>
+                                  </div>
+                                  <div className="server-meta-cell">
+                                    <button
+                                      className="secondary-action server-action-button"
+                                      disabled={isBusy(`server-toggle:${server.name}`)}
+                                      onClick={() => void toggleServerEnabled(server)}
+                                      type="button"
+                                    >
+                                      {isBusy(`server-toggle:${server.name}`)
+                                        ? "Saving..."
+                                        : server.enabled
+                                          ? "Disable"
+                                          : "Enable"}
+                                    </button>
+                                  </div>
+                                  <div className="server-meta-cell">
+                                    <button
+                                      aria-label="Delete server"
+                                      className="danger-action server-action-button icon-button danger-icon-button"
+                                      disabled={isBusy(`server-delete:${server.name}`)}
+                                      onClick={() => void deleteServer(server)}
+                                      title="Delete server"
+                                      type="button"
+                                    >
+                                      <TrashIcon />
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
-                              <div className="server-row-meta compact-server-meta">
-                                <code>{transportLabel(server.transport)}</code>
-                                <StatusBadge
-                                  text={server.status}
-                                  tone={toneForStatus(server.status)}
-                                />
-                                <StatusBadge text={discovery.label} tone={discovery.tone} />
-                                <strong>{server.tool_count} tools</strong>
-                              </div>
-                            </button>
+                            </div>
                             {expanded ? (
                               <div className="server-detail">
+                                {!server.enabled ? (
+                                  <p className="detail-note">
+                                    This server is registered but currently not exposed to MCP clients.
+                                  </p>
+                                ) : null}
                                 <dl>
                                   <div>
                                     <dt>Target</dt>
                                     <dd>
-                                      <code>
-                                        {server.config_summary.target ??
-                                          server.config_summary.command ??
-                                          "Unknown"}
-                                      </code>
+                                      <div className="detail-copy-row">
+                                        <code className="detail-target-code">
+                                          {server.config_summary.target ??
+                                            server.config_summary.command ??
+                                            "Unknown"}
+                                        </code>
+                                        {server.config_summary.target ||
+                                        server.config_summary.command ? (
+                                          <CopyButton
+                                            ariaLabel="Copy target"
+                                            title="Copy target"
+                                            value={
+                                              server.config_summary.target ??
+                                              server.config_summary.command ??
+                                              ""
+                                            }
+                                          />
+                                        ) : null}
+                                      </div>
                                     </dd>
                                   </div>
                                   <div>
                                     <dt>Session mode</dt>
                                     <dd>
-                                      <code>
-                                        {server.config_summary.session_mode ?? "Unknown"}
-                                      </code>
+                                      <code>{server.config_summary.session_mode ?? "Unknown"}</code>
                                     </dd>
                                   </div>
                                   <div>
                                     <dt>Header keys</dt>
                                     <dd>
-                                      <code>
-                                        {server.config_summary.header_keys?.join(", ") || "None"}
-                                      </code>
+                                      <code>{server.config_summary.header_keys?.join(", ") || "None"}</code>
                                     </dd>
                                   </div>
                                   <div>
                                     <dt>Env keys</dt>
                                     <dd>
-                                      <code>
-                                        {server.config_summary.env_keys?.join(", ") || "None"}
-                                      </code>
+                                      <code>{server.config_summary.env_keys?.join(", ") || "None"}</code>
                                     </dd>
-                                  </div>
-                                  <div>
-                                    <dt>Last discovered</dt>
-                                    <dd>{formatDate(server.last_discovered_at)}</dd>
-                                  </div>
-                                  <div>
-                                    <dt>Updated</dt>
-                                    <dd>{formatDate(server.updated_at)}</dd>
                                   </div>
                                 </dl>
                               </div>
@@ -420,38 +714,66 @@ export default function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {filteredTools.map((tool) => (
-                            <tr
-                              className={selectedTool?.canonical_name === tool.canonical_name ? "is-selected" : ""}
-                              key={tool.canonical_name}
-                            >
-                              <td>
-                                <div className="table-primary">{tool.name}</div>
-                                <div className="table-secondary">
-                                  <code>{transportLabel(tool.transport)}</code>
-                                </div>
-                              </td>
-                              <td>
-                                <code className="identifier-code" title={tool.canonical_name}>
-                                  {tool.canonical_name}
-                                </code>
-                              </td>
-                              <td>{tool.server}</td>
-                              <td>{toolDescription(tool)}</td>
-                              <td>
-                                <div className="row-actions">
-                                  <CopyButton value={tool.canonical_name} />
-                                  <button
-                                    className="secondary-action"
-                                    onClick={() => setSelectedTool(tool)}
-                                    type="button"
-                                  >
-                                    View schema
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
+                          {filteredTools.map((tool) => {
+                            const muted = !tool.enabled || !tool.server_enabled;
+                            return (
+                              <tr
+                                className={`${selectedTool?.canonical_name === tool.canonical_name ? "is-selected" : ""} ${
+                                  muted ? "is-muted" : ""
+                                }`}
+                                key={tool.canonical_name}
+                              >
+                                <td>
+                                  <div className="table-primary">{tool.name}</div>
+                                  <div className="table-secondary tool-state-line">
+                                    <code>{transportLabel(tool.transport)}</code>
+                                    <StatusBadge
+                                      text={tool.enabled ? "Enabled" : "Disabled"}
+                                      tone={tool.enabled ? "good" : "muted"}
+                                    />
+                                    {!tool.server_enabled ? (
+                                      <StatusBadge text="Server disabled" tone="warn" />
+                                    ) : null}
+                                  </div>
+                                </td>
+                                <td>
+                                  <code className="identifier-code" title={tool.canonical_name}>
+                                    {tool.canonical_name}
+                                  </code>
+                                </td>
+                                <td>{tool.server}</td>
+                                <td>
+                                  <div className="clamped-description" title={toolDescription(tool)}>
+                                    {toolDescription(tool)}
+                                  </div>
+                                </td>
+                                <td>
+                                  <div className="row-actions">
+                                    <CopyButton ariaLabel="Copy canonical name" title="Copy canonical name" value={tool.canonical_name} />
+                                    <button
+                                      className="secondary-action"
+                                      disabled={isBusy(`tool-toggle:${tool.canonical_name}`)}
+                                      onClick={() => void toggleToolEnabled(tool)}
+                                      type="button"
+                                    >
+                                      {isBusy(`tool-toggle:${tool.canonical_name}`)
+                                        ? "Saving..."
+                                        : tool.enabled
+                                          ? "Disable"
+                                          : "Enable"}
+                                    </button>
+                                    <button
+                                      className="secondary-action"
+                                      onClick={() => setSelectedTool(tool)}
+                                      type="button"
+                                    >
+                                      View schema
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -465,7 +787,13 @@ export default function App() {
                             <code className="identifier-code">{selectedTool.canonical_name}</code>
                           ) : null}
                         </div>
-                        {selectedTool ? <CopyButton value={selectedTool.canonical_name} /> : null}
+                        {selectedTool ? (
+                          <CopyButton
+                            ariaLabel="Copy canonical name"
+                            title="Copy canonical name"
+                            value={selectedTool.canonical_name}
+                          />
+                        ) : null}
                       </div>
                       <div className="schema-panel-body">
                         {selectedTool ? (
@@ -478,6 +806,16 @@ export default function App() {
                               <div>
                                 <dt>Description</dt>
                                 <dd>{toolDescription(selectedTool)}</dd>
+                              </div>
+                              <div>
+                                <dt>Exposure</dt>
+                                <dd>
+                                  {selectedTool.enabled
+                                    ? selectedTool.server_enabled
+                                      ? "Enabled"
+                                      : "Blocked by disabled server"
+                                    : "Disabled"}
+                                </dd>
                               </div>
                             </dl>
                             <pre className="schema-code">
@@ -514,46 +852,66 @@ export default function App() {
                           </tr>
                         </thead>
                         <tbody>
-                          {data.prompts.prompts.map((prompt) => (
-                            <tr
-                              className={
-                                selectedPrompt?.canonical_name === prompt.canonical_name
-                                  ? "is-selected"
-                                  : ""
-                              }
-                              key={prompt.canonical_name}
-                            >
-                              <td>
-                                <div className="table-primary">{prompt.name}</div>
-                              </td>
-                              <td>
-                                <code
-                                  className="identifier-code"
-                                  title={prompt.canonical_name}
-                                >
-                                  {prompt.canonical_name}
-                                </code>
-                              </td>
-                              <td>{prompt.server}</td>
-                              <td>
-                                <div
-                                  className="clamped-description"
-                                  title={promptDescription(prompt)}
-                                >
-                                  {promptDescription(prompt)}
-                                </div>
-                              </td>
-                              <td>
-                                <button
-                                  className="secondary-action"
-                                  onClick={() => setSelectedPrompt(prompt)}
-                                  type="button"
-                                >
-                                  View arguments
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
+                          {data.prompts.prompts.map((prompt) => {
+                            const muted = !prompt.enabled || !prompt.server_enabled;
+                            return (
+                              <tr
+                                className={`${
+                                  selectedPrompt?.canonical_name === prompt.canonical_name
+                                    ? "is-selected"
+                                    : ""
+                                } ${muted ? "is-muted" : ""}`}
+                                key={prompt.canonical_name}
+                              >
+                                <td>
+                                  <div className="table-primary">{prompt.name}</div>
+                                  <div className="table-secondary tool-state-line">
+                                    <StatusBadge
+                                      text={prompt.enabled ? "Enabled" : "Disabled"}
+                                      tone={prompt.enabled ? "good" : "muted"}
+                                    />
+                                    {!prompt.server_enabled ? (
+                                      <StatusBadge text="Server disabled" tone="warn" />
+                                    ) : null}
+                                  </div>
+                                </td>
+                                <td>
+                                  <code className="identifier-code" title={prompt.canonical_name}>
+                                    {prompt.canonical_name}
+                                  </code>
+                                </td>
+                                <td>{prompt.server}</td>
+                                <td>
+                                  <div className="clamped-description" title={promptDescription(prompt)}>
+                                    {promptDescription(prompt)}
+                                  </div>
+                                </td>
+                                <td>
+                                  <div className="row-actions">
+                                    <button
+                                      className="secondary-action"
+                                      disabled={isBusy(`prompt-toggle:${prompt.canonical_name}`)}
+                                      onClick={() => void togglePromptEnabled(prompt)}
+                                      type="button"
+                                    >
+                                      {isBusy(`prompt-toggle:${prompt.canonical_name}`)
+                                        ? "Saving..."
+                                        : prompt.enabled
+                                          ? "Disable"
+                                          : "Enable"}
+                                    </button>
+                                    <button
+                                      className="secondary-action"
+                                      onClick={() => setSelectedPrompt(prompt)}
+                                      type="button"
+                                    >
+                                      View arguments
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -564,9 +922,7 @@ export default function App() {
                           <p className="panel-label">Prompt arguments</p>
                           <h3>{selectedPrompt?.name ?? "Select a prompt"}</h3>
                           {selectedPrompt ? (
-                            <code className="identifier-code">
-                              {selectedPrompt.canonical_name}
-                            </code>
+                            <code className="identifier-code">{selectedPrompt.canonical_name}</code>
                           ) : null}
                         </div>
                       </div>
@@ -582,17 +938,23 @@ export default function App() {
                                 <dt>Description</dt>
                                 <dd>{promptDescription(selectedPrompt)}</dd>
                               </div>
+                              <div>
+                                <dt>Exposure</dt>
+                                <dd>
+                                  {selectedPrompt.enabled
+                                    ? selectedPrompt.server_enabled
+                                      ? "Enabled"
+                                      : "Blocked by disabled server"
+                                    : "Disabled"}
+                                </dd>
+                              </div>
                             </dl>
                             <pre className="schema-code">
-                              <code>
-                                {prettyPromptArguments(selectedPrompt.arguments)}
-                              </code>
+                              <code>{prettyPromptArguments(selectedPrompt.arguments)}</code>
                             </pre>
                           </>
                         ) : (
-                          <p className="empty-inline">
-                            Select a prompt row to inspect its arguments.
-                          </p>
+                          <p className="empty-inline">Select a prompt row to inspect its arguments.</p>
                         )}
                       </div>
                     </aside>
@@ -698,12 +1060,226 @@ export default function App() {
                       </div>
                     ))}
                   </div>
-                  {diagnostics.empty_state ? (
-                    <EmptyStateCard emptyState={diagnostics.empty_state} />
-                  ) : null}
+                  {diagnostics.empty_state ? <EmptyStateCard emptyState={diagnostics.empty_state} /> : null}
                 </SectionCard>
               </>
             ) : null}
+          </div>
+        ) : null}
+
+        {registerOpen ? (
+          <div className="modal-backdrop" onClick={() => setRegisterOpen(false)} role="presentation">
+            <section className="modal-panel" onClick={(event) => event.stopPropagation()}>
+                <div className="modal-header">
+                  <div>
+                    <p className="panel-label">Add server</p>
+                    <h2>Register an MCP server</h2>
+                  </div>
+                <button className="secondary-action" onClick={() => setRegisterOpen(false)} type="button">
+                  Close
+                </button>
+              </div>
+
+              <div className="modal-form">
+                <label className="form-field">
+                  <span>Server name</span>
+                  <input
+                    className="table-filter form-input"
+                    onChange={(event) => updateRegisterField("name", event.target.value)}
+                    placeholder="filesystem"
+                    value={registerForm.name}
+                  />
+                </label>
+
+                <label className="form-field">
+                  <span>Description</span>
+                  <input
+                    className="table-filter form-input"
+                    onChange={(event) => updateRegisterField("description", event.target.value)}
+                    placeholder="Local filesystem access"
+                    value={registerForm.description}
+                  />
+                </label>
+
+                <div className="form-grid">
+                  <label className="form-field">
+                    <span>Transport</span>
+                    <select
+                      className="table-filter form-input compact-select"
+                      onChange={(event) =>
+                        updateRegisterField(
+                          "transport",
+                          event.target.value as RegisterServerFormState["transport"],
+                        )
+                      }
+                      value={registerForm.transport}
+                    >
+                      <option value="stdio">stdio</option>
+                      <option value="streamable_http">streamable_http</option>
+                      <option value="sse">sse</option>
+                    </select>
+                  </label>
+
+                  <label className="form-field">
+                    <span>Session mode</span>
+                    <select
+                      className="table-filter form-input compact-select"
+                      onChange={(event) =>
+                        updateRegisterField(
+                          "session_mode",
+                          event.target.value as RegisterServerFormState["session_mode"],
+                        )
+                      }
+                      value={registerForm.session_mode}
+                    >
+                      <option value="stateless">stateless</option>
+                      <option value="stateful">stateful</option>
+                    </select>
+                  </label>
+                </div>
+
+                {registerForm.transport === "stdio" ? (
+                  <>
+                    <label className="form-field">
+                      <span>Command</span>
+                      <input
+                        className="table-filter form-input"
+                        onChange={(event) => updateRegisterField("command", event.target.value)}
+                        placeholder="npx"
+                        value={registerForm.command}
+                      />
+                    </label>
+
+                    <label className="form-field">
+                      <span>Arguments</span>
+                      <textarea
+                        className="table-filter form-input form-textarea"
+                        onChange={(event) => updateRegisterField("args_text", event.target.value)}
+                        placeholder="-y&#10;@modelcontextprotocol/server-filesystem"
+                        value={registerForm.args_text}
+                      />
+                    </label>
+
+                    <div className="form-field">
+                      <span>Environment variables</span>
+                      <div className="key-value-list">
+                        {registerForm.env_rows.map((row, index) => (
+                          <div className="key-value-row" key={`env-${index}`}>
+                            <input
+                              className="table-filter form-input"
+                              onChange={(event) =>
+                                updateKeyValueRow("env_rows", index, "key", event.target.value)
+                              }
+                              placeholder="KEY"
+                              value={row.key}
+                            />
+                            <input
+                              className="table-filter form-input"
+                              onChange={(event) =>
+                                updateKeyValueRow("env_rows", index, "value", event.target.value)
+                              }
+                              placeholder="value"
+                              value={row.value}
+                            />
+                            <button
+                              className="secondary-action"
+                              onClick={() => removeKeyValueRow("env_rows", index)}
+                              type="button"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <button className="secondary-action inline-action" onClick={() => addKeyValueRow("env_rows")} type="button">
+                        Add env var
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <label className="form-field">
+                      <span>Target URL</span>
+                      <input
+                        className="table-filter form-input"
+                        onChange={(event) => updateRegisterField("url", event.target.value)}
+                        placeholder="http://127.0.0.1:8000/mcp"
+                        value={registerForm.url}
+                      />
+                    </label>
+
+                    <label className="form-field">
+                      <span>Bearer token</span>
+                      <input
+                        className="table-filter form-input"
+                        onChange={(event) => updateRegisterField("bearer_token", event.target.value)}
+                        placeholder="Optional"
+                        type="password"
+                        value={registerForm.bearer_token}
+                      />
+                    </label>
+
+                    {registerForm.transport === "streamable_http" ? (
+                      <div className="form-field">
+                        <span>Headers</span>
+                        <div className="key-value-list">
+                          {registerForm.header_rows.map((row, index) => (
+                            <div className="key-value-row" key={`header-${index}`}>
+                              <input
+                                className="table-filter form-input"
+                                onChange={(event) =>
+                                  updateKeyValueRow("header_rows", index, "key", event.target.value)
+                                }
+                                placeholder="Header"
+                                value={row.key}
+                              />
+                              <input
+                                className="table-filter form-input"
+                                onChange={(event) =>
+                                  updateKeyValueRow("header_rows", index, "value", event.target.value)
+                                }
+                                placeholder="Value"
+                                value={row.value}
+                              />
+                              <button
+                                className="secondary-action"
+                                onClick={() => removeKeyValueRow("header_rows", index)}
+                                type="button"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          className="secondary-action inline-action"
+                          onClick={() => addKeyValueRow("header_rows")}
+                          type="button"
+                        >
+                          Add header
+                        </button>
+                      </div>
+                    ) : null}
+                  </>
+                )}
+
+                {registerError ? <p className="form-error">{registerError}</p> : null}
+              </div>
+
+              <div className="modal-footer">
+                <button className="secondary-action" onClick={() => setRegisterOpen(false)} type="button">
+                  Cancel
+                </button>
+                <button
+                  className="primary-action"
+                  disabled={isBusy("register-server")}
+                  onClick={() => void submitRegisterServer()}
+                  type="button"
+                >
+                  {isBusy("register-server") ? "Registering..." : "+ Add Server"}
+                </button>
+              </div>
+            </section>
           </div>
         ) : null}
       </main>

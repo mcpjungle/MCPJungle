@@ -46,6 +46,7 @@ type McpServer struct {
 
 	Name      string                   `json:"name" gorm:"uniqueIndex;not null"`
 	Transport types.McpServerTransport `json:"transport" gorm:"type:varchar(30);not null"`
+	Enabled   bool                     `json:"enabled" gorm:"default:true"`
 
 	Description string `json:"description"`
 
@@ -80,6 +81,7 @@ func NewStreamableHTTPServer(name, description, url, bearerToken string, headers
 		Name:        name,
 		Description: description,
 		Transport:   types.TransportStreamableHTTP,
+		Enabled:     true,
 		Config:      configJSON,
 		SessionMode: sessionMode,
 	}, nil
@@ -106,6 +108,7 @@ func NewStdioServer(name, description, command string, args []string, env map[st
 		Name:        name,
 		Description: description,
 		Transport:   types.TransportStdio,
+		Enabled:     true,
 		Config:      datatypes.JSON(configJSON),
 		SessionMode: sessionMode,
 	}, nil
@@ -131,6 +134,7 @@ func NewSSEServer(name, description, url, bearerToken string, sessionMode types.
 		Name:        name,
 		Description: description,
 		Transport:   types.TransportSSE,
+		Enabled:     true,
 		Config:      configJSON,
 		SessionMode: sessionMode,
 	}, nil

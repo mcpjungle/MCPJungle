@@ -33,6 +33,7 @@ func TestMcpServerJSONMarshaling(t *testing.T) {
 	server := McpServer{
 		Name:        "json-server",
 		Transport:   "stdio",
+		Enabled:     true,
 		Description: "Server for JSON testing",
 		Command:     "/usr/bin/json-server",
 		Args:        []string{"--verbose"},
@@ -45,7 +46,7 @@ func TestMcpServerJSONMarshaling(t *testing.T) {
 		t.Fatalf("Failed to marshal McpServer: %v", err)
 	}
 
-	expected := `{"name":"json-server","transport":"stdio","description":"Server for JSON testing","url":"","command":"/usr/bin/json-server","args":["--verbose"],"env":{"ENV":"test"},"session_mode":"stateless"}`
+	expected := `{"name":"json-server","transport":"stdio","enabled":true,"description":"Server for JSON testing","url":"","command":"/usr/bin/json-server","args":["--verbose"],"env":{"ENV":"test"},"session_mode":"stateless"}`
 	if string(data) != expected {
 		t.Errorf("Expected JSON %s, got %s", expected, string(data))
 	}

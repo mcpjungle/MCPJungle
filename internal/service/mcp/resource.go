@@ -232,6 +232,9 @@ func (m *MCPService) setResourcesEnabled(entity string, enabled bool) ([]string,
 	}
 
 	if enabled {
+		if !resource.Server.Enabled {
+			return []string{resource.URI}, nil
+		}
 		mcpResource, err := convertResourceModelToMcpObject(&resource)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert resource model to MCP object for resource %s: %w", resource.URI, err)
@@ -271,6 +274,10 @@ func (m *MCPService) setServerResourcesEnabled(s *model.McpServer, enabled bool)
 		}
 
 		if enabled {
+			if !s.Enabled {
+				changedURIs = append(changedURIs, resources[i].URI)
+				continue
+			}
 			mcpResource, err := convertResourceModelToMcpObject(&resources[i])
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert resource model to MCP object for resource %s: %w", resources[i].URI, err)

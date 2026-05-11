@@ -32,6 +32,7 @@ const (
 type McpServer struct {
 	Name        string `json:"name"`
 	Transport   string `json:"transport"`
+	Enabled     bool   `json:"enabled"`
 	Description string `json:"description"`
 
 	URL string `json:"url"`

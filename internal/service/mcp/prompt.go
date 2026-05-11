@@ -195,6 +195,9 @@ func (m *MCPService) setPromptsEnabled(entity string, enabled bool) ([]string, e
 		}
 
 		if enabled {
+			if !s.Enabled {
+				return []string{entity}, nil
+			}
 			// if the prompt was enabled, add it back to the MCP proxy server
 			mcpPrompt, err := convertPromptModelToMcpObject(&prompt)
 			if err != nil {
@@ -244,6 +247,10 @@ func (m *MCPService) setPromptsEnabled(entity string, enabled bool) ([]string, e
 		canonicalPromptName := mergeServerPromptNames(s.Name, prompts[i].Name)
 
 		if enabled {
+			if !s.Enabled {
+				changedPromptNames = append(changedPromptNames, canonicalPromptName)
+				continue
+			}
 			mcpPrompt, err := convertPromptModelToMcpObject(&prompts[i])
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert prompt model to MCP object for prompt %s: %w", prompts[i].Name, err)
