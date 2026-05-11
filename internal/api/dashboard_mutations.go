@@ -3,14 +3,32 @@ package api
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
+	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
 
 type dashboardToggleRequest struct {
 	Enabled bool `json:"enabled"`
+}
+
+type dashboardRegisterServerResponse struct {
+	Name                  string                                    `json:"name,omitempty"`
+	Transport             string                                    `json:"transport,omitempty"`
+	Enabled               bool                                      `json:"enabled,omitempty"`
+	Description           string                                    `json:"description,omitempty"`
+	AuthorizationRequired *types.UpstreamOAuthAuthorizationRequired `json:"authorization_required,omitempty"`
+}
+
+type dashboardOAuthSessionResponse struct {
+	SessionID  string     `json:"session_id"`
+	Status     string     `json:"status"`
+	ServerName string     `json:"server_name,omitempty"`
+	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
+	Error      string     `json:"error,omitempty"`
 }
 
 func (s *Server) dashboardRegisterServerHandler() gin.HandlerFunc {
@@ -27,11 +45,22 @@ func (s *Server) dashboardRegisterServerHandler() gin.HandlerFunc {
 			return
 		}
 
-		if err := s.mcpService.RegisterMcpServerWithOAuthSupport(c, &input, server, false, "dashboard"); err != nil {
+		err = s.mcpService.RegisterMcpServerWithOAuthSupport(c, &input, server, false, "dashboard")
+		if err != nil {
+			if errors.Is(err, apierrors.ErrUpstreamOAuthRequired) {
+				input.OAuthRedirectURI = requestBaseURL(c) + "/api/dashboard/oauth/callback"
+				err = s.mcpService.RegisterMcpServerWithOAuthSupport(c, &input, server, false, "dashboard")
+			}
+		}
+		if err != nil {
 			var oauthErr *mcp.UpstreamOAuthAuthorizationPendingError
 			if errors.As(err, &oauthErr) {
-				c.JSON(http.StatusConflict, gin.H{
-					"error": "Upstream OAuth authorization is required for this server and is not supported in the dashboard yet.",
+				c.JSON(http.StatusAccepted, dashboardRegisterServerResponse{
+					AuthorizationRequired: &types.UpstreamOAuthAuthorizationRequired{
+						SessionID:        oauthErr.SessionID,
+						AuthorizationURL: oauthErr.AuthorizationURL,
+						ExpiresAt:        oauthErr.ExpiresAt,
+					},
 				})
 				return
 			}
@@ -39,11 +68,11 @@ func (s *Server) dashboardRegisterServerHandler() gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{
-			"name":        server.Name,
-			"transport":   server.Transport,
-			"enabled":     server.Enabled,
-			"description": server.Description,
+		c.JSON(http.StatusCreated, dashboardRegisterServerResponse{
+			Name:        server.Name,
+			Transport:   string(server.Transport),
+			Enabled:     server.Enabled,
+			Description: server.Description,
 		})
 	}
 }

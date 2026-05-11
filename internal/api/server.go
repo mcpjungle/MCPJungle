@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mark3labs/mcp-go/server"
@@ -72,21 +73,33 @@ type Server struct {
 	// These instances serve the requests made to tool groups' SSE tools.
 	// We need to maintain one instance for each group for sse to work correctly.
 	groupSseServers sync.Map
+
+	dashboardOAuthMu      sync.Mutex
+	dashboardOAuthResults map[string]dashboardOAuthSessionResult
+}
+
+type dashboardOAuthSessionResult struct {
+	Status     string
+	Error      string
+	ServerName string
+	ExpiresAt  time.Time
+	UpdatedAt  time.Time
 }
 
 // NewServer initializes a new Gin server for MCPJungle registry and MCP proxy
 func NewServer(opts *ServerOptions) (*Server, error) {
 	s := &Server{
-		mcpProxyServer:    opts.MCPProxyServer,
-		sseMcpProxyServer: opts.SseMcpProxyServer,
-		mcpService:        opts.MCPService,
-		mcpClientService:  opts.MCPClientService,
-		configService:     opts.ConfigService,
-		userService:       opts.UserService,
-		toolGroupService:  opts.ToolGroupService,
-		dashboardService:  opts.DashboardService,
-		otelProviders:     opts.OtelProviders,
-		metrics:           opts.Metrics,
+		mcpProxyServer:        opts.MCPProxyServer,
+		sseMcpProxyServer:     opts.SseMcpProxyServer,
+		mcpService:            opts.MCPService,
+		mcpClientService:      opts.MCPClientService,
+		configService:         opts.ConfigService,
+		userService:           opts.UserService,
+		toolGroupService:      opts.ToolGroupService,
+		dashboardService:      opts.DashboardService,
+		otelProviders:         opts.OtelProviders,
+		metrics:               opts.Metrics,
+		dashboardOAuthResults: make(map[string]dashboardOAuthSessionResult),
 	}
 
 	// Set up the router after the server is fully initialized
@@ -340,6 +353,8 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 			dashboardAPI.GET("/overview", s.dashboardOverviewHandler())
 			dashboardAPI.GET("/servers", s.dashboardServersHandler())
 			dashboardAPI.POST("/servers", s.dashboardRegisterServerHandler())
+			dashboardAPI.GET("/oauth/callback", s.dashboardOAuthCallbackHandler())
+			dashboardAPI.GET("/oauth/session/:id", s.dashboardOAuthSessionHandler())
 			dashboardAPI.DELETE("/servers/:name", s.dashboardDeleteServerHandler())
 			dashboardAPI.PATCH("/servers/:name/enabled", s.dashboardSetServerEnabledHandler())
 			dashboardAPI.GET("/tools", s.dashboardToolsHandler())

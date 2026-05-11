@@ -4,6 +4,7 @@ import { api } from "@/lib/api";
 import type {
   AppSection,
   DashboardDiagnosticsResponse,
+  DashboardOAuthAuthorizationRequired,
   DashboardOverviewResponse,
   DashboardPrompt,
   DashboardPromptsResponse,
@@ -29,9 +30,9 @@ function TrashIcon() {
         stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth="1.25"
+        strokeWidth="1.5"
       />
-      <path d="M6.5 6.5v3.5M9.5 6.5v3.5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.25" />
+      <path d="M6.5 6.5v3.5M9.5 6.5v3.5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
     </svg>
   );
 }
@@ -69,6 +70,12 @@ interface RegisterServerFormState {
   url: string;
   bearer_token: string;
   header_rows: KeyValueRow[];
+}
+
+interface RegisterOAuthState {
+  authorization: DashboardOAuthAuthorizationRequired;
+  hasOpenedBrowser: boolean;
+  error: string;
 }
 
 const sectionMeta: Record<AppSection, { title: string; subtitle: string }> = {
@@ -232,6 +239,7 @@ export default function App() {
   const [registerOpen, setRegisterOpen] = useState(false);
   const [registerForm, setRegisterForm] = useState<RegisterServerFormState>(createInitialRegisterForm());
   const [registerError, setRegisterError] = useState("");
+  const [registerOAuth, setRegisterOAuth] = useState<RegisterOAuthState | null>(null);
   const [busyKeys, setBusyKeys] = useState<Record<string, boolean>>({});
 
   async function loadDashboardData(silent = false) {
@@ -375,7 +383,20 @@ export default function App() {
   function openRegisterModal() {
     setRegisterForm(createInitialRegisterForm());
     setRegisterError("");
+    setRegisterOAuth(null);
     setRegisterOpen(true);
+  }
+
+  function closeRegisterModal() {
+    setRegisterOpen(false);
+    setRegisterError("");
+    setRegisterOAuth(null);
+    setRegisterForm(createInitialRegisterForm());
+  }
+
+  function resetRegisterOAuthStep(message = "") {
+    setRegisterOAuth(null);
+    setRegisterError(message);
   }
 
   async function submitRegisterServer() {
@@ -387,19 +408,112 @@ export default function App() {
 
     setRegisterError("");
     try {
-      await runMutation(
-        "register-server",
-        async () => {
-          await api.registerServer(buildRegisterPayload(registerForm));
-        },
-        `Server ${registerForm.name.trim()} registered.`,
-      );
-      setRegisterOpen(false);
-      setRegisterForm(createInitialRegisterForm());
-    } catch {
-      return;
+      setFeedback(null);
+      setBusy("register-server", true);
+      const response = await api.registerServer(buildRegisterPayload(registerForm));
+      if (response.authorization_required) {
+        setRegisterOAuth({
+          authorization: response.authorization_required,
+          hasOpenedBrowser: false,
+          error: "",
+        });
+        setFeedback(null);
+        return;
+      }
+      await loadDashboardData(true);
+      setFeedback({ tone: "success", message: `Server ${registerForm.name.trim()} registered.` });
+      closeRegisterModal();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Request failed";
+      setRegisterError(message);
+      setFeedback({ tone: "error", message });
+    } finally {
+      setBusy("register-server", false);
     }
   }
+
+  function startRegisterOAuth() {
+    if (!registerOAuth) {
+      return;
+    }
+    window.open(registerOAuth.authorization.authorization_url, "_blank", "noopener,noreferrer");
+    setRegisterOAuth((current) =>
+      current
+        ? {
+            ...current,
+            hasOpenedBrowser: true,
+            error: "",
+          }
+        : current,
+    );
+  }
+
+  useEffect(() => {
+    if (!registerOAuth?.hasOpenedBrowser) {
+      return;
+    }
+
+    let cancelled = false
+    const sessionID = registerOAuth.authorization.session_id
+
+    async function pollOAuthSession() {
+      try {
+        const response = await api.getOAuthSession(sessionID)
+        if (cancelled) {
+          return
+        }
+        if (response.status === "pending") {
+          return
+        }
+        if (response.status === "completed") {
+          await loadDashboardData(true)
+          if (cancelled) {
+            return
+          }
+          setFeedback({
+            tone: "success",
+            message: `Server ${response.server_name ?? registerForm.name.trim()} registered.`,
+          })
+          closeRegisterModal()
+          return
+        }
+
+        setRegisterOAuth((current) =>
+          current
+            ? {
+                ...current,
+                hasOpenedBrowser: false,
+                error: response.error || "OAuth authorization could not be completed. Start registration again.",
+              }
+            : current,
+        )
+      } catch (error) {
+        if (cancelled) {
+          return
+        }
+        const message = error instanceof Error ? error.message : "Failed to check OAuth authorization state."
+        setRegisterOAuth((current) =>
+          current
+            ? {
+                ...current,
+                hasOpenedBrowser: false,
+                error: message,
+              }
+            : current,
+        )
+      }
+    }
+
+    void pollOAuthSession()
+    const timer = window.setInterval(() => {
+      void pollOAuthSession()
+    }, 2000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [registerOAuth?.authorization.session_id, registerOAuth?.hasOpenedBrowser])
 
   async function toggleServerEnabled(server: DashboardServer) {
     const nextEnabled = !server.enabled;
@@ -1068,216 +1182,264 @@ export default function App() {
         ) : null}
 
         {registerOpen ? (
-          <div className="modal-backdrop" onClick={() => setRegisterOpen(false)} role="presentation">
+          <div className="modal-backdrop" onClick={closeRegisterModal} role="presentation">
             <section className="modal-panel" onClick={(event) => event.stopPropagation()}>
-                <div className="modal-header">
-                  <div>
-                    <p className="panel-label">Add server</p>
-                    <h2>Register an MCP server</h2>
-                  </div>
-                <button className="secondary-action" onClick={() => setRegisterOpen(false)} type="button">
+              <div className="modal-header">
+                <div>
+                  <p className="panel-label">Add server</p>
+                  <h2>{registerOAuth ? "Complete OAuth authorization" : "Register an MCP server"}</h2>
+                </div>
+                <button className="secondary-action" onClick={closeRegisterModal} type="button">
                   Close
                 </button>
               </div>
 
-              <div className="modal-form">
-                <label className="form-field">
-                  <span>Server name</span>
-                  <input
-                    className="table-filter form-input"
-                    onChange={(event) => updateRegisterField("name", event.target.value)}
-                    placeholder="filesystem"
-                    value={registerForm.name}
-                  />
-                </label>
-
-                <label className="form-field">
-                  <span>Description</span>
-                  <input
-                    className="table-filter form-input"
-                    onChange={(event) => updateRegisterField("description", event.target.value)}
-                    placeholder="Local filesystem access"
-                    value={registerForm.description}
-                  />
-                </label>
-
-                <div className="form-grid">
-                  <label className="form-field">
-                    <span>Transport</span>
-                    <select
-                      className="table-filter form-input compact-select"
-                      onChange={(event) =>
-                        updateRegisterField(
-                          "transport",
-                          event.target.value as RegisterServerFormState["transport"],
-                        )
-                      }
-                      value={registerForm.transport}
-                    >
-                      <option value="stdio">stdio</option>
-                      <option value="streamable_http">streamable_http</option>
-                      <option value="sse">sse</option>
-                    </select>
-                  </label>
-
-                  <label className="form-field">
-                    <span>Session mode</span>
-                    <select
-                      className="table-filter form-input compact-select"
-                      onChange={(event) =>
-                        updateRegisterField(
-                          "session_mode",
-                          event.target.value as RegisterServerFormState["session_mode"],
-                        )
-                      }
-                      value={registerForm.session_mode}
-                    >
-                      <option value="stateless">stateless</option>
-                      <option value="stateful">stateful</option>
-                    </select>
-                  </label>
+              {registerOAuth ? (
+                <div className="modal-form oauth-step">
+                  <p className="oauth-message">
+                    This MCP server requires OAuth authorization. Continue in your browser to complete
+                    registration.
+                  </p>
+                  <div className="oauth-status-card">
+                    <div>
+                      <span className="oauth-status-label">Status</span>
+                      <strong>
+                        {registerOAuth.hasOpenedBrowser
+                          ? "Waiting for OAuth authorization..."
+                          : "Authorization required"}
+                      </strong>
+                    </div>
+                    {registerOAuth.authorization.expires_at ? (
+                      <p className="oauth-status-meta">
+                        Expires {new Date(registerOAuth.authorization.expires_at).toLocaleTimeString()}
+                      </p>
+                    ) : null}
+                  </div>
+                  {registerOAuth.error ? <p className="form-error">{registerOAuth.error}</p> : null}
                 </div>
-
-                {registerForm.transport === "stdio" ? (
-                  <>
+              ) : (
+                <>
+                  <div className="modal-form">
                     <label className="form-field">
-                      <span>Command</span>
+                      <span>Server name</span>
                       <input
                         className="table-filter form-input"
-                        onChange={(event) => updateRegisterField("command", event.target.value)}
-                        placeholder="npx"
-                        value={registerForm.command}
+                        onChange={(event) => updateRegisterField("name", event.target.value)}
+                        placeholder="filesystem"
+                        value={registerForm.name}
                       />
                     </label>
 
                     <label className="form-field">
-                      <span>Arguments</span>
-                      <textarea
-                        className="table-filter form-input form-textarea"
-                        onChange={(event) => updateRegisterField("args_text", event.target.value)}
-                        placeholder="-y&#10;@modelcontextprotocol/server-filesystem"
-                        value={registerForm.args_text}
+                      <span>Description</span>
+                      <input
+                        className="table-filter form-input"
+                        onChange={(event) => updateRegisterField("description", event.target.value)}
+                        placeholder="Local filesystem access"
+                        value={registerForm.description}
                       />
                     </label>
 
-                    <div className="form-field">
-                      <span>Environment variables</span>
-                      <div className="key-value-list">
-                        {registerForm.env_rows.map((row, index) => (
-                          <div className="key-value-row" key={`env-${index}`}>
-                            <input
-                              className="table-filter form-input"
-                              onChange={(event) =>
-                                updateKeyValueRow("env_rows", index, "key", event.target.value)
-                              }
-                              placeholder="KEY"
-                              value={row.key}
-                            />
-                            <input
-                              className="table-filter form-input"
-                              onChange={(event) =>
-                                updateKeyValueRow("env_rows", index, "value", event.target.value)
-                              }
-                              placeholder="value"
-                              value={row.value}
-                            />
+                    <div className="form-grid">
+                      <label className="form-field">
+                        <span>Transport</span>
+                        <select
+                          className="table-filter form-input compact-select"
+                          onChange={(event) =>
+                            updateRegisterField(
+                              "transport",
+                              event.target.value as RegisterServerFormState["transport"],
+                            )
+                          }
+                          value={registerForm.transport}
+                        >
+                          <option value="stdio">stdio</option>
+                          <option value="streamable_http">streamable_http</option>
+                          <option value="sse">sse</option>
+                        </select>
+                      </label>
+
+                      <label className="form-field">
+                        <span>Session mode</span>
+                        <select
+                          className="table-filter form-input compact-select"
+                          onChange={(event) =>
+                            updateRegisterField(
+                              "session_mode",
+                              event.target.value as RegisterServerFormState["session_mode"],
+                            )
+                          }
+                          value={registerForm.session_mode}
+                        >
+                          <option value="stateless">stateless</option>
+                          <option value="stateful">stateful</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    {registerForm.transport === "stdio" ? (
+                      <>
+                        <label className="form-field">
+                          <span>Command</span>
+                          <input
+                            className="table-filter form-input"
+                            onChange={(event) => updateRegisterField("command", event.target.value)}
+                            placeholder="npx"
+                            value={registerForm.command}
+                          />
+                        </label>
+
+                        <label className="form-field">
+                          <span>Arguments</span>
+                          <textarea
+                            className="table-filter form-input form-textarea"
+                            onChange={(event) => updateRegisterField("args_text", event.target.value)}
+                            placeholder="-y&#10;@modelcontextprotocol/server-filesystem"
+                            value={registerForm.args_text}
+                          />
+                        </label>
+
+                        <div className="form-field">
+                          <span>Environment variables</span>
+                          <div className="key-value-list">
+                            {registerForm.env_rows.map((row, index) => (
+                              <div className="key-value-row" key={`env-${index}`}>
+                                <input
+                                  className="table-filter form-input"
+                                  onChange={(event) =>
+                                    updateKeyValueRow("env_rows", index, "key", event.target.value)
+                                  }
+                                  placeholder="KEY"
+                                  value={row.key}
+                                />
+                                <input
+                                  className="table-filter form-input"
+                                  onChange={(event) =>
+                                    updateKeyValueRow("env_rows", index, "value", event.target.value)
+                                  }
+                                  placeholder="value"
+                                  value={row.value}
+                                />
+                                <button
+                                  className="secondary-action"
+                                  onClick={() => removeKeyValueRow("env_rows", index)}
+                                  type="button"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          <button
+                            className="secondary-action inline-action"
+                            onClick={() => addKeyValueRow("env_rows")}
+                            type="button"
+                          >
+                            Add env var
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <label className="form-field">
+                          <span>Target URL</span>
+                          <input
+                            className="table-filter form-input"
+                            onChange={(event) => updateRegisterField("url", event.target.value)}
+                            placeholder="http://127.0.0.1:8000/mcp"
+                            value={registerForm.url}
+                          />
+                        </label>
+
+                        <label className="form-field">
+                          <span>Bearer token</span>
+                          <input
+                            className="table-filter form-input"
+                            onChange={(event) => updateRegisterField("bearer_token", event.target.value)}
+                            placeholder="Optional"
+                            type="password"
+                            value={registerForm.bearer_token}
+                          />
+                        </label>
+
+                        {registerForm.transport === "streamable_http" ? (
+                          <div className="form-field">
+                            <span>Headers</span>
+                            <div className="key-value-list">
+                              {registerForm.header_rows.map((row, index) => (
+                                <div className="key-value-row" key={`header-${index}`}>
+                                  <input
+                                    className="table-filter form-input"
+                                    onChange={(event) =>
+                                      updateKeyValueRow("header_rows", index, "key", event.target.value)
+                                    }
+                                    placeholder="Header"
+                                    value={row.key}
+                                  />
+                                  <input
+                                    className="table-filter form-input"
+                                    onChange={(event) =>
+                                      updateKeyValueRow("header_rows", index, "value", event.target.value)
+                                    }
+                                    placeholder="Value"
+                                    value={row.value}
+                                  />
+                                  <button
+                                    className="secondary-action"
+                                    onClick={() => removeKeyValueRow("header_rows", index)}
+                                    type="button"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
                             <button
-                              className="secondary-action"
-                              onClick={() => removeKeyValueRow("env_rows", index)}
+                              className="secondary-action inline-action"
+                              onClick={() => addKeyValueRow("header_rows")}
                               type="button"
                             >
-                              Remove
+                              Add header
                             </button>
                           </div>
-                        ))}
-                      </div>
-                      <button className="secondary-action inline-action" onClick={() => addKeyValueRow("env_rows")} type="button">
-                        Add env var
-                      </button>
-                    </div>
+                        ) : null}
+                      </>
+                    )}
+
+                    {registerError ? <p className="form-error">{registerError}</p> : null}
+                  </div>
+                </>
+              )}
+
+              <div className="modal-footer">
+                {registerOAuth ? (
+                  <>
+                    <button
+                      className="secondary-action"
+                      onClick={() => resetRegisterOAuthStep("Start registration again to retry OAuth.")}
+                      type="button"
+                    >
+                      Start over
+                    </button>
+                    <button className="primary-action" onClick={startRegisterOAuth} type="button">
+                      {registerOAuth.hasOpenedBrowser ? "Open OAuth again" : "Continue OAuth"}
+                    </button>
                   </>
                 ) : (
                   <>
-                    <label className="form-field">
-                      <span>Target URL</span>
-                      <input
-                        className="table-filter form-input"
-                        onChange={(event) => updateRegisterField("url", event.target.value)}
-                        placeholder="http://127.0.0.1:8000/mcp"
-                        value={registerForm.url}
-                      />
-                    </label>
-
-                    <label className="form-field">
-                      <span>Bearer token</span>
-                      <input
-                        className="table-filter form-input"
-                        onChange={(event) => updateRegisterField("bearer_token", event.target.value)}
-                        placeholder="Optional"
-                        type="password"
-                        value={registerForm.bearer_token}
-                      />
-                    </label>
-
-                    {registerForm.transport === "streamable_http" ? (
-                      <div className="form-field">
-                        <span>Headers</span>
-                        <div className="key-value-list">
-                          {registerForm.header_rows.map((row, index) => (
-                            <div className="key-value-row" key={`header-${index}`}>
-                              <input
-                                className="table-filter form-input"
-                                onChange={(event) =>
-                                  updateKeyValueRow("header_rows", index, "key", event.target.value)
-                                }
-                                placeholder="Header"
-                                value={row.key}
-                              />
-                              <input
-                                className="table-filter form-input"
-                                onChange={(event) =>
-                                  updateKeyValueRow("header_rows", index, "value", event.target.value)
-                                }
-                                placeholder="Value"
-                                value={row.value}
-                              />
-                              <button
-                                className="secondary-action"
-                                onClick={() => removeKeyValueRow("header_rows", index)}
-                                type="button"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                        <button
-                          className="secondary-action inline-action"
-                          onClick={() => addKeyValueRow("header_rows")}
-                          type="button"
-                        >
-                          Add header
-                        </button>
-                      </div>
-                    ) : null}
+                    <button className="secondary-action" onClick={closeRegisterModal} type="button">
+                      Cancel
+                    </button>
+                    <button
+                      className="primary-action"
+                      disabled={isBusy("register-server")}
+                      onClick={() => void submitRegisterServer()}
+                      type="button"
+                    >
+                      {isBusy("register-server") ? "Registering..." : "+ Add Server"}
+                    </button>
                   </>
                 )}
-
-                {registerError ? <p className="form-error">{registerError}</p> : null}
-              </div>
-
-              <div className="modal-footer">
-                <button className="secondary-action" onClick={() => setRegisterOpen(false)} type="button">
-                  Cancel
-                </button>
-                <button
-                  className="primary-action"
-                  disabled={isBusy("register-server")}
-                  onClick={() => void submitRegisterServer()}
-                  type="button"
-                >
-                  {isBusy("register-server") ? "Registering..." : "+ Add Server"}
-                </button>
               </div>
             </section>
           </div>

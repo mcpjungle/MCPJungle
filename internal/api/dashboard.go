@@ -77,7 +77,7 @@ func (s *Server) dashboardDiagnosticsHandler() gin.HandlerFunc {
 
 func requestBaseURL(c *gin.Context) string {
 	scheme := "http"
-	if c.Request.TLS != nil {
+	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
 		scheme = "https"
 	}
 	return scheme + "://" + c.Request.Host

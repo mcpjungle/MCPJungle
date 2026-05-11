@@ -78,7 +78,7 @@ code {
 
 .brand-title {
   margin: 0;
-  font-size: 1rem;
+  font-size: 16px;
   font-weight: 700;
   line-height: 1;
 }
@@ -630,6 +630,12 @@ button:disabled {
 
 .danger-icon-button {
   width: 36px;
+  height: 36px;
+}
+
+.danger-icon-button svg {
+  width: 18px;
+  height: 18px;
 }
 
 .server-inline-actions {
@@ -921,6 +927,40 @@ button:disabled {
 .form-error {
   margin: 0;
   color: var(--bad);
+  font-size: 0.92rem;
+}
+
+.oauth-step {
+  gap: 16px;
+}
+
+.oauth-message {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.oauth-status-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+.oauth-status-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.oauth-status-meta {
+  margin: 0;
+  color: var(--muted);
   font-size: 0.92rem;
 }
 

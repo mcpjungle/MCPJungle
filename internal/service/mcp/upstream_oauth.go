@@ -596,6 +596,50 @@ func (m *MCPService) CompleteUpstreamOAuthSession(ctx context.Context, sessionID
 	return server, nil
 }
 
+// GetPendingUpstreamOAuthSession loads a pending upstream OAuth session by session ID.
+func (m *MCPService) GetPendingUpstreamOAuthSession(ctx context.Context, sessionID string) (*model.UpstreamOAuthPendingSession, error) {
+	if sessionID == "" {
+		return nil, fmt.Errorf("session_id is required: %w", apierrors.ErrInvalidInput)
+	}
+
+	var session model.UpstreamOAuthPendingSession
+	if err := m.db.WithContext(ctx).Where("session_id = ?", sessionID).First(&session).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("upstream OAuth session not found: %w", apierrors.ErrNotFound)
+		}
+		return nil, err
+	}
+	return &session, nil
+}
+
+// GetPendingUpstreamOAuthSessionByState loads a pending upstream OAuth session by OAuth state.
+func (m *MCPService) GetPendingUpstreamOAuthSessionByState(ctx context.Context, state string) (*model.UpstreamOAuthPendingSession, error) {
+	if state == "" {
+		return nil, fmt.Errorf("state is required: %w", apierrors.ErrInvalidInput)
+	}
+
+	var session model.UpstreamOAuthPendingSession
+	if err := m.db.WithContext(ctx).Where("state = ?", state).First(&session).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("upstream OAuth session not found: %w", apierrors.ErrNotFound)
+		}
+		return nil, err
+	}
+	return &session, nil
+}
+
+// DeletePendingUpstreamOAuthSession removes a pending upstream OAuth session by session ID.
+func (m *MCPService) DeletePendingUpstreamOAuthSession(ctx context.Context, sessionID string) error {
+	session, err := m.GetPendingUpstreamOAuthSession(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	if err := m.db.WithContext(ctx).Unscoped().Delete(session).Error; err != nil {
+		return fmt.Errorf("failed to delete upstream OAuth session: %w", err)
+	}
+	return nil
+}
+
 // processOAuthAuthorizationCode recreates the upstream OAuth handler and uses it
 // to exchange the callback code for stored upstream tokens.
 func (m *MCPService) processOAuthAuthorizationCode(ctx context.Context, server *model.McpServer, input *types.RegisterServerInput, codeVerifier, state, code string) error {

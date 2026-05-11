@@ -4,11 +4,14 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
+	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -239,6 +242,184 @@ func TestDashboardMutationsAndProxyExposure(t *testing.T) {
 	var finalServers map[string]any
 	decodeJSON(t, finalServersResp, &finalServers)
 	require.Empty(t, finalServers["servers"])
+}
+
+func TestDashboardRegisterServerHandlesOAuth(t *testing.T) {
+	env := setupE2EServer(t, model.ModeDev)
+	upstream := newMockOAuthMCPServer(t)
+
+	registerResp := env.do(t, http.MethodPost, "/api/dashboard/servers", map[string]any{
+		"name":        "oauthdash",
+		"description": "Dashboard OAuth server",
+		"transport":   "streamable_http",
+		"url":         upstream.server.URL + "/mcp",
+	}, "")
+	defer drain(registerResp)
+	require.Equal(t, http.StatusAccepted, registerResp.StatusCode)
+
+	var registerPayload struct {
+		AuthorizationRequired *types.UpstreamOAuthAuthorizationRequired `json:"authorization_required"`
+	}
+	decodeJSON(t, registerResp, &registerPayload)
+	require.NotNil(t, registerPayload.AuthorizationRequired)
+
+	sessionResp := env.do(
+		t,
+		http.MethodGet,
+		"/api/dashboard/oauth/session/"+registerPayload.AuthorizationRequired.SessionID,
+		nil,
+		"",
+	)
+	defer drain(sessionResp)
+	require.Equal(t, http.StatusOK, sessionResp.StatusCode)
+
+	var pendingPayload map[string]any
+	decodeJSON(t, sessionResp, &pendingPayload)
+	require.Equal(t, "pending", pendingPayload["status"])
+
+	authClient := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	authResp, err := authClient.Get(registerPayload.AuthorizationRequired.AuthorizationURL)
+	require.NoError(t, err)
+	defer authResp.Body.Close()
+	require.Equal(t, http.StatusFound, authResp.StatusCode)
+
+	callbackURL, err := url.Parse(authResp.Header.Get("Location"))
+	require.NoError(t, err)
+
+	callbackResp, err := http.Get(callbackURL.String())
+	require.NoError(t, err)
+	defer callbackResp.Body.Close()
+	require.Equal(t, http.StatusOK, callbackResp.StatusCode)
+	require.Contains(t, readBody(t, callbackResp), "Authorization successful")
+
+	completedResp := env.do(
+		t,
+		http.MethodGet,
+		"/api/dashboard/oauth/session/"+registerPayload.AuthorizationRequired.SessionID,
+		nil,
+		"",
+	)
+	defer drain(completedResp)
+	require.Equal(t, http.StatusOK, completedResp.StatusCode)
+
+	var completedPayload map[string]any
+	decodeJSON(t, completedResp, &completedPayload)
+	require.Equal(t, "completed", completedPayload["status"])
+
+	serversResp := env.do(t, http.MethodGet, "/api/dashboard/servers", nil, "")
+	defer drain(serversResp)
+	require.Equal(t, http.StatusOK, serversResp.StatusCode)
+	require.Contains(t, readBody(t, serversResp), "oauthdash")
+
+	proxyClient := newMCPProxyClient(t, env, "")
+	tools, err := proxyClient.ListTools(context.Background(), mcp.ListToolsRequest{})
+	require.NoError(t, err)
+	require.Contains(t, toolResultNames(tools.Tools), "oauthdash__echo")
+}
+
+func TestDashboardOAuthCallbackMissingParams(t *testing.T) {
+	env := setupE2EServer(t, model.ModeDev)
+
+	resp := env.do(t, http.MethodGet, "/api/dashboard/oauth/callback", nil, "")
+	defer drain(resp)
+	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	require.Contains(t, readBody(t, resp), "Missing required OAuth callback parameters")
+}
+
+func TestDashboardOAuthCallbackFailureIsTracked(t *testing.T) {
+	env := setupE2EServer(t, model.ModeDev)
+	upstream := newMockOAuthMCPServer(t)
+
+	registerResp := env.do(t, http.MethodPost, "/api/dashboard/servers", map[string]any{
+		"name":      "oauthfail",
+		"transport": "streamable_http",
+		"url":       upstream.server.URL + "/mcp",
+	}, "")
+	defer drain(registerResp)
+	require.Equal(t, http.StatusAccepted, registerResp.StatusCode)
+
+	var registerPayload struct {
+		AuthorizationRequired *types.UpstreamOAuthAuthorizationRequired `json:"authorization_required"`
+	}
+	decodeJSON(t, registerResp, &registerPayload)
+	require.NotNil(t, registerPayload.AuthorizationRequired)
+
+	authURL, err := url.Parse(registerPayload.AuthorizationRequired.AuthorizationURL)
+	require.NoError(t, err)
+	state := authURL.Query().Get("state")
+	require.NotEmpty(t, state)
+
+	callbackResp := env.do(
+		t,
+		http.MethodGet,
+		"/api/dashboard/oauth/callback?error=access_denied&state="+url.QueryEscape(state),
+		nil,
+		"",
+	)
+	defer drain(callbackResp)
+	require.Equal(t, http.StatusBadRequest, callbackResp.StatusCode)
+	require.Contains(t, readBody(t, callbackResp), "Authorization failed")
+
+	sessionResp := env.do(
+		t,
+		http.MethodGet,
+		"/api/dashboard/oauth/session/"+registerPayload.AuthorizationRequired.SessionID,
+		nil,
+		"",
+	)
+	defer drain(sessionResp)
+	require.Equal(t, http.StatusOK, sessionResp.StatusCode)
+
+	var sessionPayload map[string]any
+	decodeJSON(t, sessionResp, &sessionPayload)
+	require.Equal(t, "failed", sessionPayload["status"])
+}
+
+func TestDashboardOAuthSessionExpiresAndCleansUp(t *testing.T) {
+	env := setupE2EServer(t, model.ModeDev)
+	upstream := newMockOAuthMCPServer(t)
+
+	registerResp := env.do(t, http.MethodPost, "/api/dashboard/servers", map[string]any{
+		"name":      "oauthexpire",
+		"transport": "streamable_http",
+		"url":       upstream.server.URL + "/mcp",
+	}, "")
+	defer drain(registerResp)
+	require.Equal(t, http.StatusAccepted, registerResp.StatusCode)
+
+	var registerPayload struct {
+		AuthorizationRequired *types.UpstreamOAuthAuthorizationRequired `json:"authorization_required"`
+	}
+	decodeJSON(t, registerResp, &registerPayload)
+	require.NotNil(t, registerPayload.AuthorizationRequired)
+
+	require.NoError(t, env.db.Model(&model.UpstreamOAuthPendingSession{}).
+		Where("session_id = ?", registerPayload.AuthorizationRequired.SessionID).
+		Update("expires_at", time.Now().Add(-time.Minute)).Error)
+
+	sessionResp := env.do(
+		t,
+		http.MethodGet,
+		"/api/dashboard/oauth/session/"+registerPayload.AuthorizationRequired.SessionID,
+		nil,
+		"",
+	)
+	defer drain(sessionResp)
+	require.Equal(t, http.StatusOK, sessionResp.StatusCode)
+
+	var sessionPayload map[string]any
+	decodeJSON(t, sessionResp, &sessionPayload)
+	require.Equal(t, "expired", sessionPayload["status"])
+
+	var pendingCount int64
+	require.NoError(t, env.db.Unscoped().Model(&model.UpstreamOAuthPendingSession{}).
+		Where("session_id = ?", registerPayload.AuthorizationRequired.SessionID).
+		Count(&pendingCount).Error)
+	require.Zero(t, pendingCount)
 }
 
 func toolResultNames(tools []mcp.Tool) []string {

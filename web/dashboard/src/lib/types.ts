@@ -142,3 +142,25 @@ export interface DashboardRegisterServerInput {
   env?: Record<string, string>;
   session_mode?: "stateless" | "stateful";
 }
+
+export interface DashboardOAuthAuthorizationRequired {
+  session_id: string;
+  authorization_url: string;
+  expires_at: string;
+}
+
+export interface DashboardRegisterServerResponse {
+  name?: string;
+  transport?: string;
+  enabled?: boolean;
+  description?: string;
+  authorization_required?: DashboardOAuthAuthorizationRequired;
+}
+
+export interface DashboardOAuthSessionResponse {
+  session_id: string;
+  status: "pending" | "completed" | "failed" | "expired";
+  server_name?: string;
+  expires_at?: string;
+  error?: string;
+}
