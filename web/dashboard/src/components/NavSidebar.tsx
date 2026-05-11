@@ -5,7 +5,7 @@ const items: Array<{ key: AppSection; label: string }> = [
   { key: "tools", label: "Tools" },
   { key: "prompts", label: "Prompts" },
   { key: "resources", label: "Resources" },
-  { key: "diagnostics", label: "Diagnostics" },
+  { key: "diagnostics", label: "System Info" },
 ];
 
 export function NavSidebar({

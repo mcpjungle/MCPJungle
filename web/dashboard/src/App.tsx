@@ -106,8 +106,8 @@ const sectionMeta: Record<AppSection, { title: string; subtitle: string }> = {
     subtitle: "Resources registered and proxied through the gateway.",
   },
   diagnostics: {
-    title: "Diagnostics",
-    subtitle: "Runtime health, build info, and troubleshooting signals.",
+    title: "System Info",
+    subtitle: "",
   },
 };
 
@@ -1451,7 +1451,7 @@ export default function App() {
 
             {section === "diagnostics" && diagnostics ? (
               <>
-                <SectionCard title="Diagnostics" subtitle="Runtime and troubleshooting">
+                <SectionCard title="System Info" subtitle="Runtime details">
                   <div className="diagnostics-grid compact-diagnostics-grid">
                     <div className="diag-card compact-metric">
                       <span>Version</span>
@@ -1465,14 +1465,10 @@ export default function App() {
                       <span>Database</span>
                       <strong>{diagnostics.database}</strong>
                     </div>
-                    <div className="diag-card compact-metric">
-                      <span>Warnings</span>
-                      <strong>{diagnostics.troubleshooting_hints.length}</strong>
-                    </div>
                   </div>
                 </SectionCard>
 
-                <SectionCard title="Runtime details" subtitle="Safe system information">
+                <SectionCard title="Runtime details" subtitle="System information">
                   <dl className="diagnostic-list compact-diagnostic-list">
                     <div>
                       <dt>Full build</dt>
@@ -1481,18 +1477,10 @@ export default function App() {
                       </dd>
                     </div>
                     <div>
-                      <dt>Config source</dt>
-                      <dd>{diagnostics.config_source ?? "Unknown"}</dd>
-                    </div>
-                    <div>
-                      <dt>Primary endpoint</dt>
+                      <dt>Global MCP Endpoint</dt>
                       <dd>
                         <code>{diagnostics.primary_endpoint}</code>
                       </dd>
-                    </div>
-                    <div>
-                      <dt>Metrics endpoint</dt>
-                      <dd>{diagnostics.metrics_endpoint ?? "Disabled"}</dd>
                     </div>
                     <div>
                       <dt>Enabled transports</dt>
@@ -1501,17 +1489,6 @@ export default function App() {
                       </dd>
                     </div>
                   </dl>
-                </SectionCard>
-
-                <SectionCard title="Troubleshooting" subtitle="Common local issues">
-                  <div className="hint-grid compact-hint-grid">
-                    {diagnostics.troubleshooting_hints.map((hint) => (
-                      <div className="hint-card compact-hint-card" key={hint}>
-                        {hint}
-                      </div>
-                    ))}
-                  </div>
-                  {diagnostics.empty_state ? <EmptyStateCard emptyState={diagnostics.empty_state} /> : null}
                 </SectionCard>
               </>
             ) : null}
