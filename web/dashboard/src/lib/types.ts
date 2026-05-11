@@ -1,6 +1,7 @@
 export type AppSection =
   | "servers"
   | "tools"
+  | "tool_groups"
   | "prompts"
   | "resources"
   | "diagnostics";
@@ -79,6 +80,28 @@ export interface DashboardToolsResponse {
   empty_state?: DashboardEmptyState;
 }
 
+export interface DashboardToolGroupTool {
+  name: string;
+  canonical_name: string;
+  server: string;
+  description?: string;
+}
+
+export interface DashboardToolGroup {
+  name: string;
+  description?: string;
+  tool_count: number;
+  tools: DashboardToolGroupTool[];
+  streamable_http_endpoint: string;
+  sse_endpoint: string;
+  sse_message_endpoint: string;
+}
+
+export interface DashboardToolGroupsResponse {
+  tool_groups: DashboardToolGroup[];
+  empty_state?: DashboardEmptyState;
+}
+
 export interface DashboardPrompt {
   name: string;
   canonical_name: string;
@@ -141,6 +164,12 @@ export interface DashboardRegisterServerInput {
   args?: string[];
   env?: Record<string, string>;
   session_mode?: "stateless" | "stateful";
+}
+
+export interface DashboardCreateToolGroupInput {
+  name: string;
+  description?: string;
+  tools: string[];
 }
 
 export interface DashboardOAuthAuthorizationRequired {

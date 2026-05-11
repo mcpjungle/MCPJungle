@@ -1,4 +1,5 @@
 import type {
+  DashboardCreateToolGroupInput,
   DashboardDiagnosticsResponse,
   DashboardOAuthSessionResponse,
   DashboardOverviewResponse,
@@ -7,6 +8,7 @@ import type {
   DashboardRegisterServerResponse,
   DashboardResourcesResponse,
   DashboardServersResponse,
+  DashboardToolGroupsResponse,
   DashboardToolsResponse,
 } from "./types";
 
@@ -40,6 +42,7 @@ export const api = {
   overview: () => requestJSON<DashboardOverviewResponse>("/api/dashboard/overview"),
   servers: () => requestJSON<DashboardServersResponse>("/api/dashboard/servers"),
   tools: () => requestJSON<DashboardToolsResponse>("/api/dashboard/tools"),
+  toolGroups: () => requestJSON<DashboardToolGroupsResponse>("/api/dashboard/tool-groups"),
   prompts: () => requestJSON<DashboardPromptsResponse>("/api/dashboard/prompts"),
   resources: () => requestJSON<DashboardResourcesResponse>("/api/dashboard/resources"),
   diagnostics: () => requestJSON<DashboardDiagnosticsResponse>("/api/dashboard/diagnostics"),
@@ -51,6 +54,16 @@ export const api = {
     }),
   getOAuthSession: (sessionID: string) =>
     requestJSON<DashboardOAuthSessionResponse>(`/api/dashboard/oauth/session/${encodeURIComponent(sessionID)}`),
+  createToolGroup: (body: DashboardCreateToolGroupInput) =>
+    requestJSON("/api/dashboard/tool-groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
+  deleteToolGroup: (name: string) =>
+    requestJSON(`/api/dashboard/tool-groups/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    }),
   deleteServer: (name: string) =>
     requestJSON(`/api/dashboard/servers/${encodeURIComponent(name)}`, {
       method: "DELETE",

@@ -74,6 +74,7 @@ func TestDashboardAPIValidJSON(t *testing.T) {
 		"/api/dashboard/overview",
 		"/api/dashboard/servers",
 		"/api/dashboard/tools",
+		"/api/dashboard/tool-groups",
 		"/api/dashboard/prompts",
 		"/api/dashboard/resources",
 		"/api/dashboard/diagnostics",
@@ -242,6 +243,59 @@ func TestDashboardMutationsAndProxyExposure(t *testing.T) {
 	var finalServers map[string]any
 	decodeJSON(t, finalServersResp, &finalServers)
 	require.Empty(t, finalServers["servers"])
+}
+
+func TestDashboardToolGroupsCRUDAndValidation(t *testing.T) {
+	env := setupE2EServer(t, model.ModeDev)
+	registerEverythingServer(t, env, "")
+
+	listResp := env.do(t, http.MethodGet, "/api/dashboard/tool-groups", nil, "")
+	defer drain(listResp)
+	require.Equal(t, http.StatusOK, listResp.StatusCode)
+	var emptyPayload map[string]any
+	decodeJSON(t, listResp, &emptyPayload)
+	require.Empty(t, emptyPayload["tool_groups"])
+	require.NotNil(t, emptyPayload["empty_state"])
+
+	invalidResp := env.do(t, http.MethodPost, "/api/dashboard/tool-groups", map[string]any{
+		"name":  "empty-group",
+		"tools": []string{},
+	}, "")
+	defer drain(invalidResp)
+	require.Equal(t, http.StatusBadRequest, invalidResp.StatusCode)
+
+	createResp := env.do(t, http.MethodPost, "/api/dashboard/tool-groups", map[string]any{
+		"name":        "coding",
+		"description": "Coding helpers",
+		"tools":       []string{"everything__echo", "everything__get-sum"},
+	}, "")
+	defer drain(createResp)
+	require.Equal(t, http.StatusCreated, createResp.StatusCode)
+
+	var created map[string]any
+	decodeJSON(t, createResp, &created)
+	require.Equal(t, "coding", created["name"])
+	require.Equal(t, float64(2), created["tool_count"])
+
+	getResp := env.do(t, http.MethodGet, "/api/dashboard/tool-groups/coding", nil, "")
+	defer drain(getResp)
+	require.Equal(t, http.StatusOK, getResp.StatusCode)
+	var fetched map[string]any
+	decodeJSON(t, getResp, &fetched)
+	require.Equal(t, "coding", fetched["name"])
+	tools := fetched["tools"].([]any)
+	require.Len(t, tools, 2)
+
+	deleteResp := env.do(t, http.MethodDelete, "/api/dashboard/tool-groups/coding", nil, "")
+	defer drain(deleteResp)
+	require.Equal(t, http.StatusOK, deleteResp.StatusCode)
+
+	finalListResp := env.do(t, http.MethodGet, "/api/dashboard/tool-groups", nil, "")
+	defer drain(finalListResp)
+	require.Equal(t, http.StatusOK, finalListResp.StatusCode)
+	var finalPayload map[string]any
+	decodeJSON(t, finalListResp, &finalPayload)
+	require.Empty(t, finalPayload["tool_groups"])
 }
 
 func TestDashboardRegisterServerHandlesOAuth(t *testing.T) {

@@ -3,6 +3,7 @@ import logoUrl from "@repo-assets/logo.png";
 import { api } from "@/lib/api";
 import type {
   AppSection,
+  DashboardCreateToolGroupInput,
   DashboardDiagnosticsResponse,
   DashboardOAuthAuthorizationRequired,
   DashboardOverviewResponse,
@@ -13,6 +14,8 @@ import type {
   DashboardResourcesResponse,
   DashboardServer,
   DashboardServersResponse,
+  DashboardToolGroup,
+  DashboardToolGroupsResponse,
   DashboardTool,
   DashboardToolsResponse,
 } from "@/lib/types";
@@ -44,6 +47,7 @@ interface DashboardData {
   overview?: DashboardOverviewResponse;
   servers?: DashboardServersResponse;
   tools?: DashboardToolsResponse;
+  toolGroups?: DashboardToolGroupsResponse;
   prompts?: DashboardPromptsResponse;
   resources?: DashboardResourcesResponse;
   diagnostics?: DashboardDiagnosticsResponse;
@@ -78,6 +82,12 @@ interface RegisterOAuthState {
   error: string;
 }
 
+interface ToolGroupFormState {
+  name: string;
+  description: string;
+  selectedTools: string[];
+}
+
 interface SchemaFieldSummary {
   path: string;
   type: string;
@@ -96,6 +106,10 @@ const sectionMeta: Record<AppSection, { title: string; subtitle: string }> = {
   tools: {
     title: "Tools",
     subtitle: "All discovered tools across registered servers.",
+  },
+  tool_groups: {
+    title: "Tool Groups",
+    subtitle: "",
   },
   prompts: {
     title: "Prompts",
@@ -427,6 +441,14 @@ function buildRegisterPayload(form: RegisterServerFormState): DashboardRegisterS
   return payload;
 }
 
+function createInitialToolGroupForm(): ToolGroupFormState {
+  return {
+    name: "",
+    description: "",
+    selectedTools: [],
+  };
+}
+
 export default function App() {
   const [section, setSection] = useState<AppSection>("servers");
   const [loadState, setLoadState] = useState<LoadState>("loading");
@@ -437,13 +459,19 @@ export default function App() {
   const [toolFilter, setToolFilter] = useState("");
   const [toolServerFilter, setToolServerFilter] = useState("all");
   const [promptFilter, setPromptFilter] = useState("");
+  const [toolGroupToolFilter, setToolGroupToolFilter] = useState("");
+  const [toolGroupToolServerFilter, setToolGroupToolServerFilter] = useState("all");
   const [expandedServer, setExpandedServer] = useState<string | null>(null);
   const [expandedTool, setExpandedTool] = useState<string | null>(null);
+  const [expandedToolGroup, setExpandedToolGroup] = useState<string | null>(null);
   const [expandedPrompt, setExpandedPrompt] = useState<string | null>(null);
   const [registerOpen, setRegisterOpen] = useState(false);
   const [registerForm, setRegisterForm] = useState<RegisterServerFormState>(createInitialRegisterForm());
   const [registerError, setRegisterError] = useState("");
   const [registerOAuth, setRegisterOAuth] = useState<RegisterOAuthState | null>(null);
+  const [toolGroupOpen, setToolGroupOpen] = useState(false);
+  const [toolGroupForm, setToolGroupForm] = useState<ToolGroupFormState>(createInitialToolGroupForm());
+  const [toolGroupError, setToolGroupError] = useState("");
   const [busyKeys, setBusyKeys] = useState<Record<string, boolean>>({});
 
   async function loadDashboardData(silent = false) {
@@ -452,17 +480,21 @@ export default function App() {
     }
     setErrorMessage("");
     try {
-      const [overview, servers, tools, prompts, resources, diagnostics] = await Promise.all([
+      const [overview, servers, tools, toolGroups, prompts, resources, diagnostics] = await Promise.all([
         api.overview(),
         api.servers(),
         api.tools(),
+        api.toolGroups(),
         api.prompts(),
         api.resources(),
         api.diagnostics(),
       ]);
-      setData({ overview, servers, tools, prompts, resources, diagnostics });
+      setData({ overview, servers, tools, toolGroups, prompts, resources, diagnostics });
       setExpandedTool((current) =>
         current && tools.tools.some((tool) => tool.canonical_name === current) ? current : null,
+      );
+      setExpandedToolGroup((current) =>
+        current && toolGroups.tool_groups.some((group) => group.name === current) ? current : null,
       );
       setExpandedPrompt((current) =>
         current && prompts.prompts.some((prompt) => prompt.canonical_name === current) ? current : null,
@@ -515,6 +547,24 @@ export default function App() {
     const servers = new Set((data.tools?.tools ?? []).map((tool) => tool.server));
     return Array.from(servers).sort();
   }, [data.tools?.tools]);
+
+  const availableToolGroupTools = useMemo(() => {
+    let tools = data.tools?.tools ?? [];
+    if (toolGroupToolServerFilter !== "all") {
+      tools = tools.filter((tool) => tool.server === toolGroupToolServerFilter);
+    }
+    if (!toolGroupToolFilter.trim()) {
+      return tools;
+    }
+    const term = toolGroupToolFilter.toLowerCase();
+    return tools.filter(
+      (tool) =>
+        tool.name.toLowerCase().includes(term) ||
+        tool.canonical_name.toLowerCase().includes(term) ||
+        tool.server.toLowerCase().includes(term) ||
+        toolDescription(tool).toLowerCase().includes(term),
+    );
+  }, [data.tools?.tools, toolGroupToolFilter, toolGroupToolServerFilter]);
 
   const filteredPrompts = useMemo(() => {
     const prompts = data.prompts?.prompts ?? [];
@@ -613,6 +663,36 @@ export default function App() {
   function resetRegisterOAuthStep(message = "") {
     setRegisterOAuth(null);
     setRegisterError(message);
+  }
+
+  function openToolGroupModal() {
+    setToolGroupForm(createInitialToolGroupForm());
+    setToolGroupError("");
+    setToolGroupToolFilter("");
+    setToolGroupToolServerFilter("all");
+    setToolGroupOpen(true);
+  }
+
+  function closeToolGroupModal() {
+    setToolGroupOpen(false);
+    setToolGroupForm(createInitialToolGroupForm());
+    setToolGroupError("");
+  }
+
+  function toggleToolGroupSelection(canonicalName: string) {
+    setToolGroupForm((current) => ({
+      ...current,
+      selectedTools: current.selectedTools.includes(canonicalName)
+        ? current.selectedTools.filter((name) => name !== canonicalName)
+        : [...current.selectedTools, canonicalName],
+    }));
+  }
+
+  function removeToolGroupSelection(canonicalName: string) {
+    setToolGroupForm((current) => ({
+      ...current,
+      selectedTools: current.selectedTools.filter((name) => name !== canonicalName),
+    }));
   }
 
   async function submitRegisterServer() {
@@ -781,6 +861,61 @@ export default function App() {
       },
       `${prompt.canonical_name} ${nextEnabled ? "enabled" : "disabled"}.`,
     );
+  }
+
+  async function submitToolGroup() {
+    const name = toolGroupForm.name.trim();
+    if (!name) {
+      setToolGroupError("Group name is required.");
+      return;
+    }
+    if (toolGroupForm.selectedTools.length === 0) {
+      setToolGroupError("Select at least one tool.");
+      return;
+    }
+    if ((data.toolGroups?.tool_groups ?? []).some((group) => group.name === name)) {
+      setToolGroupError("A tool group with that name already exists.");
+      return;
+    }
+
+    setToolGroupError("");
+    setFeedback(null);
+    setBusy("tool-group-create", true);
+    try {
+      const payload: DashboardCreateToolGroupInput = {
+        name,
+        description: toolGroupForm.description.trim(),
+        tools: toolGroupForm.selectedTools,
+      };
+      await api.createToolGroup(payload);
+      await loadDashboardData(true);
+      setFeedback({ tone: "success", message: `Tool group ${name} created.` });
+      closeToolGroupModal();
+      setSection("tool_groups");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Request failed";
+      setToolGroupError(message);
+      setFeedback({ tone: "error", message });
+    } finally {
+      setBusy("tool-group-create", false);
+    }
+  }
+
+  async function deleteToolGroup(group: DashboardToolGroup) {
+    const confirmed = window.confirm(`Delete tool group "${group.name}"?`);
+    if (!confirmed) {
+      return;
+    }
+    await runMutation(
+      `tool-group-delete:${group.name}`,
+      async () => {
+        await api.deleteToolGroup(group.name);
+      },
+      `${group.name} deleted.`,
+    );
+    if (expandedToolGroup === group.name) {
+      setExpandedToolGroup(null);
+    }
   }
 
   return (
@@ -1209,6 +1344,173 @@ export default function App() {
               </SectionCard>
             ) : null}
 
+            {section === "tool_groups" && data.toolGroups ? (
+              <SectionCard
+                title="Configured tool groups"
+                subtitle=""
+                action={
+                  <button className="primary-action" onClick={openToolGroupModal} type="button">
+                    + Add Tool Group
+                  </button>
+                }
+              >
+                {data.toolGroups.empty_state && data.toolGroups.tool_groups.length === 0 ? (
+                  <EmptyStateCard emptyState={data.toolGroups.empty_state} />
+                ) : (
+                  <div className="tools-table-wrap">
+                    <table className="data-table compact-table prompts-table">
+                      <thead>
+                        <tr>
+                          <th aria-hidden="true" className="expand-column"></th>
+                          <th>Group</th>
+                          <th>Tools</th>
+                          <th>Description</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.toolGroups.tool_groups.map((group) => {
+                          const expanded = expandedToolGroup === group.name;
+                          return (
+                            <Fragment key={group.name}>
+                              <tr
+                                aria-expanded={expanded}
+                                className={`${expanded ? "is-selected" : ""} tool-summary-row`}
+                                onClick={() => setExpandedToolGroup(expanded ? null : group.name)}
+                              >
+                                <td className="expand-column">
+                                  <ChevronIcon expanded={expanded} />
+                                </td>
+                                <td>
+                                  <div className="table-primary">{group.name}</div>
+                                </td>
+                                <td>
+                                  <strong>{group.tool_count}</strong>
+                                </td>
+                                <td>
+                                  <div className="clamped-description" title={group.description || "No description"}>
+                                    {group.description || "No description"}
+                                  </div>
+                                </td>
+                                <td>
+                                  <div className="row-actions" onClick={(event) => event.stopPropagation()}>
+                                    <button
+                                      aria-label="Delete tool group"
+                                      className="danger-action icon-button danger-icon-button"
+                                      disabled={isBusy(`tool-group-delete:${group.name}`)}
+                                      onClick={() => void deleteToolGroup(group)}
+                                      title="Delete tool group"
+                                      type="button"
+                                    >
+                                      <TrashIcon />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                              {expanded ? (
+                                <tr className="tool-expanded-row">
+                                  <td className="tool-expanded-cell" colSpan={5}>
+                                    <div className="tool-detail-panel">
+                                      <div className="tool-detail-header">
+                                        <p className="panel-label">Tool group details</p>
+                                      </div>
+                                      {group.description ? (
+                                        <dl className="tool-detail-meta">
+                                          <div className="tool-detail-description">
+                                            <dt>Description</dt>
+                                            <dd>{group.description}</dd>
+                                          </div>
+                                        </dl>
+                                      ) : null}
+                                      <div className="tool-schema-section">
+                                        <div className="tool-schema-header">
+                                          <h4>MCP endpoints</h4>
+                                        </div>
+                                        <div className="tool-group-endpoints">
+                                          <div className="tool-group-endpoint-row">
+                                            <span className="tool-group-endpoint-label">Streamable HTTP</span>
+                                            <div className="tool-group-endpoint-value">
+                                              <code className="detail-target-code" title={group.streamable_http_endpoint}>
+                                                {group.streamable_http_endpoint}
+                                              </code>
+                                              <CopyButton
+                                                ariaLabel="Copy Streamable HTTP endpoint"
+                                                title="Copy Streamable HTTP endpoint"
+                                                value={group.streamable_http_endpoint}
+                                              />
+                                            </div>
+                                          </div>
+                                          <div className="tool-group-endpoint-row">
+                                            <span className="tool-group-endpoint-label">SSE</span>
+                                            <div className="tool-group-endpoint-stack">
+                                              <div className="tool-group-endpoint-value">
+                                                <code className="detail-target-code" title={group.sse_endpoint}>
+                                                  {group.sse_endpoint}
+                                                </code>
+                                                <CopyButton
+                                                  ariaLabel="Copy SSE endpoint"
+                                                  title="Copy SSE endpoint"
+                                                  value={group.sse_endpoint}
+                                                />
+                                              </div>
+                                              <div className="tool-group-endpoint-value">
+                                                <code className="detail-target-code" title={group.sse_message_endpoint}>
+                                                  {group.sse_message_endpoint}
+                                                </code>
+                                                <CopyButton
+                                                  ariaLabel="Copy SSE message endpoint"
+                                                  title="Copy SSE message endpoint"
+                                                  value={group.sse_message_endpoint}
+                                                />
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div className="tool-schema-section">
+                                        <div className="tool-schema-header">
+                                          <h4>Included tools</h4>
+                                        </div>
+                                        {group.tools.length > 0 ? (
+                                          <div className="schema-field-list">
+                                            {group.tools.map((tool) => (
+                                              <article className="schema-field-card" key={tool.canonical_name}>
+                                                <div className="schema-field-head">
+                                                  <code>{tool.canonical_name}</code>
+                                                  <span className="schema-type-pill">
+                                                    <code>{tool.server}</code>
+                                                  </span>
+                                                </div>
+                                                <dl className="schema-field-meta">
+                                                  {tool.description ? (
+                                                    <div>
+                                                      <dt>Description</dt>
+                                                      <dd>{tool.description}</dd>
+                                                    </div>
+                                                  ) : null}
+                                                </dl>
+                                              </article>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <p className="empty-inline">No tools in this group.</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ) : null}
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </SectionCard>
+            ) : null}
+
             {section === "prompts" && data.prompts ? (
               <SectionCard
                 title="Prompts"
@@ -1492,6 +1794,138 @@ export default function App() {
                 </SectionCard>
               </>
             ) : null}
+          </div>
+        ) : null}
+
+        {toolGroupOpen ? (
+          <div className="modal-backdrop" onClick={closeToolGroupModal} role="presentation">
+            <section className="modal-panel" onClick={(event) => event.stopPropagation()}>
+              <div className="modal-header">
+                <div>
+                  <p className="panel-label">Tool Groups</p>
+                  <h2>Add Tool Group</h2>
+                </div>
+                <button className="secondary-action" onClick={closeToolGroupModal} type="button">
+                  Close
+                </button>
+              </div>
+
+              <div className="modal-form">
+                <label className="form-field">
+                  <span>Group name</span>
+                  <input
+                    className="table-filter form-input"
+                    onChange={(event) => setToolGroupForm((current) => ({ ...current, name: event.target.value }))}
+                    placeholder="coding"
+                    value={toolGroupForm.name}
+                  />
+                </label>
+
+                <label className="form-field">
+                  <span>Description</span>
+                  <input
+                    className="table-filter form-input"
+                    onChange={(event) =>
+                      setToolGroupForm((current) => ({ ...current, description: event.target.value }))
+                    }
+                    placeholder="Tools useful for coding workflows"
+                    value={toolGroupForm.description}
+                  />
+                </label>
+
+                <div className="tool-group-builder">
+                  <div className="tool-group-selector panel">
+                    <div className="tool-group-selector-header">
+                      <strong>Available tools</strong>
+                    </div>
+                    {(data.tools?.tools.length ?? 0) > 0 ? (
+                      <>
+                        <div className="toolbar-cluster">
+                          <input
+                            className="table-filter compact-filter"
+                            onChange={(event) => setToolGroupToolFilter(event.target.value)}
+                            placeholder="Search tools"
+                            value={toolGroupToolFilter}
+                          />
+                          <select
+                            className="table-filter compact-filter compact-select"
+                            onChange={(event) => setToolGroupToolServerFilter(event.target.value)}
+                            value={toolGroupToolServerFilter}
+                          >
+                            <option value="all">All servers</option>
+                            {uniqueToolServers.map((server) => (
+                              <option key={server} value={server}>
+                                {server}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="tool-pick-list">
+                          {availableToolGroupTools.map((tool) => {
+                            const selected = toolGroupForm.selectedTools.includes(tool.canonical_name);
+                            return (
+                              <button
+                                className={`tool-pick-item ${selected ? "is-selected" : ""}`}
+                                key={tool.canonical_name}
+                                onClick={() => toggleToolGroupSelection(tool.canonical_name)}
+                                type="button"
+                              >
+                                <div className="table-primary">{tool.name}</div>
+                                <code className="identifier-code" title={tool.canonical_name}>
+                                  {tool.canonical_name}
+                                </code>
+                                <div className="table-secondary">{tool.server}</div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </>
+                    ) : (
+                      <p className="empty-inline">Register MCP servers first so tools are available to group.</p>
+                    )}
+                  </div>
+
+                  <div className="tool-group-selector panel">
+                    <div className="tool-group-selector-header">
+                      <strong>Selected tools</strong>
+                    </div>
+                    {toolGroupForm.selectedTools.length > 0 ? (
+                      <div className="selected-tool-list">
+                        {toolGroupForm.selectedTools.map((toolName) => (
+                          <button
+                            className="selected-tool-chip"
+                            key={toolName}
+                            onClick={() => removeToolGroupSelection(toolName)}
+                            type="button"
+                          >
+                            <code>{toolName}</code>
+                            <span>Remove</span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="empty-inline">Select at least one tool.</p>
+                    )}
+                  </div>
+                </div>
+
+                {toolGroupError ? <p className="form-error">{toolGroupError}</p> : null}
+              </div>
+
+              <div className="modal-footer">
+                <button className="secondary-action" onClick={closeToolGroupModal} type="button">
+                  Cancel
+                </button>
+                <button
+                  className="primary-action"
+                  disabled={isBusy("tool-group-create")}
+                  onClick={() => void submitToolGroup()}
+                  type="button"
+                >
+                  {isBusy("tool-group-create") ? "Saving..." : "+ Add Tool Group"}
+                </button>
+              </div>
+            </section>
           </div>
         ) : null}
 
