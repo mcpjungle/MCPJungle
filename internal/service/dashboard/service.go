@@ -131,7 +131,11 @@ func (s *Service) Tools() (*types.DashboardToolsResponse, error) {
 		resp.EmptyState = emptyState(
 			"No tools discovered yet",
 			"MCPJungle is running, but it has not discovered any tools from registered servers yet.",
-			[]string{"mcpjungle list", "mcpjungle get <server-name>"},
+			[]string{
+				"mcpjungle list tools --server context7",
+				"mcpjungle usage <tool-name>",
+				`mcpjungle invoke <tool-name> --input '{"key": "value"}'`,
+			},
 		)
 	}
 	return resp, nil
@@ -165,7 +169,10 @@ func (s *Service) Prompts() (*types.DashboardPromptsResponse, error) {
 		resp.EmptyState = emptyState(
 			"No prompts discovered yet",
 			"Registered servers can expose prompt templates. None are currently available.",
-			[]string{"mcpjungle list", "mcpjungle get <server-name>"},
+			[]string{
+				"mcpjungle list prompts",
+				"mcpjungle get prompt <prompt-name>",
+			},
 		)
 	}
 	return resp, nil
@@ -196,7 +203,10 @@ func (s *Service) Resources() (*types.DashboardResourcesResponse, error) {
 		resp.EmptyState = emptyState(
 			"No resources discovered yet",
 			"Registered servers can expose MCP resources. None are currently available.",
-			[]string{"mcpjungle list", "mcpjungle get <server-name>"},
+			[]string{
+				"mcpjungle list resources",
+				"mcpjungle get resource --read <uri>",
+			},
 		)
 	}
 	return resp, nil
@@ -471,8 +481,8 @@ func noServersEmptyState() *types.DashboardEmptyState {
 		"No servers registered yet",
 		"Register an MCP server from the CLI, then refresh the dashboard to inspect tools, prompts, and resources.",
 		[]string{
-			"mcpjungle register --transport stdio --name filesystem --command npx --args -y,@modelcontextprotocol/server-filesystem",
-			"mcpjungle list",
+			"mcpjungle register --name context7 --url https://mcp.context7.com/mcp",
+			"mcpjungle list servers",
 		},
 	)
 }
