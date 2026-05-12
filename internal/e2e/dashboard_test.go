@@ -192,6 +192,41 @@ func TestDashboardMutationsAndProxyExposure(t *testing.T) {
 	}, "")
 	defer drain(disableServerResp)
 	require.Equal(t, http.StatusOK, disableServerResp.StatusCode)
+
+	toolsAfterServerDisableResp := env.do(t, http.MethodGet, "/api/dashboard/tools", nil, "")
+	defer drain(toolsAfterServerDisableResp)
+	require.Equal(t, http.StatusOK, toolsAfterServerDisableResp.StatusCode)
+	var toolsAfterServerDisablePayload map[string]any
+	decodeJSON(t, toolsAfterServerDisableResp, &toolsAfterServerDisablePayload)
+	var echoTool map[string]any
+	for _, item := range toolsAfterServerDisablePayload["tools"].([]any) {
+		tool := item.(map[string]any)
+		if tool["canonical_name"] == "dashsrv__echo" {
+			echoTool = tool
+			break
+		}
+	}
+	require.NotNil(t, echoTool)
+	require.Equal(t, false, echoTool["enabled"])
+	require.Equal(t, false, echoTool["server_enabled"])
+
+	promptsAfterServerDisableResp := env.do(t, http.MethodGet, "/api/dashboard/prompts", nil, "")
+	defer drain(promptsAfterServerDisableResp)
+	require.Equal(t, http.StatusOK, promptsAfterServerDisableResp.StatusCode)
+	var promptsAfterServerDisablePayload map[string]any
+	decodeJSON(t, promptsAfterServerDisableResp, &promptsAfterServerDisablePayload)
+	var simplePrompt map[string]any
+	for _, item := range promptsAfterServerDisablePayload["prompts"].([]any) {
+		prompt := item.(map[string]any)
+		if prompt["canonical_name"] == "dashsrv__simple-prompt" {
+			simplePrompt = prompt
+			break
+		}
+	}
+	require.NotNil(t, simplePrompt)
+	require.Equal(t, false, simplePrompt["enabled"])
+	require.Equal(t, false, simplePrompt["server_enabled"])
+
 	toolsAfterServerDisable, err := proxyClient.ListTools(context.Background(), mcp.ListToolsRequest{})
 	require.NoError(t, err)
 	require.NotContains(t, toolResultNames(toolsAfterServerDisable.Tools), "dashsrv__get-sum")

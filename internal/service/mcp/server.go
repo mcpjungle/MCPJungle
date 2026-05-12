@@ -242,23 +242,16 @@ func (m *MCPService) DisableMcpServer(name string) ([]string, []string, error) {
 	return toolsDisabled, promptsDisabled, nil
 }
 
-// SetDashboardServerEnabled toggles whether a registered server participates in proxy exposure
-// without mutating the individual enabled flags of its tools, prompts, and resources.
+// SetDashboardServerEnabled reuses the standard server enable/disable flow so dashboard
+// toggles stay consistent with CLI semantics and cascade to the server's tools, prompts,
+// and resources.
 func (m *MCPService) SetDashboardServerEnabled(name string, enabled bool) error {
-	if err := validateServerName(name); err != nil {
-		return err
-	}
-	if err := m.setMcpServerEnabled(name, enabled); err != nil {
-		return err
-	}
-	server, err := m.GetMcpServer(name)
-	if err != nil {
-		return err
-	}
 	if enabled {
-		return m.addServerEnabledEntitiesToProxy(server)
+		_, _, err := m.EnableMcpServer(name)
+		return err
 	}
-	return m.removeServerEntitiesFromProxy(server)
+	_, _, err := m.DisableMcpServer(name)
+	return err
 }
 
 func (m *MCPService) setMcpServerEnabled(name string, enabled bool) error {
