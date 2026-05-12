@@ -69,6 +69,13 @@ code {
   margin-bottom: 18px;
 }
 
+.brand-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .brand-logo {
   width: 42px;
   height: 42px;
@@ -81,6 +88,23 @@ code {
   font-size: 16px;
   font-weight: 700;
   line-height: 1;
+  white-space: nowrap;
+}
+
+.brand-beta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #f3f4f6;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
 .eyeline {

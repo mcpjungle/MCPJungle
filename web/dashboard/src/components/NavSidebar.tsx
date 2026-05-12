@@ -22,7 +22,12 @@ export function NavSidebar({
     <aside className="sidebar">
       <div className="brand-lockup">
         <img alt="MCPJungle logo" className="brand-logo" src={logoUrl} />
-        <p className="brand-title">MCPJungle</p>
+        <div className="brand-title-row">
+          <p className="brand-title">MCPJungle</p>
+          <span className="brand-beta" title="Dashboard frontend is currently in Beta">
+            Beta
+          </span>
+        </div>
       </div>
       <nav className="nav-list" aria-label="Dashboard sections">
         {items.map((item) => (
