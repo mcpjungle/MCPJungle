@@ -195,8 +195,11 @@ code {
 }
 
 .version-chip {
-  padding: 6px 10px;
-  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 8px;
+  min-height: 36px;
+  border-radius: 14px;
   background: #ffffff;
   border: 1px solid var(--border);
   color: var(--muted);
