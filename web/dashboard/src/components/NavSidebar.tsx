@@ -64,6 +64,31 @@ export function NavSidebar({
         </svg>
         <span>Report Bugs</span>
       </a>
+      <a
+        aria-label="Open MCPJungle documentation"
+        className="sidebar-link"
+        href="https://docs.mcpjungle.com/"
+        rel="noopener noreferrer"
+        target="_blank"
+        title="Open MCPJungle documentation"
+      >
+        <svg aria-hidden="true" fill="none" height="16" viewBox="0 0 16 16" width="16">
+          <path
+            d="M4 2.75h6.25A1.75 1.75 0 0 1 12 4.5v8.25a.5.5 0 0 1-.78.41A3.25 3.25 0 0 0 9.5 12.5H4.75A1.75 1.75 0 0 1 3 10.75V3.75A1 1 0 0 1 4 2.75Z"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.2"
+          />
+          <path
+            d="M5.25 5h4.5M5.25 7h4.5M5.25 9h2.75"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeWidth="1.2"
+          />
+        </svg>
+        <span>Documentation</span>
+      </a>
     </aside>
   );
 }
