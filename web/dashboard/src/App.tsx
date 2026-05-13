@@ -367,7 +367,7 @@ function createInitialRegisterForm(): RegisterServerFormState {
   return {
     name: "",
     description: "",
-    transport: "stdio",
+    transport: "streamable_http",
     session_mode: "stateless",
     command: "",
     args_text: "",
@@ -1319,16 +1319,16 @@ export default function App() {
 
                                       <details className="raw-schema-disclosure">
                                         <summary>Raw schema</summary>
-                                        <div className="raw-schema-actions">
+                                        <div className="raw-schema-code-wrap">
                                           <CopyButton
                                             ariaLabel="Copy raw schema"
                                             title="Copy raw schema"
                                             value={prettyJSON(tool.input_schema)}
                                           />
-                                        </div>
-                                        <pre className="schema-code">
+                                          <pre className="schema-code">
                                           <code>{prettyJSON(tool.input_schema)}</code>
-                                        </pre>
+                                          </pre>
+                                        </div>
                                       </details>
                                     </div>
                                   </td>
@@ -1973,7 +1973,7 @@ export default function App() {
                       <input
                         className="table-filter form-input"
                         onChange={(event) => updateRegisterField("name", event.target.value)}
-                        placeholder="filesystem"
+                        placeholder={registerForm.transport === "streamable_http" ? "context7" : "filesystem"}
                         value={registerForm.name}
                       />
                     </label>
@@ -1983,7 +1983,11 @@ export default function App() {
                       <input
                         className="table-filter form-input"
                         onChange={(event) => updateRegisterField("description", event.target.value)}
-                        placeholder="Local filesystem access"
+                        placeholder={
+                          registerForm.transport === "streamable_http"
+                            ? "context7 mcp server"
+                            : "Local filesystem access"
+                        }
                         value={registerForm.description}
                       />
                     </label>
@@ -2094,7 +2098,11 @@ export default function App() {
                           <input
                             className="table-filter form-input"
                             onChange={(event) => updateRegisterField("url", event.target.value)}
-                            placeholder="http://127.0.0.1:8000/mcp"
+                            placeholder={
+                              registerForm.transport === "streamable_http"
+                                ? "https://mcp.context7.com/mcp"
+                                : "http://127.0.0.1:8000/mcp"
+                            }
                             value={registerForm.url}
                           />
                         </label>

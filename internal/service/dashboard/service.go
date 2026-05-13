@@ -40,7 +40,7 @@ func (s *Service) Overview(mode model.ServerMode, baseURL string) (*types.Dashbo
 		return nil, err
 	}
 
-	toolCount, promptCount, resourceCount, err := s.loadEntityCounts()
+	toolCount, promptCount, resourceCount, err := s.loadDiscoveredEntityCounts()
 	if err != nil {
 		return nil, err
 	}
@@ -320,6 +320,22 @@ func (s *Service) loadEntityCounts() (int, int, int, error) {
 		Joins("JOIN mcp_servers ON mcp_servers.id = resources.server_id").
 		Where("resources.enabled = ? AND mcp_servers.enabled = ?", true, true).
 		Count(&resourceCount).Error; err != nil {
+		return 0, 0, 0, err
+	}
+	return int(toolCount), int(promptCount), int(resourceCount), nil
+}
+
+func (s *Service) loadDiscoveredEntityCounts() (int, int, int, error) {
+	var toolCount int64
+	if err := s.db.Model(&model.Tool{}).Count(&toolCount).Error; err != nil {
+		return 0, 0, 0, err
+	}
+	var promptCount int64
+	if err := s.db.Model(&model.Prompt{}).Count(&promptCount).Error; err != nil {
+		return 0, 0, 0, err
+	}
+	var resourceCount int64
+	if err := s.db.Model(&model.Resource{}).Count(&resourceCount).Error; err != nil {
 		return 0, 0, 0, err
 	}
 	return int(toolCount), int(promptCount), int(resourceCount), nil

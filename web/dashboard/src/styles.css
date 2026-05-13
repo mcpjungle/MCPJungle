@@ -978,6 +978,22 @@ button:disabled {
   justify-content: flex-end;
 }
 
+.raw-schema-code-wrap {
+  position: relative;
+}
+
+.raw-schema-code-wrap .copy-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+}
+
+.raw-schema-code-wrap .schema-code {
+  padding-top: 44px;
+  padding-right: 52px;
+}
+
 .schema-panel {
   border: 1px solid var(--border);
   border-radius: 14px;

@@ -240,8 +240,8 @@ func TestDashboardMutationsAndProxyExposure(t *testing.T) {
 	var overview map[string]any
 	decodeJSON(t, overviewResp, &overview)
 	require.Equal(t, float64(1), overview["server_count"])
-	require.Equal(t, float64(0), overview["tool_count"])
-	require.Equal(t, float64(0), overview["prompt_count"])
+	require.Greater(t, overview["tool_count"].(float64), float64(0))
+	require.Greater(t, overview["prompt_count"].(float64), float64(0))
 
 	enableServerResp := env.do(t, http.MethodPatch, "/api/dashboard/servers/dashsrv/enabled", map[string]any{
 		"enabled": true,
