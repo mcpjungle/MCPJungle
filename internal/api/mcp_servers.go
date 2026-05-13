@@ -287,12 +287,12 @@ func (s *Server) getServerConfigsHandler() gin.HandlerFunc {
 		servers := make([]*types.RegisterServerInput, len(records))
 
 		for i, record := range records {
-		servers[i] = &types.RegisterServerInput{
-			Name:        record.Name,
-			Transport:   string(record.Transport),
-			Description: record.Description,
-			SessionMode: string(record.SessionMode),
-		}
+			servers[i] = &types.RegisterServerInput{
+				Name:        record.Name,
+				Transport:   string(record.Transport),
+				Description: record.Description,
+				SessionMode: string(record.SessionMode),
+			}
 
 			switch record.Transport {
 			case types.TransportStreamableHTTP:
@@ -376,7 +376,7 @@ func createServerModelFromInput(input *types.RegisterServerInput) (*model.McpSer
 			sessionMode,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("Error creating streamable http server: %v", err)
+			return nil, fmt.Errorf("error creating streamable http server: %v", err)
 		}
 		return server, nil
 	case types.TransportStdio:
@@ -389,7 +389,7 @@ func createServerModelFromInput(input *types.RegisterServerInput) (*model.McpSer
 			sessionMode,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("Error creating stdio server: %v", err)
+			return nil, fmt.Errorf("error creating stdio server: %v", err)
 		}
 		return server, nil
 	default:
@@ -401,7 +401,7 @@ func createServerModelFromInput(input *types.RegisterServerInput) (*model.McpSer
 			sessionMode,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("Error creating SSE server: %v", err)
+			return nil, fmt.Errorf("error creating SSE server: %v", err)
 		}
 		return server, nil
 	}
