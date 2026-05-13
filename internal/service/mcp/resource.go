@@ -206,6 +206,7 @@ func (m *MCPService) DisableResources(entity string) ([]string, error) {
 
 func (m *MCPService) setResourcesEnabled(entity string, enabled bool) ([]string, error) {
 	if validateServerName(entity) == nil {
+		// entity is a valid server name, try to find the server and set all its resources enabled/disabled
 		if s, err := m.GetMcpServer(entity); err == nil {
 			return m.setServerResourcesEnabled(s, enabled)
 		}
@@ -214,6 +215,7 @@ func (m *MCPService) setResourcesEnabled(entity string, enabled bool) ([]string,
 		return nil, err
 	}
 
+	// entity is treated as a resource URI, try to find the resource and set it enabled/disabled
 	var resources []model.Resource
 	if err := m.db.Preload("Server").Where("uri = ?", entity).Find(&resources).Error; err != nil {
 		return nil, fmt.Errorf("failed to get resources for URI %s: %w", entity, err)
@@ -232,9 +234,6 @@ func (m *MCPService) setResourcesEnabled(entity string, enabled bool) ([]string,
 	}
 
 	if enabled {
-		if !resource.Server.Enabled {
-			return []string{resource.URI}, nil
-		}
 		mcpResource, err := convertResourceModelToMcpObject(&resource)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert resource model to MCP object for resource %s: %w", resource.URI, err)
@@ -274,10 +273,6 @@ func (m *MCPService) setServerResourcesEnabled(s *model.McpServer, enabled bool)
 		}
 
 		if enabled {
-			if !s.Enabled {
-				changedURIs = append(changedURIs, resources[i].URI)
-				continue
-			}
 			mcpResource, err := convertResourceModelToMcpObject(&resources[i])
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert resource model to MCP object for resource %s: %w", resources[i].URI, err)
