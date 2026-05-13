@@ -2,7 +2,6 @@ package dashboard
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/url"
 	"sort"
 	"strings"
@@ -238,7 +237,7 @@ func (s *Service) Diagnostics(mode model.ServerMode, baseURL string) (*types.Das
 		Version:              version.GetVersion(),
 		Mode:                 string(mode),
 		ConfigSource:         "database (server_config table)",
-		Database:             s.db.Dialector.Name(),
+		Database:             s.db.Name(),
 		EnabledTransports:    enabledTransports(inventory),
 		PrimaryEndpoint:      strings.TrimRight(baseURL, "/") + "/mcp",
 		TroubleshootingHints: collectTroubleshootingHints(inventory, toolCount, promptCount, resourceCount),
@@ -647,20 +646,6 @@ func sortedHeaderKeys(value map[string]string) []string {
 		filtered = append(filtered, key)
 	}
 	return filtered
-}
-
-func formatHeaderKeySuffix(keys []string) string {
-	if len(keys) == 0 {
-		return ""
-	}
-	return fmt.Sprintf(" with %d custom headers", len(keys))
-}
-
-func formatEnvKeySuffix(keys []string) string {
-	if len(keys) == 0 {
-		return ""
-	}
-	return fmt.Sprintf(", %d env keys", len(keys))
 }
 
 func formatTime(value time.Time) string {
