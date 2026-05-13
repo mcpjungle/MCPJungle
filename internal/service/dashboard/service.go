@@ -25,15 +25,22 @@ func NewService(db *gorm.DB, metricsEnabled bool) *Service {
 
 type serverInventory struct {
 	model.McpServer
-	ToolCount      int
-	PromptCount    int
-	ResourceCount  int
-	ActiveToolCount int
-	ActivePromptCount int
+	// Total counts reflect everything discovered from the upstream server, even if
+	// the server or individual entity is currently disabled for proxy exposure.
+	ToolCount     int
+	PromptCount   int
+	ResourceCount int
+	// Active counts reflect what is currently exposed through MCPJungle after
+	// applying both server-level and entity-level enabled flags.
+	ActiveToolCount     int
+	ActivePromptCount   int
 	ActiveResourceCount int
-	LastEntitySeen time.Time
+	LastEntitySeen      time.Time
 }
 
+// Overview returns the high-level counts and endpoint hints shown in the
+// dashboard header/cards. These counts intentionally reflect discovered totals
+// rather than only currently enabled entities.
 func (s *Service) Overview(mode model.ServerMode, baseURL string) (*types.DashboardOverviewResponse, error) {
 	inventory, err := s.loadServerInventory()
 	if err != nil {
@@ -69,6 +76,8 @@ func (s *Service) Overview(mode model.ServerMode, baseURL string) (*types.Dashbo
 	return resp, nil
 }
 
+// Servers returns the full server inventory with sanitized configuration
+// summaries suitable for direct UI display.
 func (s *Service) Servers() (*types.DashboardServersResponse, error) {
 	inventory, err := s.loadServerInventory()
 	if err != nil {
@@ -212,6 +221,8 @@ func (s *Service) Resources() (*types.DashboardResourcesResponse, error) {
 	return resp, nil
 }
 
+// Diagnostics is intentionally stricter than Overview: its counts describe what
+// is currently exposed through MCPJungle, not every entity ever discovered.
 func (s *Service) Diagnostics(mode model.ServerMode, baseURL string) (*types.DashboardDiagnosticsResponse, error) {
 	inventory, err := s.loadServerInventory()
 	if err != nil {
@@ -245,6 +256,9 @@ func (s *Service) Diagnostics(mode model.ServerMode, baseURL string) (*types.Das
 	return resp, nil
 }
 
+// loadServerInventory builds the server rows used throughout the dashboard. It
+// tracks both discovered totals and "active" counts so the UI can distinguish
+// between registered/discovered state and current proxy exposure state.
 func (s *Service) loadServerInventory() ([]serverInventory, error) {
 	var servers []model.McpServer
 	if err := s.db.Order("name asc").Find(&servers).Error; err != nil {
@@ -300,6 +314,8 @@ func (s *Service) loadServerInventory() ([]serverInventory, error) {
 	return inventory, nil
 }
 
+// loadEntityCounts returns the number of entities currently exposed through the
+// gateway after applying both server-level and per-entity enabled flags.
 func (s *Service) loadEntityCounts() (int, int, int, error) {
 	var toolCount int64
 	if err := s.db.Model(&model.Tool{}).
@@ -325,6 +341,8 @@ func (s *Service) loadEntityCounts() (int, int, int, error) {
 	return int(toolCount), int(promptCount), int(resourceCount), nil
 }
 
+// loadDiscoveredEntityCounts returns raw discovered totals from the database
+// without considering enabled/disabled state.
 func (s *Service) loadDiscoveredEntityCounts() (int, int, int, error) {
 	var toolCount int64
 	if err := s.db.Model(&model.Tool{}).Count(&toolCount).Error; err != nil {
@@ -394,6 +412,9 @@ func deriveServerStatusFromCounts(transport types.McpServerTransport, toolCount,
 	return types.DashboardServerStatusReachable
 }
 
+// summarizeServerConfig produces a UI-safe description of transport-specific
+// server configuration. It deliberately strips or downgrades secret-bearing
+// values such as Authorization headers, bearer tokens, and query params.
 func summarizeServerConfig(server model.McpServer) types.DashboardServerConfigSummary {
 	summary := types.DashboardServerConfigSummary{
 		Kind:        string(server.Transport),
@@ -460,6 +481,9 @@ func buildServerCommand(command string, args []string) string {
 	return strings.TrimSpace(strings.Join(parts, " "))
 }
 
+// buildEndpoints returns the global MCPJungle endpoints shown in overview/header
+// UI. It is based on the incoming request URL so forwarded hosts/protocols are
+// reflected correctly.
 func buildEndpoints(baseURL string) []types.DashboardEndpoint {
 	root := strings.TrimRight(baseURL, "/")
 	return []types.DashboardEndpoint{
@@ -529,6 +553,9 @@ func enabledTransports(inventory []serverInventory) []string {
 	return keys
 }
 
+// decodeJSONMap/JSONArray are best-effort helpers for dashboard display. If an
+// entity stores malformed JSON, the dashboard should degrade gracefully instead
+// of failing the whole response.
 func decodeJSONMap(raw []byte) map[string]any {
 	if len(raw) == 0 {
 		return nil
@@ -612,6 +639,8 @@ func sortedHeaderKeys(value map[string]string) []string {
 	keys := sortedKeysString(value)
 	filtered := make([]string, 0, len(keys))
 	for _, key := range keys {
+		// Avoid exposing the presence of credential-bearing Authorization headers
+		// in dashboard summaries.
 		if strings.EqualFold(key, "authorization") {
 			continue
 		}

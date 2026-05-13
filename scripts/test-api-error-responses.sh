@@ -310,6 +310,35 @@ if [[ -z "$ADMIN_TOKEN" ]]; then
   exit 1
 fi
 
+# Dashboard must stay hidden in enterprise mode.
+assert_status \
+  "dashboard root is hidden in enterprise mode" \
+  "GET" \
+  "/" \
+  "404" \
+  ""
+
+assert_status \
+  "dashboard index is hidden in enterprise mode" \
+  "GET" \
+  "/index.html" \
+  "404" \
+  ""
+
+assert_status \
+  "dashboard overview api is hidden in enterprise mode" \
+  "GET" \
+  "/api/dashboard/overview" \
+  "404" \
+  ""
+
+assert_status \
+  "dashboard servers api is hidden in enterprise mode" \
+  "GET" \
+  "/api/dashboard/servers" \
+  "404" \
+  ""
+
 # Test cases for API responses
 
 assert_status \

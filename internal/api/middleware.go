@@ -25,8 +25,8 @@ func (s *Server) requireInitialized() gin.HandlerFunc {
 	}
 }
 
-// requireDashboardMode returns 404 for dashboard routes outside development mode.
-// This keeps the dashboard explicitly local-only even though the server may be running in enterprise mode.
+// requireDashboardMode returns 404 if mcpjungle server is not running in development mode.
+// It is mainly used for frontend routes, since frontend is currently only allowed in dev mode.
 func (s *Server) requireDashboardMode() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		mode, exists := c.Get("mode")

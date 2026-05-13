@@ -74,10 +74,19 @@ type Server struct {
 	// We need to maintain one instance for each group for sse to work correctly.
 	groupSseServers sync.Map
 
-	dashboardOAuthMu      sync.Mutex
+	// dashboardOAuthMu guards dashboardOAuthResults, which is a short-lived
+	// in-memory cache used by the browser-based dashboard OAuth flow.
+	dashboardOAuthMu sync.Mutex
+	// dashboardOAuthResults stores terminal dashboard-facing OAuth status for a
+	// session ID (completed/failed/expired) so the frontend can poll for
+	// progress after opening the upstream authorization URL.
 	dashboardOAuthResults map[string]dashboardOAuthSessionResult
 }
 
+// dashboardOAuthSessionResult is the dashboard-facing terminal state for an
+// upstream OAuth registration attempt. This is not the source of truth for the
+// pending OAuth session itself; it is a lightweight cache used to coordinate
+// callback completion and frontend polling.
 type dashboardOAuthSessionResult struct {
 	Status     string
 	Error      string
