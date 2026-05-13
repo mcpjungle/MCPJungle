@@ -43,6 +43,7 @@
           {
             "group": "Servers and Tools",
             "pages": [
+              "guides/dashboard",
               "guides/register-http-servers",
               "guides/register-stdio-servers",
               "guides/tools-and-prompts",
@@ -88,7 +89,8 @@
             "group": "Developers",
             "pages": [
               "developers/contributing",
-              "developers/development"
+              "developers/development",
+              "developers/dashboard-development"
             ]
           }
         ]
