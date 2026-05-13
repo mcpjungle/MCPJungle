@@ -48,6 +48,8 @@ MCPJungle gives you a single control point:
 
 Start with a local setup. Scale to a shared team gateway when you need it.
 
+![MCPJungle dashboard UI](./docs/images/dashboard-ui.png)
+
 ## Documentation
  Mcpjungle documentation has a new home: [https://docs.mcpjungle.com](https://docs.mcpjungle.com).
  
