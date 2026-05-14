@@ -297,7 +297,11 @@ function parsePromptArgumentFields(argumentsValue?: Array<Record<string, unknown
 
     const entry: SchemaFieldSummary = {
       path: name,
-      type: schemaTypeLabel(argument),
+      // Prompt arguments are string-like by default unless the backend explicitly provides a schema type.
+      type: (() => {
+        const explicitType = schemaTypeLabel(argument);
+        return explicitType === "unknown" ? "string" : explicitType;
+      })(),
       required: Boolean(argument.required),
     };
 

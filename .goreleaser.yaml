@@ -8,6 +8,7 @@ project_name: mcpjungle
 
 before:
   hooks:
+    - bash ./scripts/build-dashboard.sh
     - go test -v ./...
     - golangci-lint run
     - go mod tidy

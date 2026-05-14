@@ -33,6 +33,9 @@ Good places to orient yourself:
 ### Local development build
 
 ```bash
+# Refresh the embedded dashboard bundle first
+bash ./scripts/build-dashboard.sh
+
 # Single binary for your current system
 goreleaser build --single-target --clean --snapshot
 
@@ -46,6 +49,9 @@ goreleaser release --snapshot --clean
 ### Running tests
 
 ```bash
+# Refresh dashboard assets before testing Go-served UI behavior
+bash ./scripts/build-dashboard.sh
+
 # Run all tests
 go test ./...
 
@@ -156,6 +162,24 @@ Then update the filesystem server config accordingly:
 
 ## Release process
 
+## Frontend dashboard build integration
+
+The dashboard source lives in `web/dashboard`, but the Go server serves the embedded bundle from `internal/dashboardui/dist`.
+
+Use the shared script below whenever you want the Go-served dashboard at `http://localhost:8080/` to reflect your latest frontend changes:
+
+```bash
+bash ./scripts/build-dashboard.sh
+```
+
+That script:
+
+1. installs frontend dependencies with `npm ci` if `web/dashboard/node_modules` is missing
+2. runs `npm run build` in `web/dashboard`
+3. replaces `internal/dashboardui/dist` with the fresh Vite build output
+
+After running it, restart `go run . start`, `go build`, or any other Go process that embeds the dashboard assets.
+
 ### Creating a release
 
 1. Create and push a tag:
@@ -175,6 +199,8 @@ goreleaser release --clean
 ```
 
 This publishes release artifacts and the Homebrew distribution.
+
+GoReleaser runs `bash ./scripts/build-dashboard.sh` in its `before.hooks` before the test, lint, and build steps, so release artifacts automatically include a fresh embedded dashboard bundle.
 
 ## Troubleshooting
 

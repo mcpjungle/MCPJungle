@@ -2,11 +2,7 @@
 
 ## 1. What the dashboard is
 
-The MCPJungle dashboard is the local/dev web UI for MCPJungle.
-
-- It is served by the MCPJungle Go server at `/` in development mode.
-- It helps inspect and manage MCP servers, tools, tool groups, prompts, resources, and system info.
-- It is part of the local-first developer experience, not a separate SaaS control plane.
+The Dashboard UI is served by the MCPJungle Go server at `/` in development mode.
 
 ## 2. Frontend architecture
 
@@ -226,23 +222,30 @@ This is the most important workflow.
 
 From the repo root:
 
-1. Build the frontend bundle.
-2. Copy the built files into `internal/dashboardui/dist`.
-3. Rebuild or rerun the Go server so it embeds the updated files.
-4. Refresh `http://localhost:8080/`.
+1. Run the shared dashboard build script.
+2. Rebuild or rerun the Go server so it embeds the updated files.
+3. Refresh `http://localhost:8080/`.
 
 Exact commands:
 
 ```bash
-cd web/dashboard
-npm run build
-cd ../..
-rm -rf internal/dashboardui/dist
-cp -R web/dashboard/dist internal/dashboardui/dist
+bash ./scripts/build-dashboard.sh
 go run . start
 ```
 
 If you already have a running Go server, stop it first and start it again after the copy step.
+
+### What the build script does
+
+[`scripts/build-dashboard.sh`](</Users/raghav/Desktop/code/MCPJungle/scripts/build-dashboard.sh>) is the canonical dashboard bundle refresh step for both local development and releases.
+
+It does:
+
+1. `cd web/dashboard`
+2. `npm ci` if `node_modules/` is missing
+3. `npm run build`
+4. `rm -rf internal/dashboardui/dist`
+5. `cp -R web/dashboard/dist internal/dashboardui/dist`
 
 ### Why is the restart required?
 
@@ -270,8 +273,7 @@ Common symptom:
 
 That means one of these is stale:
 
-- you did not run `npm run build`
-- you did not copy the built assets into `internal/dashboardui/dist`
+- you did not run `bash ./scripts/build-dashboard.sh`
 - the Go server is still running an old embedded build
 
 ## 6. Go server integration
@@ -597,6 +599,7 @@ There is currently no dedicated frontend lint script in [web/dashboard/package.j
 From the repo root:
 
 ```bash
+bash ./scripts/build-dashboard.sh
 go test ./internal/e2e ./internal/api
 go test ./internal/service/mcp
 go test ./...
@@ -647,11 +650,7 @@ Likely causes:
 Use this sequence:
 
 ```bash
-cd web/dashboard
-npm run build
-cd ../..
-rm -rf internal/dashboardui/dist
-cp -R web/dashboard/dist internal/dashboardui/dist
+bash ./scripts/build-dashboard.sh
 go run . start
 ```
 
@@ -719,15 +718,12 @@ Before cutting a release or shipping a frontend change, maintainers should:
 ```bash
 cd web/dashboard
 npm run typecheck
-npm run build
 ```
 
 2. Refresh the embedded dashboard bundle:
 
 ```bash
-cd ../..
-rm -rf internal/dashboardui/dist
-cp -R web/dashboard/dist internal/dashboardui/dist
+bash ./scripts/build-dashboard.sh
 ```
 
 3. Run backend/dashboard tests:
@@ -740,6 +736,8 @@ go test ./...
 
 4. Rebuild and run MCPJungle.
 5. Verify the dashboard from the Go server at `http://localhost:8080/`, not only from `http://localhost:5173/`.
+
+GoReleaser also runs `bash ./scripts/build-dashboard.sh` in its `before.hooks`, so release artifacts automatically include a fresh embedded dashboard bundle.
 
 ## 14. Keep this doc maintainable
 
