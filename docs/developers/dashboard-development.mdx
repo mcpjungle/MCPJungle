@@ -8,13 +8,13 @@ The Dashboard UI is served by the MCPJungle Go server at `/` in development mode
 
 ### Frontend source
 
-- Frontend app root: [web/dashboard](</Users/raghav/Desktop/code/MCPJungle/web/dashboard>)
-- Main React entry: [web/dashboard/src/main.tsx](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/main.tsx)
-- Main app component: [web/dashboard/src/App.tsx](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/App.tsx)
-- Shared components: [web/dashboard/src/components](</Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/components>)
-- API helpers: [web/dashboard/src/lib/api.ts](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/lib/api.ts)
-- Frontend types: [web/dashboard/src/lib/types.ts](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/lib/types.ts)
-- Global styles: [web/dashboard/src/styles.css](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/styles.css)
+- Frontend app root: web/dashboard
+- Main React entry: web/dashboard/src/main.tsx
+- Main app component: web/dashboard/src/App.tsx
+- Shared components: web/dashboard/src/components
+- API helpers: web/dashboard/src/lib/api.ts
+- Frontend types: web/dashboard/src/lib/types.ts
+- Global styles: web/dashboard/src/styles.css
 
 ### Stack
 
@@ -22,7 +22,7 @@ The Dashboard UI is served by the MCPJungle Go server at `/` in development mode
 - Build tool: Vite
 - React plugin: `@vitejs/plugin-react`
 
-Frontend scripts live in [web/dashboard/package.json](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/package.json):
+Frontend scripts live in web/dashboard/package.json:
 
 ```json
 {
@@ -37,9 +37,9 @@ Frontend scripts live in [web/dashboard/package.json](/Users/raghav/Desktop/code
 
 ### Built assets
 
-- Vite build output: [`web/dashboard/dist`](</Users/raghav/Desktop/code/MCPJungle/web/dashboard/dist>)
-- Go-served dashboard asset directory: [`internal/dashboardui/dist`](</Users/raghav/Desktop/code/MCPJungle/internal/dashboardui/dist>)
-- Embed wiring: [internal/dashboardui/embed.go](/Users/raghav/Desktop/code/MCPJungle/internal/dashboardui/embed.go)
+- Vite build output: `web/dashboard/dist`
+- Go-served dashboard asset directory: `internal/dashboardui/dist`
+- Embed wiring: internal/dashboardui/embed.go
 
 `internal/dashboardui/embed.go` embeds `dist` at Go compile time:
 
@@ -52,7 +52,7 @@ That means the final Go-served dashboard comes from the built files copied into 
 
 ### How the Go server serves the frontend
 
-Dashboard route registration is in [internal/api/server.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/server.go).
+Dashboard route registration is in internal/api/server.go.
 
 When `DashboardService` is available, the server registers:
 
@@ -60,7 +60,7 @@ When `DashboardService` is available, the server registers:
 - `GET /index.html`
 - `GET /assets/*filepath`
 
-These routes are backed by `dashboardui.FileServer()` from [internal/dashboardui/embed.go](/Users/raghav/Desktop/code/MCPJungle/internal/dashboardui/embed.go).
+These routes are backed by `dashboardui.FileServer()` from internal/dashboardui/embed.go.
 
 ### Are assets embedded or served from disk?
 
@@ -72,74 +72,27 @@ During frontend-only development, you can also run the Vite dev server at `http:
 
 Dashboard API handlers live in:
 
-- [internal/api/dashboard.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/dashboard.go)
-- [internal/api/dashboard_mutations.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/dashboard_mutations.go)
-- [internal/api/dashboard_oauth.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/dashboard_oauth.go)
-- [internal/api/dashboard_tool_groups.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/dashboard_tool_groups.go)
+- internal/api/dashboard.go
+- internal/api/dashboard_mutations.go
+- internal/api/dashboard_oauth.go
+- internal/api/dashboard_tool_groups.go
 
 Most read-side dashboard response shaping lives in:
 
-- [internal/service/dashboard/service.go](/Users/raghav/Desktop/code/MCPJungle/internal/service/dashboard/service.go)
+- internal/service/dashboard/service.go
 
-The frontend calls dashboard APIs with `fetch("/api/dashboard/...")` through the helpers in [web/dashboard/src/lib/api.ts](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/lib/api.ts).
+The frontend calls dashboard APIs with `fetch("/api/dashboard/...")` through the helpers in web/dashboard/src/lib/api.ts.
 
 ### Routing model in the frontend
 
 The dashboard is a single React app with section-state navigation. It does not use React Router today.
 
-- Sidebar items are defined in [web/dashboard/src/components/NavSidebar.tsx](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/components/NavSidebar.tsx)
-- Active page state is controlled in [web/dashboard/src/App.tsx](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/App.tsx)
+- Sidebar items are defined in web/dashboard/src/components/NavSidebar.tsx
+- Active page state is controlled in web/dashboard/src/App.tsx
 
 So for the Go server, the important UI entrypoint is `/`.
 
-## 3. Dashboard pages
-
-Current v1 pages:
-
-### Servers
-
-- Lists registered MCP servers
-- Supports `+ Add Server`
-- Supports delete
-- Supports enable/disable
-- Shows compact server rows with expandable details
-- Handles upstream OAuth registration when required
-
-### Tools
-
-- Lists discovered tools
-- Supports search/filter
-- Supports enable/disable
-- Supports copying canonical tool names
-- Expands rows inline to show human-readable input fields
-
-### Tool Groups
-
-- Lists tool groups
-- Supports create
-- Supports delete
-- Expands rows inline
-- Shows grouped tools and group MCP endpoints
-- Supports copying streamable HTTP and SSE endpoints
-
-### Prompts
-
-- Lists discovered prompts
-- Supports search/filter
-- Supports enable/disable
-- Supports copying canonical prompt names
-- Expands rows inline to show human-readable arguments
-
-### Resources
-
-- Lists discovered resources
-- Supports copying resource URIs
-
-### System Info
-
-- Shows version/build/runtime/database/endpoint/transports information
-
-## 4. Local development workflow
+## 3. Local development workflow
 
 Recommended workflow while changing frontend code:
 
@@ -195,7 +148,7 @@ Why:
 - CSS/React changes update immediately
 - `/api/*` requests are proxied to the Go backend on `http://localhost:8080`
 
-The proxy is defined in [web/dashboard/vite.config.ts](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/vite.config.ts):
+The proxy is defined in web/dashboard/vite.config.ts:
 
 ```ts
 server: {
@@ -214,7 +167,7 @@ No special CORS setup is needed for normal frontend development because Vite pro
 
 Open `http://localhost:8080/` when you want to verify the real Go-served embedded dashboard, not just the Vite dev server.
 
-## 5. Build workflow
+## 4. Build workflow
 
 This is the most important workflow.
 
@@ -237,7 +190,7 @@ If you already have a running Go server, stop it first and start it again after 
 
 ### What the build script does
 
-[`scripts/build-dashboard.sh`](</Users/raghav/Desktop/code/MCPJungle/scripts/build-dashboard.sh>) is the canonical dashboard bundle refresh step for both local development and releases.
+`scripts/build-dashboard.sh` is the canonical dashboard bundle refresh step for both local development and releases.
 
 It does:
 
@@ -261,8 +214,8 @@ The UI served from `http://localhost:8080/` comes from:
 
 1. Vite build output in `web/dashboard/dist`
 2. copied into `internal/dashboardui/dist`
-3. embedded by [internal/dashboardui/embed.go](/Users/raghav/Desktop/code/MCPJungle/internal/dashboardui/embed.go)
-4. served by [internal/api/server.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/server.go)
+3. embedded by internal/dashboardui/embed.go
+4. served by internal/api/server.go
 
 ### What happens if the frontend build is stale?
 
@@ -276,11 +229,11 @@ That means one of these is stale:
 - you did not run `bash ./scripts/build-dashboard.sh`
 - the Go server is still running an old embedded build
 
-## 6. Go server integration
+## 5. Go server integration
 
 ### Where the dashboard routes are registered
 
-Go route registration is in [internal/api/server.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/server.go).
+Go route registration is in internal/api/server.go.
 
 Dashboard UI routes:
 
@@ -301,7 +254,7 @@ The router uses `dashboardui.FileServer()` and wraps it with:
 
 ### How local/dev mode is checked
 
-Dashboard mode gating is in [internal/api/middleware.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/middleware.go).
+Dashboard mode gating is in internal/api/middleware.go.
 
 `requireDashboardMode()` checks the current server mode from request context and only allows the dashboard when:
 
@@ -325,25 +278,25 @@ or `SERVER_MODE=enterprise`, dashboard UI routes and dashboard API routes return
 
 ### How static assets are wired
 
-- Embedded source: [internal/dashboardui/embed.go](/Users/raghav/Desktop/code/MCPJungle/internal/dashboardui/embed.go)
-- File server registration: [internal/api/server.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/server.go)
+- Embedded source: internal/dashboardui/embed.go
+- File server registration: internal/api/server.go
 
 ### Frontend fallback routing
 
 There is no multi-route SPA fallback setup today because the dashboard currently uses a single entrypoint and in-app section switching instead of browser URL routing.
 
-## 7. Dashboard backend APIs
+## 6. Dashboard backend APIs
 
 ### Where routes are defined
 
-Dashboard routes are registered in [internal/api/server.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/server.go).
+Dashboard routes are registered in internal/api/server.go.
 
 Handlers live in:
 
-- [internal/api/dashboard.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/dashboard.go)
-- [internal/api/dashboard_mutations.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/dashboard_mutations.go)
-- [internal/api/dashboard_oauth.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/dashboard_oauth.go)
-- [internal/api/dashboard_tool_groups.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/dashboard_tool_groups.go)
+- internal/api/dashboard.go
+- internal/api/dashboard_mutations.go
+- internal/api/dashboard_oauth.go
+- internal/api/dashboard_tool_groups.go
 
 ### Current route groups
 
@@ -383,13 +336,13 @@ Handlers live in:
 
 Typical steps:
 
-1. Add the route in [internal/api/server.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/server.go).
+1. Add the route in internal/api/server.go.
 2. Add the handler in the appropriate dashboard API file under `internal/api/`.
 3. Reuse existing service logic where possible instead of reimplementing CLI behavior.
-4. Add/extend response types in [pkg/types](</Users/raghav/Desktop/code/MCPJungle/pkg/types>) or local dashboard response structs if the API is dashboard-specific.
-5. Add frontend types in [web/dashboard/src/lib/types.ts](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/lib/types.ts).
-6. Add a frontend helper in [web/dashboard/src/lib/api.ts](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/lib/api.ts).
-7. Update the UI in [web/dashboard/src/App.tsx](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/App.tsx).
+4. Add/extend response types in pkg/types or local dashboard response structs if the API is dashboard-specific.
+5. Add frontend types in web/dashboard/src/lib/types.ts.
+6. Add a frontend helper in web/dashboard/src/lib/api.ts.
+7. Update the UI in web/dashboard/src/App.tsx.
 8. Add tests in `internal/api` or `internal/e2e`.
 
 ### Error handling
@@ -401,9 +354,9 @@ Handlers generally:
 
 See:
 
-- [internal/api/errors.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/errors.go)
+- internal/api/errors.go
 
-Frontend API helpers in [web/dashboard/src/lib/api.ts](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/lib/api.ts) expect JSON errors in the form:
+Frontend API helpers in web/dashboard/src/lib/api.ts expect JSON errors in the form:
 
 ```json
 { "error": "message" }
@@ -423,20 +376,20 @@ Current dashboard UI/API only exposes sanitized summaries such as header keys or
 
 Be careful not to reuse admin APIs like `/api/v0/server_configs` for the dashboard without sanitizing them first.
 
-## 8. OAuth registration flow
+## 7. OAuth registration flow
 
 Dashboard registration supports MCP servers that require upstream OAuth.
 
 ### Why dashboard OAuth differs from CLI OAuth
 
-The CLI can create its own localhost callback server. See [cmd/register.go](/Users/raghav/Desktop/code/MCPJungle/cmd/register.go).
+The CLI can create its own localhost callback server. See cmd/register.go.
 
 The browser frontend cannot do that, so the dashboard uses the MCPJungle Go server as the OAuth callback receiver.
 
 ### Current dashboard OAuth flow
 
 1. User submits `+ Add Server` in the dashboard.
-2. Backend tries normal registration in [internal/api/dashboard_mutations.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/dashboard_mutations.go).
+2. Backend tries normal registration in internal/api/dashboard_mutations.go.
 3. If upstream OAuth is required, backend retries registration with:
 
 ```text
@@ -465,12 +418,12 @@ The browser frontend cannot do that, so the dashboard uses the MCPJungle Go serv
 
 ### Important implementation files
 
-- CLI OAuth flow reference: [cmd/register.go](/Users/raghav/Desktop/code/MCPJungle/cmd/register.go)
-- Dashboard registration entrypoint: [internal/api/dashboard_mutations.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/dashboard_mutations.go)
-- Dashboard callback + polling: [internal/api/dashboard_oauth.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/dashboard_oauth.go)
-- Upstream OAuth service logic: [internal/service/mcp/upstream_oauth.go](/Users/raghav/Desktop/code/MCPJungle/internal/service/mcp/upstream_oauth.go)
-- Frontend registration modal: [web/dashboard/src/App.tsx](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/App.tsx)
-- Frontend API helpers: [web/dashboard/src/lib/api.ts](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/lib/api.ts)
+- CLI OAuth flow reference: cmd/register.go
+- Dashboard registration entrypoint: internal/api/dashboard_mutations.go
+- Dashboard callback + polling: internal/api/dashboard_oauth.go
+- Upstream OAuth service logic: internal/service/mcp/upstream_oauth.go
+- Frontend registration modal: web/dashboard/src/App.tsx
+- Frontend API helpers: web/dashboard/src/lib/api.ts
 
 ### Important constraints
 
@@ -478,33 +431,33 @@ The browser frontend cannot do that, so the dashboard uses the MCPJungle Go serv
 - The callback HTML page is intentionally simple.
 - Pending dashboard OAuth completion state is tracked server-side and cleaned up after expiry/retention.
 
-## 9. Common frontend tasks
+## 8. Common frontend tasks
 
 ### Add a new sidebar page
 
-- Add the section key/type in [web/dashboard/src/lib/types.ts](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/lib/types.ts)
-- Add the sidebar item in [web/dashboard/src/components/NavSidebar.tsx](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/components/NavSidebar.tsx)
-- Add the section title/meta and render branch in [web/dashboard/src/App.tsx](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/App.tsx)
-- If the page needs backend data, add an API helper in [web/dashboard/src/lib/api.ts](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/lib/api.ts)
+- Add the section key/type in web/dashboard/src/lib/types.ts
+- Add the sidebar item in web/dashboard/src/components/NavSidebar.tsx
+- Add the section title/meta and render branch in web/dashboard/src/App.tsx
+- If the page needs backend data, add an API helper in web/dashboard/src/lib/api.ts
 
 ### Add a new dashboard API call
 
-- Backend route: [internal/api/server.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/server.go)
+- Backend route: internal/api/server.go
 - Backend handler: `internal/api/dashboard*.go`
-- Frontend helper: [web/dashboard/src/lib/api.ts](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/lib/api.ts)
-- Frontend response type: [web/dashboard/src/lib/types.ts](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/lib/types.ts)
+- Frontend helper: web/dashboard/src/lib/api.ts
+- Frontend response type: web/dashboard/src/lib/types.ts
 
 ### Add a new table column
 
-- UI rendering usually lives directly in [web/dashboard/src/App.tsx](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/App.tsx)
-- Styling usually goes in [web/dashboard/src/styles.css](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/styles.css)
+- UI rendering usually lives directly in web/dashboard/src/App.tsx
+- Styling usually goes in web/dashboard/src/styles.css
 - If the data is not already in the response, add it to the dashboard API response first
 
 ### Add a new button or action
 
-- UI button: [web/dashboard/src/App.tsx](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/App.tsx)
-- API call: [web/dashboard/src/lib/api.ts](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/lib/api.ts)
-- Backend mutation handler: [internal/api/dashboard_mutations.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/dashboard_mutations.go) or [internal/api/dashboard_tool_groups.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/dashboard_tool_groups.go)
+- UI button: web/dashboard/src/App.tsx
+- API call: web/dashboard/src/lib/api.ts
+- Backend mutation handler: internal/api/dashboard_mutations.go or internal/api/dashboard_tool_groups.go
 
 ### Add a new expanded row/details panel
 
@@ -515,13 +468,13 @@ Patterns already exist on:
 - Prompts
 - Servers
 
-Look in [web/dashboard/src/App.tsx](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/App.tsx) for the existing row expansion state and markup.
+Look in web/dashboard/src/App.tsx for the existing row expansion state and markup.
 
 ### Add a copy button
 
 Reuse:
 
-- [web/dashboard/src/components/CopyButton.tsx](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/components/CopyButton.tsx)
+- web/dashboard/src/components/CopyButton.tsx
 
 Keep the copy button close to the value it copies and add:
 
@@ -530,7 +483,7 @@ Keep the copy button close to the value it copies and add:
 
 ### Add a filter/search field
 
-Current filtering patterns live in [web/dashboard/src/App.tsx](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/App.tsx) using local React state plus derived filtered arrays.
+Current filtering patterns live in web/dashboard/src/App.tsx using local React state plus derived filtered arrays.
 
 ### Add a new form/modal
 
@@ -539,7 +492,7 @@ Current examples:
 - server registration modal
 - tool group creation modal
 
-Both live in [web/dashboard/src/App.tsx](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/src/App.tsx).
+Both live in web/dashboard/src/App.tsx.
 
 Typical steps:
 
@@ -549,7 +502,7 @@ Typical steps:
 4. refresh dashboard data after success
 5. show inline mutation error/success feedback
 
-## 10. Styling and design notes
+## 9. Styling and design notes
 
 Current v1 visual direction:
 
@@ -581,7 +534,7 @@ Tools and Prompts specifically:
 - raw JSON, if present, should be fallback/debug-only
 - raw JSON fallback should be collapsed by default
 
-## 11. Testing and validation
+## 10. Testing and validation
 
 ### Frontend checks
 
@@ -592,7 +545,7 @@ npm run typecheck
 npm run build
 ```
 
-There is currently no dedicated frontend lint script in [web/dashboard/package.json](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/package.json).
+There is currently no dedicated frontend lint script in web/dashboard/package.json.
 
 ### Backend/dashboard test commands
 
@@ -607,8 +560,8 @@ go test ./...
 
 Useful test files include:
 
-- [internal/e2e/dashboard_test.go](/Users/raghav/Desktop/code/MCPJungle/internal/e2e/dashboard_test.go)
-- [internal/e2e/tool_groups_test.go](/Users/raghav/Desktop/code/MCPJungle/internal/e2e/tool_groups_test.go)
+- internal/e2e/dashboard_test.go
+- internal/e2e/tool_groups_test.go
 
 ### Manual smoke-test checklist
 
@@ -634,7 +587,7 @@ Useful test files include:
 12. Open `System Info`.
 13. Confirm the dashboard does not expose secrets.
 
-## 12. Troubleshooting
+## 11. Troubleshooting
 
 ### Frontend changes do not show up at `localhost:8080`
 
@@ -671,7 +624,7 @@ Check:
 - you started the real server
 - the server is initialized
 
-The dashboard intentionally returns `404` outside development mode. See [internal/api/middleware.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/middleware.go).
+The dashboard intentionally returns `404` outside development mode. See internal/api/middleware.go.
 
 ### API calls fail
 
@@ -683,7 +636,7 @@ Check:
 
 If `5173` works but API calls fail, inspect:
 
-- [web/dashboard/vite.config.ts](/Users/raghav/Desktop/code/MCPJungle/web/dashboard/vite.config.ts)
+- web/dashboard/vite.config.ts
 
 ### OAuth registration gets stuck
 
@@ -697,9 +650,9 @@ Check:
 
 If needed, inspect server logs and these files:
 
-- [internal/api/dashboard_oauth.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/dashboard_oauth.go)
-- [internal/api/dashboard_mutations.go](/Users/raghav/Desktop/code/MCPJungle/internal/api/dashboard_mutations.go)
-- [internal/service/mcp/upstream_oauth.go](/Users/raghav/Desktop/code/MCPJungle/internal/service/mcp/upstream_oauth.go)
+- internal/api/dashboard_oauth.go
+- internal/api/dashboard_mutations.go
+- internal/service/mcp/upstream_oauth.go
 
 ### Copy buttons do nothing
 
@@ -709,7 +662,7 @@ Copy buttons use the browser clipboard API. If copy fails:
 - make sure the page is running in a normal browser context
 - retry from the real UI page rather than an unusual embedded browser/webview
 
-## 13. Release and build notes
+## 12. Release and build notes
 
 Before cutting a release or shipping a frontend change, maintainers should:
 
@@ -739,7 +692,7 @@ go test ./...
 
 GoReleaser also runs `bash ./scripts/build-dashboard.sh` in its `before.hooks`, so release artifacts automatically include a fresh embedded dashboard bundle.
 
-## 14. Keep this doc maintainable
+## 13. Keep this doc maintainable
 
 When updating this document:
 
