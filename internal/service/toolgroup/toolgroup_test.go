@@ -299,7 +299,7 @@ func TestCreateToolGroup_EmptyResolvedToolsReturnsInvalidInput(t *testing.T) {
 	}
 }
 
-func TestCreateToolGroup_AllowsMissingExplicitToolsAsDesiredState(t *testing.T) {
+func TestCreateToolGroup_RejectsMissingExplicitTools(t *testing.T) {
 	db := setupInMemoryDB(t)
 	mcpService := newTestMCPService(t, db)
 	s, err := NewToolGroupService(db, mcpService)
@@ -313,28 +313,20 @@ func TestCreateToolGroup_AllowsMissingExplicitToolsAsDesiredState(t *testing.T) 
 	}
 
 	err = s.CreateToolGroup(group)
-	if err != nil {
-		t.Fatalf("expected stale explicit tool references to be allowed, got: %v", err)
+	if !errors.Is(err, apierrors.ErrInvalidInput) {
+		t.Fatalf("expected invalid input for missing tool reference, got: %v", err)
+	}
+	if err == nil || !testhelpers.Contains(err.Error(), "ghost__tool") {
+		t.Fatalf("expected create error to mention missing tool, got: %v", err)
 	}
 
-	proxy, ok := s.GetToolGroupMCPServer(group.Name)
-	if !ok {
-		t.Fatalf("expected group proxy to exist")
-	}
-	if len(proxy.ListTools()) != 0 {
-		t.Fatalf("expected group proxy to expose 0 tools while desired-state reference is missing, got %d", len(proxy.ListTools()))
+	if _, ok := s.GetToolGroupMCPServer(group.Name); ok {
+		t.Fatalf("did not expect group proxy to be created on invalid request")
 	}
 
-	stored, err := s.GetToolGroup(group.Name)
-	if err != nil {
-		t.Fatalf("failed to reload persisted tool group: %v", err)
-	}
-	tools, err := stored.GetTools()
-	if err != nil {
-		t.Fatalf("failed to decode stored tools: %v", err)
-	}
-	if !reflect.DeepEqual(tools, []string{"ghost__tool"}) {
-		t.Fatalf("expected persisted desired state to remain unchanged, got %v", tools)
+	_, err = s.GetToolGroup(group.Name)
+	if !errors.Is(err, ErrToolGroupNotFound) {
+		t.Fatalf("expected invalid request not to persist tool group, got: %v", err)
 	}
 }
 
