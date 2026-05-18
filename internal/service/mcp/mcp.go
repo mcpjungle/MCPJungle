@@ -25,6 +25,11 @@ type ServiceConfig struct {
 	// SessionManager manages persistent connections for MCP servers configured in stateful mode.
 	// If nil, a default SessionManager will be created.
 	SessionManager *SessionManager
+
+	// UpstreamWatcherManager manages long-lived upstream watcher connections used
+	// for background notifications such as tools/list_changed.
+	// If nil, a default manager will be created.
+	UpstreamWatcherManager *UpstreamWatcherManager
 }
 
 // MCPService coordinates operations amongst the registry database, mcp proxy server and upstream MCP servers.
@@ -52,6 +57,10 @@ type MCPService struct {
 
 	// sessionManager manages persistent connections for MCP servers configured in stateful mode.
 	sessionManager *SessionManager
+
+	// upstreamWatcherManager manages background watcher connections for supported
+	// upstream transports.
+	upstreamWatcherManager *UpstreamWatcherManager
 }
 
 // NewMCPService creates a new instance of MCPService.
@@ -77,6 +86,14 @@ func NewMCPService(c *ServiceConfig) (*MCPService, error) {
 		})
 	}
 
+	upstreamWatcherManager := c.UpstreamWatcherManager
+	if upstreamWatcherManager == nil {
+		upstreamWatcherManager = NewUpstreamWatcherManager(&UpstreamWatcherManagerConfig{
+			DB:                c.DB,
+			InitReqTimeoutSec: c.McpServerInitReqTimeout,
+		})
+	}
+
 	s := &MCPService{
 		db: c.DB,
 
@@ -94,16 +111,24 @@ func NewMCPService(c *ServiceConfig) (*MCPService, error) {
 
 		mcpServerInitReqTimeoutSec: c.McpServerInitReqTimeout,
 
-		sessionManager: sessionManager,
+		sessionManager:         sessionManager,
+		upstreamWatcherManager: upstreamWatcherManager,
 	}
+	s.upstreamWatcherManager.syncFunc = s.syncServerToolsWithClient
+
 	if err := s.initMCPProxyServer(); err != nil {
 		return nil, fmt.Errorf("failed to initialize MCP proxy server: %w", err)
 	}
+
+	s.startRegisteredUpstreamWatchers()
+
 	return s, nil
 }
 
 // Shutdown gracefully shuts down the MCP service, closing all stateful sessions.
 func (m *MCPService) Shutdown() {
+	m.upstreamWatcherManager.Shutdown()
+
 	if m.sessionManager != nil {
 		m.sessionManager.Shutdown()
 	}

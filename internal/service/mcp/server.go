@@ -125,6 +125,12 @@ func (m *MCPService) registerMcpServer(ctx context.Context, s *model.McpServer, 
 		}
 	}
 
+	// start listening for updates about tool lists from this mcp server
+	// this is on best-effort basis. Failure should not abort registration.
+	if err := m.upstreamWatcherManager.StartWatching(s); err != nil {
+		log.Printf("[WARN] failed to start upstream watcher for MCP server %s: %v", s.Name, err)
+	}
+
 	return nil
 }
 
@@ -171,6 +177,8 @@ func (m *MCPService) DeregisterMcpServer(name string) error {
 
 	// Close any stateful session associated with this server
 	m.sessionManager.CloseSession(name)
+	// Stop any upstream watchers associated with this server
+	m.upstreamWatcherManager.StopWatching(name)
 
 	return nil
 }

@@ -18,7 +18,18 @@ import (
 
 // CreateTestDB creates a test database using SQLite in-memory database
 func CreateTestDB() (*gorm.DB, error) {
-	return gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		return nil, err
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+	sqlDB.SetMaxOpenConns(1)
+
+	return db, nil
 }
 
 // AssertError asserts that an error occurred

@@ -274,12 +274,52 @@ func createHTTPMcpServerConn(
 	initReqTimeoutSec int,
 	useStoredUpstreamAuth bool,
 ) (*client.Client, error) {
+	return createHTTPMcpServerConnWithOptions(ctx, db, s, initReqTimeoutSec, useStoredUpstreamAuth)
+}
+
+// createHTTPMcpServerWatcherConn creates the dedicated streamable HTTP client
+// used by the upstream watcher manager.
+//
+// Unlike normal request-path clients, watcher clients enable continuous
+// listening so MCPJungle can receive asynchronous upstream notifications such
+// as `notifications/tools/list_changed`.
+func createHTTPMcpServerWatcherConn(
+	ctx context.Context,
+	db *gorm.DB,
+	s *model.McpServer,
+	initReqTimeoutSec int,
+	useStoredUpstreamAuth bool,
+) (*client.Client, error) {
+	return createHTTPMcpServerConnWithOptions(
+		ctx,
+		db,
+		s,
+		initReqTimeoutSec,
+		useStoredUpstreamAuth,
+		transport.WithContinuousListening(),
+	)
+}
+
+// createHTTPMcpServerConnWithOptions centralizes streamable HTTP client
+// creation for both normal request-path clients and long-lived watcher clients.
+//
+// Callers supply any transport-specific options through extraOpts so the shared
+// logic for auth, startup, and initialize-handling stays in one place.
+func createHTTPMcpServerConnWithOptions(
+	ctx context.Context,
+	db *gorm.DB,
+	s *model.McpServer,
+	initReqTimeoutSec int,
+	useStoredUpstreamAuth bool,
+	extraOpts ...transport.StreamableHTTPCOption,
+) (*client.Client, error) {
 	conf, err := s.GetStreamableHTTPConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get streamable HTTP config for MCP server %s: %w", s.Name, err)
 	}
 
 	opts := prepareSHTTPClientOptions(s.Name, conf)
+	opts = append(opts, extraOpts...)
 
 	var c *client.Client
 
@@ -319,6 +359,10 @@ func createHTTPMcpServerConn(
 		if err != nil {
 			return nil, fmt.Errorf("failed to create streamable HTTP client for MCP server: %w", err)
 		}
+	}
+
+	if err := c.Start(ctx); err != nil {
+		return nil, fmt.Errorf("failed to start streamable HTTP transport for MCP server: %w", err)
 	}
 
 	_, err = initializeHTTPClient(ctx, c, conf.URL, initReqTimeoutSec)

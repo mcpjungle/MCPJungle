@@ -1,13 +1,16 @@
 package toolgroup
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"testing"
 
+	"github.com/mark3labs/mcp-go/client"
+	mcpgo "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
-	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
+	mcpservice "github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/telemetry"
 	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
@@ -152,7 +155,7 @@ func setupInMemoryDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-func newTestMCPService(t *testing.T, db *gorm.DB) *mcp.MCPService {
+func newTestMCPService(t *testing.T, db *gorm.DB) *mcpservice.MCPService {
 	t.Helper()
 
 	proxyServer := server.NewMCPServer(
@@ -161,7 +164,7 @@ func newTestMCPService(t *testing.T, db *gorm.DB) *mcp.MCPService {
 		server.WithResourceCapabilities(false, false),
 		server.WithToolCapabilities(true),
 		server.WithPromptCapabilities(true),
-		server.WithToolFilter(mcp.ProxyToolFilter),
+		server.WithToolFilter(mcpservice.ProxyToolFilter),
 	)
 	sseProxyServer := server.NewMCPServer(
 		"test sse proxy",
@@ -169,10 +172,10 @@ func newTestMCPService(t *testing.T, db *gorm.DB) *mcp.MCPService {
 		server.WithResourceCapabilities(false, false),
 		server.WithToolCapabilities(true),
 		server.WithPromptCapabilities(true),
-		server.WithToolFilter(mcp.ProxyToolFilter),
+		server.WithToolFilter(mcpservice.ProxyToolFilter),
 	)
 
-	svc, err := mcp.NewMCPService(&mcp.ServiceConfig{
+	svc, err := mcpservice.NewMCPService(&mcpservice.ServiceConfig{
 		DB:                      db,
 		McpProxyServer:          proxyServer,
 		SseMcpProxyServer:       sseProxyServer,
@@ -186,11 +189,46 @@ func newTestMCPService(t *testing.T, db *gorm.DB) *mcp.MCPService {
 	return svc
 }
 
+func TestToolGroupProxyServers_AdvertiseToolListChanged(t *testing.T) {
+	svc := &ToolGroupService{}
+
+	assertListChanged := func(t *testing.T, srvName string, srv *server.MCPServer) {
+		t.Helper()
+
+		c, err := client.NewInProcessClient(srv)
+		if err != nil {
+			t.Fatalf("%s: failed to create in-process client: %v", srvName, err)
+		}
+		defer c.Close()
+
+		ctx := context.Background()
+		if err := c.Start(ctx); err != nil {
+			t.Fatalf("%s: failed to start client: %v", srvName, err)
+		}
+
+		res, err := c.Initialize(ctx, mcpgo.InitializeRequest{
+			Params: mcpgo.InitializeParams{
+				ProtocolVersion: mcpgo.LATEST_PROTOCOL_VERSION,
+				ClientInfo:      mcpgo.Implementation{Name: "test-client", Version: "1.0.0"},
+			},
+		})
+		if err != nil {
+			t.Fatalf("%s: failed to initialize client: %v", srvName, err)
+		}
+		if res.Capabilities.Tools == nil || !res.Capabilities.Tools.ListChanged {
+			t.Fatalf("%s: expected tools.listChanged to be advertised", srvName)
+		}
+	}
+
+	assertListChanged(t, "tool group proxy", svc.newMCPServer("alpha"))
+	assertListChanged(t, "tool group sse proxy", svc.newSseMCPServer("alpha"))
+}
+
 func TestResolveEffectiveTools_GroupNotFound(t *testing.T) {
 	db := setupInMemoryDB(t)
 	s := &ToolGroupService{
 		db:         db,
-		mcpService: &mcp.MCPService{}, // zero value is fine for this test
+		mcpService: &mcpservice.MCPService{}, // zero value is fine for this test
 	}
 
 	_, err := s.ResolveEffectiveTools("nonexistent-group")
@@ -217,7 +255,7 @@ func TestResolveEffectiveTools_ReturnsSorted(t *testing.T) {
 
 	s := &ToolGroupService{
 		db:         db,
-		mcpService: &mcp.MCPService{},
+		mcpService: &mcpservice.MCPService{},
 	}
 
 	tools, err := s.ResolveEffectiveTools("my-group")
@@ -239,7 +277,7 @@ func TestCreateToolGroup_InvalidNameReturnsInvalidInput(t *testing.T) {
 	db := setupInMemoryDB(t)
 	s := &ToolGroupService{
 		db:         db,
-		mcpService: &mcp.MCPService{},
+		mcpService: &mcpservice.MCPService{},
 	}
 
 	err := s.CreateToolGroup(&model.ToolGroup{Name: "-bad-group"})
@@ -252,12 +290,51 @@ func TestCreateToolGroup_EmptyResolvedToolsReturnsInvalidInput(t *testing.T) {
 	db := setupInMemoryDB(t)
 	s := &ToolGroupService{
 		db:         db,
-		mcpService: &mcp.MCPService{},
+		mcpService: &mcpservice.MCPService{},
 	}
 
 	err := s.CreateToolGroup(&model.ToolGroup{Name: "empty-group"})
 	if !errors.Is(err, apierrors.ErrInvalidInput) {
 		t.Fatalf("expected ErrInvalidInput, got: %v", err)
+	}
+}
+
+func TestCreateToolGroup_AllowsMissingExplicitToolsAsDesiredState(t *testing.T) {
+	db := setupInMemoryDB(t)
+	mcpService := newTestMCPService(t, db)
+	s, err := NewToolGroupService(db, mcpService)
+	if err != nil {
+		t.Fatalf("failed to create tool group service: %v", err)
+	}
+
+	group := &model.ToolGroup{
+		Name:          "desired-state-group",
+		IncludedTools: datatypes.JSON([]byte(`["ghost__tool"]`)),
+	}
+
+	err = s.CreateToolGroup(group)
+	if err != nil {
+		t.Fatalf("expected stale explicit tool references to be allowed, got: %v", err)
+	}
+
+	proxy, ok := s.GetToolGroupMCPServer(group.Name)
+	if !ok {
+		t.Fatalf("expected group proxy to exist")
+	}
+	if len(proxy.ListTools()) != 0 {
+		t.Fatalf("expected group proxy to expose 0 tools while desired-state reference is missing, got %d", len(proxy.ListTools()))
+	}
+
+	stored, err := s.GetToolGroup(group.Name)
+	if err != nil {
+		t.Fatalf("failed to reload persisted tool group: %v", err)
+	}
+	tools, err := stored.GetTools()
+	if err != nil {
+		t.Fatalf("failed to decode stored tools: %v", err)
+	}
+	if !reflect.DeepEqual(tools, []string{"ghost__tool"}) {
+		t.Fatalf("expected persisted desired state to remain unchanged, got %v", tools)
 	}
 }
 

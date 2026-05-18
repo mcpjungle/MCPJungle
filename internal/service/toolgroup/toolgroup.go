@@ -194,23 +194,13 @@ func (s *ToolGroupService) UpdateToolGroup(name string, updatedGroup *model.Tool
 	}
 
 	// tools removed from the group must be removed from its MCP server instances
-	var sseToolsToRemove, normalToolsToRemove []string
-	for _, toolName := range toolsRemoved {
-		parentServer, err := s.mcpService.GetToolParentServer(toolName)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get parent MCP server of the tool %s: %w", toolName, err)
-		}
-
-		if parentServer.Transport == types.TransportSSE {
-			sseToolsToRemove = append(sseToolsToRemove, toolName)
-		} else {
-			normalToolsToRemove = append(normalToolsToRemove, toolName)
-		}
-	}
-
-	// make all the changes together to avoid inconsistent state in case of errors
-	mcpServer.DeleteTools(normalToolsToRemove...)
-	sseMcpServer.DeleteTools(sseToolsToRemove...)
+	//
+	// make all the changes together to avoid inconsistent state in case of errors.
+	// DeleteTools is safe to call against both proxies for every removed tool:
+	// each canonical tool name can only exist in one proxy, and deleting a
+	// non-existent tool from the other proxy is a no-op.
+	mcpServer.DeleteTools(toolsRemoved...)
+	sseMcpServer.DeleteTools(toolsRemoved...)
 
 	for _, tool := range normalToolsToAdd {
 		mcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
@@ -382,16 +372,14 @@ func (s *ToolGroupService) initToolGroupMCPServers() error {
 			s.addToolGroupSseMCPServer(group.Name, sseMcpServer)
 			continue
 		}
-		// TODO: Log a warning if a group has no tools, ie, len(toolNames) == 0
 
-		for _, name := range toolNames {
-			tool, exists := s.mcpService.GetToolInstance(name)
-			if !exists {
-				// it is possible that a tool group contains a tool that does not exist.
-				// this should not prevent server startup, so just skip instead of returning an error.
-				// TODO: Add a warning log here.
-				continue
-			}
+		// figure out which tools from this group are no longer available and warn about them
+		availableTools, missingTools := s.partitionExistingTools(toolNames)
+		s.warnAboutMissingGroupTools(group.Name, missingTools)
+
+		for _, name := range availableTools {
+			// no need to check for existence because availableTools only contains tools that are available
+			tool, _ := s.mcpService.GetToolInstance(name)
 
 			parentServer, err := s.mcpService.GetToolParentServer(name)
 			if err != nil {
@@ -415,6 +403,8 @@ func (s *ToolGroupService) initToolGroupMCPServers() error {
 // handleToolDeletion is a callback that is called when one or more tools is deleted or disabled.
 // It removes the tools from all tool group MCP proxy servers.
 func (s *ToolGroupService) handleToolDeletion(tools ...string) {
+	s.warnGroupsReferencingDeletedTools(tools...)
+
 	s.mcpServersMu.RLock()
 	defer s.mcpServersMu.RUnlock()
 
@@ -427,6 +417,97 @@ func (s *ToolGroupService) handleToolDeletion(tools ...string) {
 
 	for _, sseMcpServer := range s.sseMcpServers {
 		sseMcpServer.DeleteTools(tools...)
+	}
+}
+
+// partitionExistingTools splits a resolved tool-group tool list into:
+// - tools that currently exist as live MCPJungle tool instances
+// - tools that are still referenced by desired state but are not currently available
+//
+// Tool groups preserve those missing references in the DB, but only currently
+// available tools are exposed through the runtime group proxies.
+func (s *ToolGroupService) partitionExistingTools(toolNames []string) ([]string, []string) {
+	available := make([]string, 0, len(toolNames))
+	missing := make([]string, 0)
+
+	for _, toolName := range toolNames {
+		if _, exists := s.mcpService.GetToolInstance(toolName); exists {
+			available = append(available, toolName)
+			continue
+		}
+		missing = append(missing, toolName)
+	}
+
+	return available, missing
+}
+
+// warnAboutMissingGroupTools emits a runtime warning when a tool group's
+// desired state references tools that do not currently exist in MCPJungle.
+//
+// This warning-only behavior is intentional: MCPJungle does not mutate the
+// persisted tool-group config, and the group proxy simply omits the missing
+// tools until they reappear or the user updates the config.
+func (s *ToolGroupService) warnAboutMissingGroupTools(groupName string, missingTools []string) {
+	if len(missingTools) == 0 {
+		return
+	}
+	log.Printf(
+		"[WARN] tool group '%s' references tools that do not currently exist in mcpjungle or are disabled: %v. Update the tool group configuration to make this warning go away.",
+		groupName,
+		missingTools,
+	)
+}
+
+// warnGroupsReferencingDeletedTools inspects persisted tool-group configs after
+// one or more tools disappear from MCPJungle and logs warnings for any stale
+// references that remain in desired state.
+//
+// This keeps operators informed without rewriting user-authored group
+// definitions when upstream tool availability changes.
+func (s *ToolGroupService) warnGroupsReferencingDeletedTools(toolNames ...string) {
+	if len(toolNames) == 0 {
+		return
+	}
+
+	groups, err := s.ListToolGroups()
+	if err != nil {
+		log.Printf("[WARN] failed to list tool groups while checking for stale tool references: %v", err)
+		return
+	}
+
+	// prepare a set of deleted tool names for efficient lookup when inspecting groups
+	deleted := make(map[string]struct{}, len(toolNames))
+	for _, name := range toolNames {
+		deleted[name] = struct{}{}
+	}
+
+	for i := range groups {
+		referenced := make([]string, 0)
+
+		// only examine tools that are explicitly mentioned in the group config.
+		includedTools, err := groups[i].GetTools()
+		if err != nil {
+			log.Printf("[WARN] failed to inspect included tools for tool group '%s': %v", groups[i].Name, err)
+			continue
+		}
+		for _, toolName := range includedTools {
+			if _, exists := deleted[toolName]; exists {
+				referenced = append(referenced, toolName)
+			}
+		}
+
+		excludedTools, err := groups[i].GetExcludedTools()
+		if err != nil {
+			log.Printf("[WARN] failed to inspect excluded tools for tool group '%s': %v", groups[i].Name, err)
+			continue
+		}
+		for _, toolName := range excludedTools {
+			if _, exists := deleted[toolName]; exists {
+				referenced = append(referenced, toolName)
+			}
+		}
+
+		s.warnAboutMissingGroupTools(groups[i].Name, referenced)
 	}
 }
 

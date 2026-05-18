@@ -20,6 +20,18 @@ Mcpjungle consists of several main components:
 - **MCP Gateway server**: MCP protocol handling in `internal/service/mcp/`
 - **Database layer**: SQLite and PostgreSQL persistence in `internal/db/`
 
+### Upstream watchers
+
+For `streamable_http` upstream servers, the MCP gateway can maintain a separate background listener connection for upstream `notifications/tools/list_changed`.
+
+This watcher is intentionally separate from `session_mode`:
+
+- `session_mode` still controls how tool calls are executed
+- the watcher exists only to listen for upstream tool-list changes
+- when the upstream advertises `tools.listChanged`, Mcpjungle refreshes its cached tool list and propagates `notifications/tools/list_changed` to downstream clients
+
+This push-sync path is currently supported only for `streamable_http` upstream servers.
+
 ## Codebase entry points
 
 Good places to orient yourself:

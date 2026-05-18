@@ -1,10 +1,14 @@
 package cmd
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 	"github.com/mcpjungle/mcpjungle/pkg/version"
 )
@@ -91,6 +95,41 @@ func TestNewProxyServers_AdvertiseCurrentVersion(t *testing.T) {
 		"MCPJungle Proxy MCP Server for SSE transport",
 		version.GetVersion(),
 	)
+}
+
+func TestNewProxyServers_AdvertiseToolListChanged(t *testing.T) {
+	mcpProxyServer, sseMcpProxyServer := newProxyServers()
+
+	assertListChanged := func(t *testing.T, srvName string, srv *server.MCPServer) {
+		t.Helper()
+
+		c, err := client.NewInProcessClient(srv)
+		if err != nil {
+			t.Fatalf("%s: failed to create in-process client: %v", srvName, err)
+		}
+		defer c.Close()
+
+		ctx := context.Background()
+		if err := c.Start(ctx); err != nil {
+			t.Fatalf("%s: failed to start client: %v", srvName, err)
+		}
+
+		res, err := c.Initialize(ctx, mcp.InitializeRequest{
+			Params: mcp.InitializeParams{
+				ProtocolVersion: mcp.LATEST_PROTOCOL_VERSION,
+				ClientInfo:      mcp.Implementation{Name: "test-client", Version: "1.0.0"},
+			},
+		})
+		if err != nil {
+			t.Fatalf("%s: failed to initialize client: %v", srvName, err)
+		}
+		if res.Capabilities.Tools == nil || !res.Capabilities.Tools.ListChanged {
+			t.Fatalf("%s: expected tools.listChanged to be advertised", srvName)
+		}
+	}
+
+	assertListChanged(t, "main proxy", mcpProxyServer)
+	assertListChanged(t, "sse proxy", sseMcpProxyServer)
 }
 
 // Helper to set and unset env vars for a test
