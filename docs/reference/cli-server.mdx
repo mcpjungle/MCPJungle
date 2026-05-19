@@ -22,7 +22,7 @@ The server listens on port `8080` by default and exposes the MCP proxy at `/mcp`
 </ParamField>
 
 <ParamField body="--sqlite-db-path" type="string">
-  Path to the SQLite database file to use when PostgreSQL is not configured. Overrides the `SQLITE_DB_PATH` environment variable.
+  Path to the SQLite database file to use when PostgreSQL is not configured. Defaults to `./mcpjungle.db`. Overrides the `SQLITE_DB_PATH` environment variable.
 </ParamField>
 
 <ParamField body="--enterprise" type="boolean" default="false">

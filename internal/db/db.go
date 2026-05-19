@@ -55,9 +55,10 @@ func NewDBConnection(dsn string, sqliteDBPath string) (*gorm.DB, error) {
 	var dialector gorm.Dialector
 	if dsn == "" {
 		dbPath := resolveSQLiteDBPath(sqliteDBPath)
-		log.Printf("[db] DATABASE_URL not set – falling back to embedded SQLite %s", dbPath)
+		log.Printf("[db] Using sqlite database at %s", dbPath)
 		dialector = sqlite.Open(fmt.Sprintf("%s?_busy_timeout=5000&_journal_mode=WAL", dbPath))
 	} else {
+		log.Printf("[db] Using postgres database")
 		dialector = postgres.Open(dsn)
 	}
 

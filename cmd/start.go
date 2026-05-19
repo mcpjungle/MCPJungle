@@ -109,7 +109,7 @@ func init() {
 		"sqlite-db-path",
 		"",
 		fmt.Sprintf(
-			"path to a custom SQLite database file to use, if not using postgres (overrides env var %s)",
+			"path to a custom SQLite database file to use, if not using postgres; defaults to ./mcpjungle.db (overrides env var %s)",
 			SQLiteDBPathEnvVar,
 		),
 	)
@@ -244,7 +244,6 @@ func getSQLiteDBPathOverride() string {
 	if startServerCmdSQLiteDBPath != "" {
 		return strings.TrimSpace(startServerCmdSQLiteDBPath)
 	}
-
 	return strings.TrimSpace(os.Getenv(SQLiteDBPathEnvVar))
 }
 
