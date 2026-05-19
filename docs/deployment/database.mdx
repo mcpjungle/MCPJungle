@@ -21,6 +21,18 @@ mcpjungle start
 
 SQLite requires no setup and works well for individuals running Mcpjungle locally. It is not recommended for production or multi-user deployments.
 
+If you want to hide the SQLite file or place it elsewhere, set a custom path:
+
+```bash
+mcpjungle start --sqlite-db-path ./.mcpjungle.db
+
+# or
+export SQLITE_DB_PATH=/var/lib/mcpjungle/.mcpjungle.db
+mcpjungle start
+```
+
+Deleting the SQLite file removes registered servers, tool groups, users, and other persisted MCPJungle state stored in that database.
+
 ## PostgreSQL
 
 Mcpjungle supports PostgreSQL for serious deployments. You can configure it with either a full DSN or individual environment variables.
@@ -93,7 +105,9 @@ When Mcpjungle starts, it resolves the database connection in this order:
 
 1. `DATABASE_URL` — used as-is if set
 2. `POSTGRES_HOST` (+ optional variables) — constructs a DSN if `POSTGRES_HOST` is set
-3. SQLite fallback — creates `mcpjungle.db` in the current directory
+3. `--sqlite-db-path` — uses the configured SQLite file path
+4. `SQLITE_DB_PATH` — uses the configured SQLite file path
+5. SQLite fallback — creates `mcpjungle.db` in the current directory
 
 ## Production recommendations
 

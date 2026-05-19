@@ -16,6 +16,7 @@
 
 # Dependency directories
 vendor/
+web/dashboard/node_modules/
 
 # Go workspace file
 go.work

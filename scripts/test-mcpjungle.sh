@@ -670,11 +670,22 @@ go build -o "$BIN_PATH" .
 log "Starting server via local binary on port ${REGISTRY_PORT}"
 reset_runtime_state
 REGISTRY_RUNTIME_DIR=$(mktemp -d)
+REGISTRY_SQLITE_DB_PATH="$REGISTRY_RUNTIME_DIR/.mcpjungle.db"
 REGISTRY_LOG=$(mktemp)
-start_local_server "$REGISTRY_PORT" "$REGISTRY_LOG" "$REGISTRY_RUNTIME_DIR"
+start_local_server "$REGISTRY_PORT" "$REGISTRY_LOG" "$REGISTRY_RUNTIME_DIR" --sqlite-db-path "$REGISTRY_SQLITE_DB_PATH"
 
 log "Waiting for local registry server health"
 wait_for_health "$REGISTRY_URL/health"
+
+if [[ ! -f "$REGISTRY_SQLITE_DB_PATH" ]]; then
+  echo "ERROR: expected configured sqlite database file to exist at ${REGISTRY_SQLITE_DB_PATH}" >&2
+  exit 1
+fi
+
+if [[ -f "$REGISTRY_RUNTIME_DIR/mcpjungle.db" ]]; then
+  echo "ERROR: expected default sqlite database file to not be created when --sqlite-db-path is used" >&2
+  exit 1
+fi
 
 # 3) Basic CLI sanity checks
 log "Verifying CLI help and version"

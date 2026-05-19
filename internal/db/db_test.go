@@ -72,7 +72,7 @@ func TestNewDBConnection(t *testing.T) {
 			// Cleanup before test
 			tt.cleanup()
 
-			db, err := NewDBConnection(tt.dsn)
+			db, err := NewDBConnection(tt.dsn, "")
 
 			if tt.expectError {
 				testhelpers.AssertError(t, err)
@@ -113,7 +113,7 @@ func TestNewDBConnection_SQLiteFallback(t *testing.T) {
 	defer cleanup()
 
 	// Test with empty DSN
-	db, err := NewDBConnection("")
+	db, err := NewDBConnection("", "")
 	testhelpers.AssertNoError(t, err)
 	testhelpers.AssertNotNil(t, db)
 
@@ -148,7 +148,7 @@ func TestNewDBConnection_DatabaseConfiguration(t *testing.T) {
 	cleanup()
 	defer cleanup()
 
-	db, err := NewDBConnection("")
+	db, err := NewDBConnection("", "")
 	testhelpers.AssertNoError(t, err)
 	testhelpers.AssertNotNil(t, db)
 
@@ -180,11 +180,11 @@ func TestNewDBConnection_ConcurrentAccess(t *testing.T) {
 	defer cleanup()
 
 	// Test creating multiple connections to the same SQLite database
-	db1, err := NewDBConnection("")
+	db1, err := NewDBConnection("", "")
 	testhelpers.AssertNoError(t, err)
 	testhelpers.AssertNotNil(t, db1)
 
-	db2, err := NewDBConnection("")
+	db2, err := NewDBConnection("", "")
 	testhelpers.AssertNoError(t, err)
 	testhelpers.AssertNotNil(t, db2)
 
@@ -225,7 +225,7 @@ func TestNewDBConnection_WithCustomPath(t *testing.T) {
 	}()
 
 	// Test SQLite creation in temp directory
-	db, err := NewDBConnection("")
+	db, err := NewDBConnection("", "")
 	testhelpers.AssertNoError(t, err)
 	testhelpers.AssertNotNil(t, db)
 
@@ -240,6 +240,38 @@ func TestNewDBConnection_WithCustomPath(t *testing.T) {
 	err = sqlDB.Ping()
 	testhelpers.AssertNoError(t, err)
 
+	err = sqlDB.Close()
+	testhelpers.AssertNoError(t, err)
+}
+
+func TestNewDBConnection_WithExplicitSQLitePath(t *testing.T) {
+	originalDir, err := os.Getwd()
+	testhelpers.AssertNoError(t, err)
+
+	tempDir := t.TempDir()
+	err = os.Chdir(tempDir)
+	testhelpers.AssertNoError(t, err)
+
+	defer func() {
+		err = os.Chdir(originalDir)
+		testhelpers.AssertNoError(t, err)
+	}()
+
+	customPath := filepath.Join(tempDir, ".mcpjungle.db")
+	db, err := NewDBConnection("", customPath)
+	testhelpers.AssertNoError(t, err)
+	testhelpers.AssertNotNil(t, db)
+
+	_, err = os.Stat(customPath)
+	testhelpers.AssertNoError(t, err)
+
+	_, err = os.Stat(filepath.Join(tempDir, dbFilename))
+	if !os.IsNotExist(err) {
+		t.Fatalf("expected default database file to not exist, got err=%v", err)
+	}
+
+	sqlDB, err := db.DB()
+	testhelpers.AssertNoError(t, err)
 	err = sqlDB.Close()
 	testhelpers.AssertNoError(t, err)
 }
@@ -273,7 +305,7 @@ func TestNewDBConnection_ErrorHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			db, err := NewDBConnection(tt.dsn)
+			db, err := NewDBConnection(tt.dsn, "")
 			testhelpers.AssertError(t, err)
 			if db != nil {
 				t.Errorf("Expected db to be nil, got %v", db)
@@ -293,7 +325,7 @@ func BenchmarkNewDBConnection_SQLite(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		db, err := NewDBConnection("")
+		db, err := NewDBConnection("", "")
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -371,7 +403,7 @@ func TestSQLiteDBPath_BackwardCompatibility(t *testing.T) {
 			testhelpers.AssertEqual(t, tt.expectedDBFile, result)
 
 			// Test that the database connection actually works
-			db, err := NewDBConnection("")
+			db, err := NewDBConnection("", "")
 			testhelpers.AssertNoError(t, err)
 			testhelpers.AssertNotNil(t, db)
 
@@ -390,4 +422,22 @@ func TestSQLiteDBPath_BackwardCompatibility(t *testing.T) {
 			cleanup() // Clean up after each test
 		})
 	}
+}
+
+func TestResolveSQLiteDBPath(t *testing.T) {
+	t.Run("uses explicit path without legacy fallback", func(t *testing.T) {
+		customPath := filepath.Join(t.TempDir(), ".mcpjungle.db")
+		testhelpers.AssertEqual(t, customPath, resolveSQLiteDBPath(customPath))
+	})
+
+	t.Run("uses compatibility lookup when path is not configured", func(t *testing.T) {
+		cleanupDBFiles(t)
+		defer cleanupDBFiles(t)
+
+		oldDB, err := os.Create(deprecatedDBFilename)
+		testhelpers.AssertNoError(t, err)
+		testhelpers.AssertNoError(t, oldDB.Close())
+
+		testhelpers.AssertEqual(t, deprecatedDBFilename, resolveSQLiteDBPath(""))
+	})
 }

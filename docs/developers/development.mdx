@@ -91,6 +91,11 @@ See the [golangci-lint installation docs](https://golangci-lint.run/docs/welcome
 git clone https://github.com/mcpjungle/MCPJungle.git
 cd MCPJungle
 
+# Fresh clones need the generated dashboard bundle before Go tests/builds.
+# This installs frontend deps as needed and copies the built assets into
+# internal/dashboardui/dist for Go's //go:embed step.
+bash ./scripts/build-dashboard.sh
+
 docker-compose up -d
 
 goreleaser build --single-target --clean --snapshot
@@ -111,6 +116,7 @@ SELECT * FROM tools;
 ```
 
 For backward compatibility, Mcpjungle still reads existing `mcp.db` files if they exist, but new databases are created as `mcpjungle.db`.
+If you start the server with `--sqlite-db-path` or `SQLITE_DB_PATH`, inspect that configured file path instead.
 
 ### PostgreSQL
 

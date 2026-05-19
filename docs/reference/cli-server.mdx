@@ -21,6 +21,10 @@ The server listens on port `8080` by default and exposes the MCP proxy at `/mcp`
   TCP port to bind the HTTP server to. Overrides the `PORT` environment variable. Defaults to `8080`.
 </ParamField>
 
+<ParamField body="--sqlite-db-path" type="string">
+  Path to the SQLite database file to use when PostgreSQL is not configured. Overrides the `SQLITE_DB_PATH` environment variable.
+</ParamField>
+
 <ParamField body="--enterprise" type="boolean" default="false">
   Start the server in enterprise mode, which enables access control, authenticated clients, and user management. Equivalent to setting `SERVER_MODE=enterprise`. When using this flag on a fresh database, the server will print a reminder to run `init-server` before it can be used.
 </ParamField>
@@ -43,6 +47,12 @@ Start on a custom port:
 
 ```bash
 mcpjungle start --port 9000
+```
+
+Start with a hidden SQLite file:
+
+```bash
+mcpjungle start --sqlite-db-path ./.mcpjungle.db
 ```
 
 Start in enterprise mode:

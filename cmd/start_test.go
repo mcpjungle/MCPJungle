@@ -51,6 +51,14 @@ func TestStartCommandFlags(t *testing.T) {
 		}
 	})
 
+	t.Run("start command has sqlite db path flag", func(t *testing.T) {
+		if sqlitePathFlag := startServerCmd.Flags().Lookup("sqlite-db-path"); sqlitePathFlag == nil {
+			t.Fatal("Start command missing 'sqlite-db-path' flag")
+		} else if sqlitePathFlag.Usage == "" {
+			t.Error("sqlite-db-path flag should have usage description")
+		}
+	})
+
 	t.Run("start command has enterprise flag", func(t *testing.T) {
 		if enterpriseFlag := startServerCmd.Flags().Lookup("enterprise"); enterpriseFlag == nil {
 			t.Fatal("Start command missing 'enterprise' flag")
@@ -264,6 +272,56 @@ func TestGetPostgresDSN(t *testing.T) {
 			want := "postgres://user:@host:5432/postgres"
 			if dsn != want {
 				t.Errorf("expected dsn %q, got %q", want, dsn)
+			}
+		})
+	})
+}
+
+func TestGetSQLiteDBPathOverride(t *testing.T) {
+	t.Run("returns empty string when unset", func(t *testing.T) {
+		originalFlag := startServerCmdSQLiteDBPath
+		startServerCmdSQLiteDBPath = ""
+		defer func() {
+			startServerCmdSQLiteDBPath = originalFlag
+		}()
+
+		withEnv(map[string]string{
+			SQLiteDBPathEnvVar: "",
+		}, func() {
+			if got := getSQLiteDBPathOverride(); got != "" {
+				t.Fatalf("expected empty sqlite db path, got %q", got)
+			}
+		})
+	})
+
+	t.Run("uses env var when flag is unset", func(t *testing.T) {
+		originalFlag := startServerCmdSQLiteDBPath
+		startServerCmdSQLiteDBPath = ""
+		defer func() {
+			startServerCmdSQLiteDBPath = originalFlag
+		}()
+
+		withEnv(map[string]string{
+			SQLiteDBPathEnvVar: "  /tmp/.mcpjungle.db \n",
+		}, func() {
+			if got := getSQLiteDBPathOverride(); got != "/tmp/.mcpjungle.db" {
+				t.Fatalf("expected env sqlite db path, got %q", got)
+			}
+		})
+	})
+
+	t.Run("flag takes precedence over env var", func(t *testing.T) {
+		originalFlag := startServerCmdSQLiteDBPath
+		startServerCmdSQLiteDBPath = " ./custom.db "
+		defer func() {
+			startServerCmdSQLiteDBPath = originalFlag
+		}()
+
+		withEnv(map[string]string{
+			SQLiteDBPathEnvVar: "/tmp/.mcpjungle.db",
+		}, func() {
+			if got := getSQLiteDBPathOverride(); got != "./custom.db" {
+				t.Fatalf("expected flag sqlite db path, got %q", got)
 			}
 		})
 	})

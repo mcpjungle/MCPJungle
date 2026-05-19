@@ -37,6 +37,7 @@ const (
 	BindPortDefault = "8080"
 
 	DBUrlEnvVar            = "DATABASE_URL"
+	SQLiteDBPathEnvVar     = "SQLITE_DB_PATH"
 	ServerModeEnvVar       = "SERVER_MODE"
 	TelemetryEnabledEnvVar = "OTEL_ENABLED"
 )
@@ -66,6 +67,7 @@ const (
 
 var (
 	startServerCmdBindPort          string
+	startServerCmdSQLiteDBPath      string
 	startServerCmdEnterpriseEnabled bool
 	startServerCmdProdEnabled       bool
 )
@@ -77,6 +79,7 @@ var startServerCmd = &cobra.Command{
 		"The server is started in development mode by default, which is ideal for running mcpjungle locally.\n" +
 		"Teams & Enterprises should run mcpjungle in enterprise mode.\n\n" +
 		"By default, this command creates a SQLite database file in the current directory (if it doesn't already exist).\n" +
+		"You can override that SQLite file path with the --sqlite-db-path flag or the SQLITE_DB_PATH environment variable.\n" +
 		"You can also supply a custom DSN in the DATABASE_URL environment variable.\n" +
 		"eg: export DATABASE_URL='postgres://user:password@localhost:5432/mcpjungle'\n" +
 		"For Postgres, you can also set individual connection details using the following environment variables:\n" +
@@ -100,6 +103,15 @@ func init() {
 		"port",
 		"",
 		fmt.Sprintf("port to bind the HTTP server to (overrides env var %s)", BindPortEnvVar),
+	)
+	startServerCmd.Flags().StringVar(
+		&startServerCmdSQLiteDBPath,
+		"sqlite-db-path",
+		"",
+		fmt.Sprintf(
+			"path to a custom SQLite database file to use, if not using postgres (overrides env var %s)",
+			SQLiteDBPathEnvVar,
+		),
 	)
 	startServerCmd.Flags().BoolVar(
 		&startServerCmdEnterpriseEnabled,
@@ -224,6 +236,16 @@ func getBindPort() string {
 		port = BindPortDefault
 	}
 	return port
+}
+
+// getSQLiteDBPathOverride returns the configured SQLite DB path override.
+// precedence: command line flag > environment variable > unset (empty string)
+func getSQLiteDBPathOverride() string {
+	if startServerCmdSQLiteDBPath != "" {
+		return strings.TrimSpace(startServerCmdSQLiteDBPath)
+	}
+
+	return strings.TrimSpace(os.Getenv(SQLiteDBPathEnvVar))
 }
 
 // getEnvOrFile returns the value of the given environment variable.
@@ -388,7 +410,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	dbConn, err := db.NewDBConnection(dsn)
+	dbConn, err := db.NewDBConnection(dsn, getSQLiteDBPathOverride())
 	if err != nil {
 		return err
 	}

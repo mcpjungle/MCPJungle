@@ -38,15 +38,24 @@ func getSQLiteDBPath() string {
 	return dbFilename
 }
 
+// resolveSQLiteDBPath determines the SQLite database path to use based on the provided configuration.
+// If a configured path is provided, it uses that. Otherwise, it falls back to the default filename in the current directory.
+func resolveSQLiteDBPath(configuredPath string) string {
+	if configuredPath != "" {
+		return configuredPath
+	}
+	return getSQLiteDBPath()
+}
+
 // NewDBConnection creates a new database connection based on the provided DSN.
 // If the DSN is empty, it falls back to an embedded SQLite database.
 // For backward compatibility, it will use an existing "mcp.db" file if present,
 // otherwise it creates/uses "mcpjungle.db".
-func NewDBConnection(dsn string) (*gorm.DB, error) {
+func NewDBConnection(dsn string, sqliteDBPath string) (*gorm.DB, error) {
 	var dialector gorm.Dialector
 	if dsn == "" {
-		dbPath := getSQLiteDBPath()
-		log.Printf("[db] DATABASE_URL not set – falling back to embedded SQLite ./%s", dbPath)
+		dbPath := resolveSQLiteDBPath(sqliteDBPath)
+		log.Printf("[db] DATABASE_URL not set – falling back to embedded SQLite %s", dbPath)
 		dialector = sqlite.Open(fmt.Sprintf("%s?_busy_timeout=5000&_journal_mode=WAL", dbPath))
 	} else {
 		dialector = postgres.Open(dsn)

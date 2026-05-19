@@ -17,6 +17,17 @@ MCPJungle supports SQLite (default) and PostgreSQL. Use either `DATABASE_URL` fo
   When this variable is not set and `POSTGRES_HOST` is also not set, MCPJungle falls back to an embedded SQLite database file (`mcpjungle.db`) in the current working directory.
 </ParamField>
 
+<ParamField path="SQLITE_DB_PATH" type="string">
+  Path to the SQLite database file to use when `DATABASE_URL` and `POSTGRES_HOST` are not set. The `--sqlite-db-path` CLI flag takes precedence over this variable.
+
+  ```bash
+  export SQLITE_DB_PATH=./.mcpjungle.db
+  mcpjungle start
+  ```
+
+  When this variable is set, MCPJungle uses that exact path instead of auto-detecting `mcpjungle.db` or the legacy `mcp.db`.
+</ParamField>
+
 <ParamField path="POSTGRES_HOST" type="string">
   PostgreSQL host. **Required** when using the individual `POSTGRES_*` variables instead of `DATABASE_URL`. If this variable is not set, MCPJungle does not attempt to build a PostgreSQL DSN from the other `POSTGRES_*` variables.
 
@@ -75,7 +86,9 @@ When the server starts it resolves the database connection in this order:
 
 1. `DATABASE_URL` — used as-is if set.
 2. `POSTGRES_HOST` + optional `POSTGRES_*` variables — MCPJungle constructs a DSN if `POSTGRES_HOST` is set.
-3. SQLite fallback — creates or opens `mcpjungle.db` in the current working directory.
+3. `--sqlite-db-path` — uses the configured SQLite file path if the CLI flag is set.
+4. `SQLITE_DB_PATH` — uses the configured SQLite file path if the environment variable is set.
+5. SQLite fallback — creates or opens `mcpjungle.db` in the current working directory, while still recognizing an existing legacy `mcp.db`.
 
 ---
 
@@ -189,6 +202,7 @@ When the server starts it resolves the database connection in this order:
 | Variable | Category | Default | Description |
 |---|---|---|---|
 | `DATABASE_URL` | Database | — | Full PostgreSQL DSN. |
+| `SQLITE_DB_PATH` | Database | — | SQLite database path used when PostgreSQL is not configured. |
 | `POSTGRES_HOST` | Database | — | PostgreSQL host. Required to enable `POSTGRES_*` variables. |
 | `POSTGRES_PORT` | Database | `5432` | PostgreSQL port. |
 | `POSTGRES_USER` | Database | `postgres` | PostgreSQL username. |
