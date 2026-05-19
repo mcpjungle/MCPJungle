@@ -261,7 +261,9 @@ The mcpjungle server relies on a database and by default, creates a SQLite DB fi
 
 This is okay when you're just testing things out locally.
 
-You can set a custom file path for the SQLite DB file:
+If you do not provide PostgreSQL configuration or a custom SQLite path, mcpjungle uses `./mcpjungle.db`.
+
+You can optionally set a custom file path for the SQLite DB file:
 
 ```bash
 mcpjungle start --sqlite-db-path ./.mcpjungle.db

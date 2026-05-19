@@ -22,7 +22,7 @@ The server listens on port `8080` by default and exposes the MCP proxy at `/mcp`
 </ParamField>
 
 <ParamField body="--sqlite-db-path" type="string">
-  Path to the SQLite database file to use when PostgreSQL is not configured. Defaults to `./mcpjungle.db`. Overrides the `SQLITE_DB_PATH` environment variable.
+  Optional path to a custom SQLite database file to use when PostgreSQL is not configured. If not provided, MCPJungle defaults to `./mcpjungle.db`. Overrides the `SQLITE_DB_PATH` environment variable.
 </ParamField>
 
 <ParamField body="--enterprise" type="boolean" default="false">
@@ -49,10 +49,10 @@ Start on a custom port:
 mcpjungle start --port 9000
 ```
 
-Start with a hidden SQLite file:
+Start with a custom SQLite file:
 
 ```bash
-mcpjungle start --sqlite-db-path ./.mcpjungle.db
+mcpjungle start --sqlite-db-path /path/to/mcpjungle.db
 ```
 
 Start in enterprise mode:

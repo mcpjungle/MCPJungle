@@ -78,8 +78,8 @@ var startServerCmd = &cobra.Command{
 	Long: "Starts the MCPJungle HTTP Registry and the MCP Gateway\n\n" +
 		"The server is started in development mode by default, which is ideal for running mcpjungle locally.\n" +
 		"Teams & Enterprises should run mcpjungle in enterprise mode.\n\n" +
-		"By default, this command creates a SQLite database file in the current directory (if it doesn't already exist).\n" +
-		"You can override that SQLite file path with the --sqlite-db-path flag or the SQLITE_DB_PATH environment variable.\n" +
+		"If no PostgreSQL configuration is provided, this command uses a SQLite database file at ./mcpjungle.db by default.\n" +
+		"You can optionally override that SQLite file path with the --sqlite-db-path flag or the SQLITE_DB_PATH environment variable.\n" +
 		"You can also supply a custom DSN in the DATABASE_URL environment variable.\n" +
 		"eg: export DATABASE_URL='postgres://user:password@localhost:5432/mcpjungle'\n" +
 		"For Postgres, you can also set individual connection details using the following environment variables:\n" +

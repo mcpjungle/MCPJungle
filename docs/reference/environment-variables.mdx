@@ -18,14 +18,14 @@ MCPJungle supports SQLite (default) and PostgreSQL. Use either `DATABASE_URL` fo
 </ParamField>
 
 <ParamField path="SQLITE_DB_PATH" type="string">
-  Path to the SQLite database file to use when `DATABASE_URL` and `POSTGRES_HOST` are not set. The `--sqlite-db-path` CLI flag takes precedence over this variable.
+  Optional path to the SQLite database file to use when `DATABASE_URL` and `POSTGRES_HOST` are not set. If this variable is not set, MCPJungle defaults to `./mcpjungle.db`. The `--sqlite-db-path` CLI flag takes precedence over this variable.
 
   ```bash
   export SQLITE_DB_PATH=./.mcpjungle.db
   mcpjungle start
   ```
 
-  When this variable is set, MCPJungle uses that exact path instead of auto-detecting `mcpjungle.db` or the legacy `mcp.db`.
+  When this variable is set, MCPJungle uses that exact path instead of auto-detecting `mcpjungle.db`.
 </ParamField>
 
 <ParamField path="POSTGRES_HOST" type="string">
