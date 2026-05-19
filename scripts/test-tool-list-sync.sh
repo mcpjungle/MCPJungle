@@ -24,7 +24,7 @@ require_cmd go
 cd "$ROOT_DIR"
 
 log "Running focused MCP watcher sync tests"
-go test ./internal/service/mcp -run 'TestStreamableHTTPWatcherClientCanResyncTools|TestStreamableHTTPWatcherSyncsDisabledServerToDBOnly|TestSyncServerToolsPreservesDisabledToolUntilUpstreamDeletion|TestSyncServerToolsReplacesExistingProxyToolInPlace'
+go test ./internal/service/mcp -run 'TestStreamableHTTPWatcherClientCanResyncTools|TestStreamableHTTPWatcherAutoSyncsOnUpstreamNotification|TestStreamableHTTPWatcherSyncsDisabledServerToDBOnly|TestSyncServerToolsPreservesDisabledToolUntilUpstreamDeletion|TestSyncServerToolsReplacesExistingProxyToolInPlace'
 
 log "Running focused tool group sync behavior tests"
 go test ./internal/service/toolgroup -run 'TestNewToolGroupService_DegradedPersistedGroupDoesNotFailStartup|TestToolGroupProxyServers_AdvertiseToolListChanged'

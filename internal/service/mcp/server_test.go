@@ -347,6 +347,7 @@ func TestStreamableHTTPWatcherClientCanResyncTools(t *testing.T) {
 
 	httpServer := newUpstreamStreamableHTTPServer(t, upstream)
 	defer httpServer.Close()
+	defer service.upstreamWatcherManager.Shutdown()
 
 	srv, err := model.NewStreamableHTTPServer(
 		"catalog",
@@ -400,6 +401,66 @@ func TestStreamableHTTPWatcherClientCanResyncTools(t *testing.T) {
 	assert.True(t, found)
 }
 
+func TestStreamableHTTPWatcherAutoSyncsOnUpstreamNotification(t *testing.T) {
+	db := setupTestDBForServerLifecycle(t)
+	service := newTestLifecycleService(t, db)
+
+	upstream := mcpserver.NewMCPServer("Upstream", "0.1.0", mcpserver.WithToolCapabilities(true))
+	upstream.AddTool(
+		mcp.NewTool("echo", mcp.WithString("msg")),
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			msg, _ := request.GetArguments()["msg"].(string)
+			return mcp.NewToolResultText(msg), nil
+		},
+	)
+
+	httpServer := newUpstreamStreamableHTTPServer(t, upstream)
+	defer httpServer.Close()
+	defer service.upstreamWatcherManager.Shutdown()
+
+	srv, err := model.NewStreamableHTTPServer(
+		"catalog",
+		"Catalog server",
+		httpServer.URL,
+		"",
+		nil,
+		types.SessionModeStateless,
+	)
+	require.NoError(t, err)
+
+	err = service.RegisterMcpServerWithOAuthSupport(context.Background(), &types.RegisterServerInput{}, srv, false, "test")
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		service.upstreamWatcherManager.mu.Lock()
+		defer service.upstreamWatcherManager.mu.Unlock()
+		_, exists := service.upstreamWatcherManager.watchers["catalog"]
+		return exists
+	}, 3*time.Second, 50*time.Millisecond)
+
+	upstream.AddTool(
+		mcp.NewTool("sum", mcp.WithNumber("a"), mcp.WithNumber("b")),
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return mcp.NewToolResultText("sum"), nil
+		},
+	)
+
+	require.Eventually(t, func() bool {
+		var tool model.Tool
+		if err := db.Where("name = ?", "sum").First(&tool).Error; err != nil {
+			return false
+		}
+
+		tools := service.mcpProxyServer.ListTools()
+		for _, tool := range tools {
+			if tool.Tool.Name == "catalog__sum" {
+				return true
+			}
+		}
+		return false
+	}, 5*time.Second, 100*time.Millisecond)
+}
+
 func TestStreamableHTTPWatcherSyncsDisabledServerToDBOnly(t *testing.T) {
 	db := setupTestDBForServerLifecycle(t)
 	service := newTestLifecycleService(t, db)
@@ -414,6 +475,7 @@ func TestStreamableHTTPWatcherSyncsDisabledServerToDBOnly(t *testing.T) {
 
 	httpServer := newUpstreamStreamableHTTPServer(t, upstream)
 	defer httpServer.Close()
+	defer service.upstreamWatcherManager.Shutdown()
 
 	srv, err := model.NewStreamableHTTPServer(
 		"catalog",
@@ -522,6 +584,7 @@ func TestSyncServerToolsPreservesDisabledToolUntilUpstreamDeletion(t *testing.T)
 
 	httpServer := newUpstreamStreamableHTTPServer(t, upstream)
 	defer httpServer.Close()
+	defer service.upstreamWatcherManager.Shutdown()
 
 	srv, err := model.NewStreamableHTTPServer(
 		"catalog",

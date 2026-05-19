@@ -105,11 +105,13 @@ func (m *UpstreamWatcherManager) StartWatching(server *model.McpServer) error {
 	}
 	m.mu.Unlock()
 
-	// a watcher doesn't already exist for this server, create a new one
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(m.initReqTimeoutSec)*time.Second)
-	defer cancel()
-
-	c, err := m.createWatch(ctx, m.db, server, m.initReqTimeoutSec)
+	// A watcher doesn't already exist for this server, create a new one.
+	//
+	// Use a long-lived background context here rather than a short-lived setup
+	// timeout context. The watcher client's transport reuses this context for
+	// its continuous-listening goroutine, so canceling it after initialization
+	// would immediately tear down the background GET listener.
+	c, err := m.createWatch(context.Background(), m.db, server, m.initReqTimeoutSec)
 	if err != nil {
 		return err
 	}
