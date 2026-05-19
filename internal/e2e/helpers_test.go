@@ -74,6 +74,7 @@ type e2eEnv struct {
 	adminToken string // populated only in enterprise mode
 	userToken  string // populated only in enterprise mode (regular user)
 	db         *gorm.DB
+	shutdown   func()
 }
 
 // do makes an HTTP request against the test server and returns the raw response.
@@ -193,6 +194,7 @@ func setupE2EServer(t *testing.T, mode model.ServerMode) *e2eEnv {
 	})
 	env.baseURL = "http://" + listener.Addr().String()
 	env.db = db
+	env.shutdown = mcpService.Shutdown
 
 	return env
 }

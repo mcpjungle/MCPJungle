@@ -205,6 +205,7 @@ func TestRegisterMcpServerWithOAuthSupport_StreamableHTTPRegistersServerAndEntit
 
 	httpServer := newUpstreamStreamableHTTPServer(t, upstream)
 	defer httpServer.Close()
+	defer service.upstreamWatcherManager.Shutdown()
 
 	srv, err := model.NewStreamableHTTPServer(
 		"catalog",
@@ -526,6 +527,7 @@ func TestSyncServerToolsReplacesExistingProxyToolInPlace(t *testing.T) {
 
 	httpServer := newUpstreamStreamableHTTPServer(t, upstream)
 	defer httpServer.Close()
+	defer service.upstreamWatcherManager.Shutdown()
 
 	srv, err := model.NewStreamableHTTPServer(
 		"catalog",
