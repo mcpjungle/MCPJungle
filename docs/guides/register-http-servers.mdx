@@ -7,6 +7,8 @@ MCP servers using the [Streamable HTTP transport](https://modelcontextprotocol.i
 
 Once registered, a server's tools, prompts, and resources are available to any MCP client that connects to mcpjungle mcp endpoint.
 
+If the upstream server advertises `tools.listChanged`, Mcpjungle also keeps a background listener connection open so tool additions and removals can be synced without restarting the gateway.
+
 ## Register a server with CLI flags
 
 The quickest way to register a Streamable HTTP server is with the `register` command and inline flags:
@@ -165,6 +167,8 @@ mcpjungle invoke deepwiki__read_wiki_structure --input '{"repoName": "facebook/r
 ```
 
 That is the quickest way to confirm both the upstream server and Mcpjungle routing are working as expected.
+
+If the upstream later sends `notifications/tools/list_changed`, Mcpjungle automatically refreshes its cached tool list and downstream MCP clients connected to Mcpjungle can refresh in response to the propagated notification.
 
 ## Deregister a server
 

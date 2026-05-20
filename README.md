@@ -314,6 +314,9 @@ MCPJungle currently supports MCP servers using [stdio](https://modelcontextproto
 > [!NOTE]
 > Support for SSE (server-sent events) also exists but is currently not mature.
 
+> [!NOTE]
+> Dynamic upstream tool-list sync via `notifications/tools/list_changed` is currently supported for `streamable_http` upstream servers only.
+
 Let's see how to register them in mcpjungle.
 
 ### Registering streamable HTTP-based servers

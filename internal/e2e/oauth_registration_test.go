@@ -209,6 +209,7 @@ func authorizeAndCompleteOAuth(t *testing.T, env *e2eEnv, registerResult types.R
 func TestE2E_DevMode_RegisterOAuthHTTPServerAndInvokeTool(t *testing.T) {
 	env := setupE2EServer(t, model.ModeDev)
 	upstream := newMockOAuthMCPServer(t)
+	t.Cleanup(env.shutdown)
 
 	registerResult := startOAuthRegistration(t, env, upstream.server.URL+"/mcp", false)
 	completeResp := authorizeAndCompleteOAuth(t, env, registerResult, "")
@@ -247,6 +248,7 @@ func TestE2E_DevMode_RegisterOAuthHTTPServerAndInvokeTool(t *testing.T) {
 func TestE2E_DevMode_CompleteOAuthSessionRejectsWrongState(t *testing.T) {
 	env := setupE2EServer(t, model.ModeDev)
 	upstream := newMockOAuthMCPServer(t)
+	t.Cleanup(env.shutdown)
 
 	registerResult := startOAuthRegistration(t, env, upstream.server.URL+"/mcp", false)
 	completeResp := authorizeAndCompleteOAuth(t, env, registerResult, "wrong-state")
@@ -257,6 +259,7 @@ func TestE2E_DevMode_CompleteOAuthSessionRejectsWrongState(t *testing.T) {
 func TestE2E_DevMode_CompleteOAuthSessionRejectsExpiredPendingSession(t *testing.T) {
 	env := setupE2EServer(t, model.ModeDev)
 	upstream := newMockOAuthMCPServer(t)
+	t.Cleanup(env.shutdown)
 
 	registerResult := startOAuthRegistration(t, env, upstream.server.URL+"/mcp", false)
 	require.NoError(t, env.db.Model(&model.UpstreamOAuthPendingSession{}).
@@ -271,6 +274,7 @@ func TestE2E_DevMode_CompleteOAuthSessionRejectsExpiredPendingSession(t *testing
 func TestE2E_DevMode_ForceReRegisterOAuthServer(t *testing.T) {
 	env := setupE2EServer(t, model.ModeDev)
 	upstream := newMockOAuthMCPServer(t)
+	t.Cleanup(env.shutdown)
 
 	first := startOAuthRegistration(t, env, upstream.server.URL+"/mcp", false)
 	firstComplete := authorizeAndCompleteOAuth(t, env, first, "")
@@ -302,6 +306,7 @@ func TestE2E_DevMode_PublicHTTPServerAfterOAuthDoesNotReceiveAuthorizationHeader
 	env := setupE2EServer(t, model.ModeDev)
 	oauthUpstream := newMockOAuthMCPServer(t)
 	publicUpstream := newMockPublicMCPServer(t)
+	t.Cleanup(env.shutdown)
 
 	registerResult := startOAuthRegistration(t, env, oauthUpstream.server.URL+"/mcp", false)
 	completeResp := authorizeAndCompleteOAuth(t, env, registerResult, "")

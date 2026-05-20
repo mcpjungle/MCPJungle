@@ -23,6 +23,9 @@ func setupTestDBForServerLifecycle(t *testing.T) *gorm.DB {
 
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
 
 	err = db.AutoMigrate(
 		&model.McpServer{},
@@ -202,6 +205,7 @@ func TestRegisterMcpServerWithOAuthSupport_StreamableHTTPRegistersServerAndEntit
 
 	httpServer := newUpstreamStreamableHTTPServer(t, upstream)
 	defer httpServer.Close()
+	defer service.upstreamWatcherManager.Shutdown()
 
 	srv, err := model.NewStreamableHTTPServer(
 		"catalog",
@@ -262,6 +266,372 @@ func TestRegisterMcpServerWithOAuthSupport_StreamableHTTPRegistersServerAndEntit
 	require.NoError(t, err)
 	require.Len(t, resourceList.Resources, 1)
 	assert.Equal(t, buildResourceURI("catalog", "resource://catalog/spec"), resourceList.Resources[0].URI)
+}
+
+func TestRegisterMcpServerWithOAuthSupport_StartsStreamableHTTPWatcherAndStopsOnShutdown(t *testing.T) {
+	db := setupTestDBForServerLifecycle(t)
+	watcherManager := NewUpstreamWatcherManager(&UpstreamWatcherManagerConfig{
+		DB:                db,
+		InitReqTimeoutSec: 5,
+	})
+	service, err := NewMCPService(&ServiceConfig{
+		DB: db,
+		McpProxyServer: mcpserver.NewMCPServer(
+			"Test Proxy",
+			"0.1.0",
+			mcpserver.WithToolCapabilities(true),
+			mcpserver.WithPromptCapabilities(true),
+			mcpserver.WithResourceCapabilities(true, true),
+		),
+		SseMcpProxyServer: mcpserver.NewMCPServer(
+			"Test Proxy SSE",
+			"0.1.0",
+			mcpserver.WithToolCapabilities(true),
+			mcpserver.WithPromptCapabilities(true),
+			mcpserver.WithResourceCapabilities(true, true),
+		),
+		Metrics:                 telemetry.NewNoopCustomMetrics(),
+		McpServerInitReqTimeout: 5,
+		UpstreamWatcherManager:  watcherManager,
+	})
+	require.NoError(t, err)
+
+	upstream := mcpserver.NewMCPServer("Upstream", "0.1.0", mcpserver.WithToolCapabilities(true))
+	upstream.AddTool(
+		mcp.NewTool("echo", mcp.WithString("msg")),
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return mcp.NewToolResultText("ok"), nil
+		},
+	)
+
+	httpServer := newUpstreamStreamableHTTPServer(t, upstream)
+	defer httpServer.Close()
+
+	srv, err := model.NewStreamableHTTPServer(
+		"watchable",
+		"Watchable server",
+		httpServer.URL,
+		"",
+		nil,
+		types.SessionModeStateless,
+	)
+	require.NoError(t, err)
+
+	err = service.RegisterMcpServerWithOAuthSupport(context.Background(), &types.RegisterServerInput{}, srv, false, "test")
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		watcherManager.mu.Lock()
+		defer watcherManager.mu.Unlock()
+		return len(watcherManager.watchers) == 1
+	}, 3*time.Second, 50*time.Millisecond)
+
+	service.Shutdown()
+
+	watcherManager.mu.Lock()
+	assert.Empty(t, watcherManager.watchers)
+	watcherManager.mu.Unlock()
+}
+
+func TestStreamableHTTPWatcherClientCanResyncTools(t *testing.T) {
+	db := setupTestDBForServerLifecycle(t)
+	service := newTestLifecycleService(t, db)
+
+	upstream := mcpserver.NewMCPServer("Upstream", "0.1.0", mcpserver.WithToolCapabilities(true))
+	upstream.AddTool(
+		mcp.NewTool("echo", mcp.WithString("msg")),
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			msg, _ := request.GetArguments()["msg"].(string)
+			return mcp.NewToolResultText(msg), nil
+		},
+	)
+
+	httpServer := newUpstreamStreamableHTTPServer(t, upstream)
+	defer httpServer.Close()
+	defer service.upstreamWatcherManager.Shutdown()
+
+	srv, err := model.NewStreamableHTTPServer(
+		"catalog",
+		"Catalog server",
+		httpServer.URL,
+		"",
+		nil,
+		types.SessionModeStateless,
+	)
+	require.NoError(t, err)
+
+	err = service.RegisterMcpServerWithOAuthSupport(context.Background(), &types.RegisterServerInput{}, srv, false, "test")
+	require.NoError(t, err)
+
+	upstream.AddTool(
+		mcp.NewTool("sum", mcp.WithNumber("a"), mcp.WithNumber("b")),
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return mcp.NewToolResultText("sum"), nil
+		},
+	)
+
+	watcherManager := service.upstreamWatcherManager
+	require.NotNil(t, watcherManager)
+
+	require.Eventually(t, func() bool {
+		watcherManager.mu.Lock()
+		defer watcherManager.mu.Unlock()
+		_, exists := watcherManager.watchers["catalog"]
+		return exists
+	}, 3*time.Second, 50*time.Millisecond)
+
+	watcherManager.mu.Lock()
+	watcher := watcherManager.watchers["catalog"]
+	watcherManager.mu.Unlock()
+	require.NotNil(t, watcher)
+
+	err = service.syncServerToolsWithClient(context.Background(), "catalog", watcher.client)
+	require.NoError(t, err)
+
+	var tool model.Tool
+	require.NoError(t, db.Where("name = ?", "sum").First(&tool).Error)
+
+	tools := service.mcpProxyServer.ListTools()
+	found := false
+	for _, tool := range tools {
+		if tool.Tool.Name == "catalog__sum" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found)
+}
+
+func TestStreamableHTTPWatcherAutoSyncsOnUpstreamNotification(t *testing.T) {
+	db := setupTestDBForServerLifecycle(t)
+	service := newTestLifecycleService(t, db)
+
+	upstream := mcpserver.NewMCPServer("Upstream", "0.1.0", mcpserver.WithToolCapabilities(true))
+	upstream.AddTool(
+		mcp.NewTool("echo", mcp.WithString("msg")),
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			msg, _ := request.GetArguments()["msg"].(string)
+			return mcp.NewToolResultText(msg), nil
+		},
+	)
+
+	httpServer := newUpstreamStreamableHTTPServer(t, upstream)
+	defer httpServer.Close()
+	defer service.upstreamWatcherManager.Shutdown()
+
+	srv, err := model.NewStreamableHTTPServer(
+		"catalog",
+		"Catalog server",
+		httpServer.URL,
+		"",
+		nil,
+		types.SessionModeStateless,
+	)
+	require.NoError(t, err)
+
+	err = service.RegisterMcpServerWithOAuthSupport(context.Background(), &types.RegisterServerInput{}, srv, false, "test")
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		service.upstreamWatcherManager.mu.Lock()
+		defer service.upstreamWatcherManager.mu.Unlock()
+		_, exists := service.upstreamWatcherManager.watchers["catalog"]
+		return exists
+	}, 3*time.Second, 50*time.Millisecond)
+
+	upstream.AddTool(
+		mcp.NewTool("sum", mcp.WithNumber("a"), mcp.WithNumber("b")),
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return mcp.NewToolResultText("sum"), nil
+		},
+	)
+
+	require.Eventually(t, func() bool {
+		var tool model.Tool
+		if err := db.Where("name = ?", "sum").First(&tool).Error; err != nil {
+			return false
+		}
+
+		tools := service.mcpProxyServer.ListTools()
+		for _, tool := range tools {
+			if tool.Tool.Name == "catalog__sum" {
+				return true
+			}
+		}
+		return false
+	}, 5*time.Second, 100*time.Millisecond)
+}
+
+func TestStreamableHTTPWatcherSyncsDisabledServerToDBOnly(t *testing.T) {
+	db := setupTestDBForServerLifecycle(t)
+	service := newTestLifecycleService(t, db)
+
+	upstream := mcpserver.NewMCPServer("Upstream", "0.1.0", mcpserver.WithToolCapabilities(true))
+	upstream.AddTool(
+		mcp.NewTool("echo", mcp.WithString("msg")),
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return mcp.NewToolResultText("ok"), nil
+		},
+	)
+
+	httpServer := newUpstreamStreamableHTTPServer(t, upstream)
+	defer httpServer.Close()
+	defer service.upstreamWatcherManager.Shutdown()
+
+	srv, err := model.NewStreamableHTTPServer(
+		"catalog",
+		"Catalog server",
+		httpServer.URL,
+		"",
+		nil,
+		types.SessionModeStateless,
+	)
+	require.NoError(t, err)
+
+	err = service.RegisterMcpServerWithOAuthSupport(context.Background(), &types.RegisterServerInput{}, srv, false, "test")
+	require.NoError(t, err)
+	_, _, err = service.DisableMcpServer("catalog")
+	require.NoError(t, err)
+
+	upstream.AddTool(
+		mcp.NewTool("sum", mcp.WithNumber("a"), mcp.WithNumber("b")),
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return mcp.NewToolResultText("sum"), nil
+		},
+	)
+
+	watcher := service.upstreamWatcherManager.watchers["catalog"]
+	require.NotNil(t, watcher)
+	err = service.syncServerToolsWithClient(context.Background(), "catalog", watcher.client)
+	require.NoError(t, err)
+
+	var tool model.Tool
+	require.NoError(t, db.Where("name = ?", "sum").First(&tool).Error)
+	assert.False(t, tool.Enabled)
+	assert.Nil(t, service.mcpProxyServer.GetTool("catalog__sum"))
+	_, ok := service.GetToolInstance("catalog__sum")
+	assert.False(t, ok)
+}
+
+func TestSyncServerToolsReplacesExistingProxyToolInPlace(t *testing.T) {
+	db := setupTestDBForServerLifecycle(t)
+	service := newTestLifecycleService(t, db)
+
+	upstream := mcpserver.NewMCPServer("Upstream", "0.1.0", mcpserver.WithToolCapabilities(true))
+	upstream.AddTool(
+		mcp.NewTool("echo", mcp.WithDescription("original description"), mcp.WithString("msg")),
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return mcp.NewToolResultText("ok"), nil
+		},
+	)
+
+	httpServer := newUpstreamStreamableHTTPServer(t, upstream)
+	defer httpServer.Close()
+	defer service.upstreamWatcherManager.Shutdown()
+
+	srv, err := model.NewStreamableHTTPServer(
+		"catalog",
+		"Catalog server",
+		httpServer.URL,
+		"",
+		nil,
+		types.SessionModeStateless,
+	)
+	require.NoError(t, err)
+
+	err = service.RegisterMcpServerWithOAuthSupport(context.Background(), &types.RegisterServerInput{}, srv, false, "test")
+	require.NoError(t, err)
+
+	upstream.SetTools(
+		mcpserver.ServerTool{
+			Tool: mcp.Tool{
+				Name:        "echo",
+				Description: "updated description",
+				InputSchema: mcp.ToolInputSchema{Type: "object"},
+			},
+			Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+				return mcp.NewToolResultText("ok"), nil
+			},
+		},
+	)
+
+	watcher := service.upstreamWatcherManager.watchers["catalog"]
+	require.NotNil(t, watcher)
+	err = service.syncServerToolsWithClient(context.Background(), "catalog", watcher.client)
+	require.NoError(t, err)
+
+	proxyClient := newInitializedInProcessClient(t, service.mcpProxyServer)
+	toolList, err := proxyClient.ListTools(context.Background(), mcp.ListToolsRequest{})
+	require.NoError(t, err)
+	require.Len(t, toolList.Tools, 1)
+	assert.Equal(t, "catalog__echo", toolList.Tools[0].Name)
+	assert.Equal(t, "updated description", toolList.Tools[0].Description)
+
+	var tool model.Tool
+	require.NoError(t, db.Where("name = ?", "echo").First(&tool).Error)
+	assert.Equal(t, "updated description", tool.Description)
+}
+
+func TestSyncServerToolsPreservesDisabledToolUntilUpstreamDeletion(t *testing.T) {
+	db := setupTestDBForServerLifecycle(t)
+	service := newTestLifecycleService(t, db)
+
+	upstream := mcpserver.NewMCPServer("Upstream", "0.1.0", mcpserver.WithToolCapabilities(true))
+	upstream.AddTool(
+		mcp.NewTool("echo", mcp.WithString("msg")),
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return mcp.NewToolResultText("ok"), nil
+		},
+	)
+
+	httpServer := newUpstreamStreamableHTTPServer(t, upstream)
+	defer httpServer.Close()
+	defer service.upstreamWatcherManager.Shutdown()
+
+	srv, err := model.NewStreamableHTTPServer(
+		"catalog",
+		"Catalog server",
+		httpServer.URL,
+		"",
+		nil,
+		types.SessionModeStateless,
+	)
+	require.NoError(t, err)
+
+	err = service.RegisterMcpServerWithOAuthSupport(context.Background(), &types.RegisterServerInput{}, srv, false, "test")
+	require.NoError(t, err)
+
+	_, err = service.DisableTools("catalog__echo")
+	require.NoError(t, err)
+
+	upstream.SetTools(
+		mcpserver.ServerTool{
+			Tool: mcp.Tool{
+				Name:        "echo",
+				Description: "updated description",
+				InputSchema: mcp.ToolInputSchema{Type: "object"},
+			},
+			Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+				return mcp.NewToolResultText("ok"), nil
+			},
+		},
+	)
+
+	watcher := service.upstreamWatcherManager.watchers["catalog"]
+	require.NotNil(t, watcher)
+	err = service.syncServerToolsWithClient(context.Background(), "catalog", watcher.client)
+	require.NoError(t, err)
+
+	var tool model.Tool
+	require.NoError(t, db.Where("name = ?", "echo").First(&tool).Error)
+	assert.False(t, tool.Enabled)
+	assert.Equal(t, "updated description", tool.Description)
+	assert.Nil(t, service.mcpProxyServer.GetTool("catalog__echo"))
+
+	upstream.SetTools()
+	err = service.syncServerToolsWithClient(context.Background(), "catalog", watcher.client)
+	require.NoError(t, err)
+	assert.Error(t, db.Where("name = ?", "echo").First(&model.Tool{}).Error)
 }
 
 func TestRegisterMcpServer_RejectsInvalidNameAndURLBeforePersistence(t *testing.T) {

@@ -336,6 +336,7 @@ func TestDashboardToolGroupsCRUDAndValidation(t *testing.T) {
 func TestDashboardRegisterServerHandlesOAuth(t *testing.T) {
 	env := setupE2EServer(t, model.ModeDev)
 	upstream := newMockOAuthMCPServer(t)
+	t.Cleanup(env.shutdown)
 
 	registerResp := env.do(t, http.MethodPost, "/api/dashboard/servers", map[string]any{
 		"name":        "oauthdash",
@@ -422,6 +423,7 @@ func TestDashboardOAuthCallbackMissingParams(t *testing.T) {
 func TestDashboardOAuthCallbackFailureIsTracked(t *testing.T) {
 	env := setupE2EServer(t, model.ModeDev)
 	upstream := newMockOAuthMCPServer(t)
+	t.Cleanup(env.shutdown)
 
 	registerResp := env.do(t, http.MethodPost, "/api/dashboard/servers", map[string]any{
 		"name":      "oauthfail",
@@ -471,6 +473,7 @@ func TestDashboardOAuthCallbackFailureIsTracked(t *testing.T) {
 func TestDashboardOAuthSessionExpiresAndCleansUp(t *testing.T) {
 	env := setupE2EServer(t, model.ModeDev)
 	upstream := newMockOAuthMCPServer(t)
+	t.Cleanup(env.shutdown)
 
 	registerResp := env.do(t, http.MethodPost, "/api/dashboard/servers", map[string]any{
 		"name":      "oauthexpire",

@@ -51,6 +51,7 @@ Use it as a quick product-readiness view:
 | Database | PostgreSQL | Stable | Recommended for serious and shared deployments. |
 | Session lifecycle | Stateless sessions | Stable | Default and preferred mode. |
 | Session lifecycle | Stateful sessions | Stable | Supported for cold-start-sensitive or sessionful upstream servers. |
+| Dynamic sync | Upstream `notifications/tools/list_changed` | Limited | Supported for `streamable_http` upstream servers only. Requires the upstream server to advertise `tools.listChanged`. Not currently supported for `sse` or `stdio`. |
 
 ## Observability and operations
 

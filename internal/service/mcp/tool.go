@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -442,6 +443,189 @@ func (m *MCPService) notifyToolAddition(toolName string) {
 		// as the tool has already been added successfully
 		log.Printf("[ERROR] tool addition callback failed for tool %s: %v", toolName, err)
 	}
+}
+
+// syncServerToolsWithClient refreshes MCPJungle's cached tool list for one
+// upstream server using an already-connected watcher client.
+//
+// Upstream truth controls existence: tools that disappear upstream are removed
+// from MCPJungle entirely. Local enabled/disabled state only controls exposure:
+// disabled servers still sync tool metadata into the DB, but do not update
+// proxies or emit downstream notifications until re-enabled.
+func (m *MCPService) syncServerToolsWithClient(ctx context.Context, serverName string, c *client.Client) error {
+	server, err := m.GetMcpServer(serverName)
+	if err != nil {
+		return err
+	}
+	if server.Transport != types.TransportStreamableHTTP {
+		// only streamable HTTP servers are supported for push-based sync, so if the transport doesn't match,
+		// we should not attempt to sync tools
+		return nil
+	}
+
+	resp, err := c.ListTools(ctx, mcp.ListToolsRequest{})
+	if err != nil {
+		return fmt.Errorf("failed to fetch tools from upstream server %s: %w", server.Name, err)
+	}
+
+	var existingTools []model.Tool
+	if err := m.db.Where("server_id = ?", server.ID).Find(&existingTools).Error; err != nil {
+		return fmt.Errorf("failed to load existing tools for server %s: %w", server.Name, err)
+	}
+
+	existingByName := make(map[string]*model.Tool, len(existingTools))
+	for i := range existingTools {
+		existingByName[existingTools[i].Name] = &existingTools[i]
+	}
+
+	upstreamByName := make(map[string]mcp.Tool, len(resp.Tools))
+	for _, tool := range resp.Tools {
+		upstreamByName[tool.GetName()] = tool
+	}
+
+	changes := 0
+
+	for rawName, existing := range existingByName {
+		if _, exists := upstreamByName[rawName]; exists {
+			continue
+		}
+		// tool exists in DB but not in upstream response, so it must have been removed. Remove it from mcpjungle.
+		if err := m.removeSyncedTool(server, existing); err != nil {
+			return err
+		}
+		changes++
+	}
+
+	for _, upstreamTool := range resp.Tools {
+		changed, err := m.upsertSyncedTool(server, upstreamTool, existingByName[upstreamTool.GetName()])
+		if err != nil {
+			return err
+		}
+		if changed {
+			changes++
+		}
+	}
+
+	if changes > 0 {
+		log.Printf("[MCPService] synced %d tool change(s) from upstream server '%s'", changes, server.Name)
+	}
+
+	return nil
+}
+
+// upsertSyncedTool creates or updates the DB record for one upstream tool.
+//
+// When the parent server is enabled, new or changed enabled tools are also
+// projected into the MCP proxies and in-memory tool-instance cache.
+// When the parent server is disabled, or when the tool itself is locally
+// disabled, the DB is still updated but the tool remains hidden from MCPJungle
+// clients.
+func (m *MCPService) upsertSyncedTool(server *model.McpServer, upstreamTool mcp.Tool, existing *model.Tool) (bool, error) {
+	schema, _ := json.Marshal(upstreamTool.InputSchema)
+	annotations, _ := json.Marshal(upstreamTool.Annotations)
+
+	canonicalToolName := mergeServerToolNames(server.Name, upstreamTool.GetName())
+	toolForProxy := upstreamTool
+	toolForProxy.Name = canonicalToolName
+
+	if existing == nil {
+		// tool doesn't already exist in DB, which means it was recently added in upstream. Add to mcpjungle.
+		record := &model.Tool{
+			ServerID:    server.ID,
+			Name:        upstreamTool.GetName(),
+			Description: upstreamTool.Description,
+			InputSchema: schema,
+			Annotations: annotations,
+			Enabled:     server.Enabled,
+		}
+		if err := m.db.Create(record).Error; err != nil {
+			return false, fmt.Errorf("failed to register new synced tool %s: %w", canonicalToolName, err)
+		}
+		if server.Enabled {
+			// since the server is enabled, the new tool should be enabled by default.
+			// Add it to the proxies.
+			m.addToolToProxy(server, toolForProxy)
+			m.addToolInstance(toolForProxy)
+			m.notifyToolAddition(toolForProxy.Name)
+		} else {
+			// Server is disabled, so the new tool must also remain disabled.
+			//
+			// Tool.Enabled has a DB default of true, and GORM create paths may let
+			// that default win when the intended value is the zero value (false).
+			// Force the persisted record back to disabled for tools discovered while
+			// the parent server is locally disabled.
+			if err := m.db.Model(record).Update("enabled", false).Error; err != nil {
+				return false, fmt.Errorf("failed to mark new synced tool %s disabled: %w", canonicalToolName, err)
+			}
+			record.Enabled = false
+		}
+		return true, nil
+	}
+
+	// tool already exists in DB, check for any changes from upstream and sync.
+	changed := existing.Description != upstreamTool.Description ||
+		!bytes.Equal(existing.InputSchema, schema) ||
+		!bytes.Equal(existing.Annotations, annotations)
+	if !changed {
+		// no changes, exit
+		return false, nil
+	}
+
+	// something was changed, sync all fields and update db record.
+	existing.Description = upstreamTool.Description
+	existing.InputSchema = schema
+	existing.Annotations = annotations
+	if err := m.db.Save(existing).Error; err != nil {
+		return false, fmt.Errorf("failed to update synced tool %s: %w", canonicalToolName, err)
+	}
+
+	if server.Enabled && existing.Enabled {
+		// Re-adding the tool with the same canonical name updates the proxy entry
+		// in place because mcp-go stores tools keyed by name. This avoids a
+		// delete-then-add cycle and keeps the proxy update to a single operation.
+		m.addToolToProxy(server, toolForProxy)
+		m.addToolInstance(toolForProxy)
+		m.notifyToolAddition(toolForProxy.Name)
+	}
+
+	return true, nil
+}
+
+// removeSyncedTool deletes a tool that no longer exists upstream.
+//
+// This removal is unconditional at the DB layer because upstream existence wins
+// over local enable/disable state. Proxy and in-memory cleanup only happens
+// when the tool was actually exposed through MCPJungle at the time of removal.
+func (m *MCPService) removeSyncedTool(server *model.McpServer, existing *model.Tool) error {
+	canonicalToolName := mergeServerToolNames(server.Name, existing.Name)
+
+	if err := m.db.Unscoped().Delete(existing).Error; err != nil {
+		return fmt.Errorf("failed to remove synced tool %s from DB: %w", canonicalToolName, err)
+	}
+
+	if server.Enabled && existing.Enabled {
+		// we only need to delete the tool from all proxies if it was enabled to begin with, ie,
+		// it is currently present in the proxies.
+		if server.Transport == types.TransportSSE {
+			m.sseMcpProxyServer.DeleteTools(canonicalToolName)
+		} else {
+			m.mcpProxyServer.DeleteTools(canonicalToolName)
+		}
+
+		m.deleteToolInstances(canonicalToolName)
+		m.notifyToolDeletion(canonicalToolName)
+	}
+	return nil
+}
+
+// addToolToProxy adds a canonical MCPJungle tool definition to the correct
+// global proxy server for the upstream transport.
+func (m *MCPService) addToolToProxy(server *model.McpServer, tool mcp.Tool) {
+	if server.Transport == types.TransportSSE {
+		m.sseMcpProxyServer.AddTool(tool, m.MCPProxyToolCallHandler)
+		return
+	}
+	m.mcpProxyServer.AddTool(tool, m.MCPProxyToolCallHandler)
 }
 
 // convertToolCallResToAPIRes converts an MCP CallToolResult to types.ToolInvokeResult.

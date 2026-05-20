@@ -1024,7 +1024,11 @@ fi
 log "Homebrew formula config (from .goreleaser.yaml)"
 sed -n '/^brews:/,/^dockers:/p' "$ROOT_DIR/.goreleaser.yaml" || true
 
-# 13) Run manual API error response verification against an isolated server
+# 13) Run focused tool-list sync verification
+log "Running focused tool-list sync verification"
+"$ROOT_DIR/scripts/test-tool-list-sync.sh"
+
+# 14) Run manual API error response verification against an isolated server
 log "Running manual API error response verification"
 BIN_PATH="$BIN_PATH" "$ROOT_DIR/scripts/test-api-error-responses.sh"
 popd >/dev/null

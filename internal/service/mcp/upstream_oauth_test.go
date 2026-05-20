@@ -357,6 +357,7 @@ func TestCompleteUpstreamOAuthSession_HardDeletesPendingSessionAfterSuccess(t *t
 
 	service, setup := newOAuthCapableService(t)
 	upstream := newMockOAuthUpstream(t)
+	t.Cleanup(service.upstreamWatcherManager.Shutdown)
 
 	input := types.RegisterServerInput{
 		Name:             "todoist",
