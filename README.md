@@ -998,6 +998,36 @@ This is a work in progress.
 
 We're collecting more feedback on how people use OAuth with MCP servers, so feel free to start a Discussion or open an issue to share your use case.
 
+# 🔒 Security Companion: mcp-slim-guard
+
+MCPJungle gives you one endpoint for all your MCP tools with tool groups and access control. For defense-in-depth, layer **[mcp-slim-guard](https://github.com/lennney/mcp-slim-guard)** — an MIT-licensed MCP security proxy — in front:
+
+```
+AI Client → mcp-slim-guard → MCPJungle → Your MCP Servers
+```
+
+**What mcp-slim-guard adds on top of MCPJungle:**
+
+| Feature | What it does |
+|---------|-------------|
+| **SSRF Protection** | Blocks requests to internal IPs (10.\*, 192.168.\*, 169.254.\*) |
+| **Injection Detection** | 17 heuristic patterns for shell/SQL/NoSQL/prompt injection |
+| **Schema Compression** | Up to 83% token savings on tool schemas — less context waste |
+| **Rate Limiting** | Per-tool token bucket, independent of MCPJungle's access control |
+| **Audit Logging** | Structured JSON log with rotation — immutable record of every tool call |
+
+**One-command setup:**
+
+```bash
+npm install -g mcp-slim-guard
+mcp-slim-guard init   # auto-discovers MCP config
+mcp-slim-guard start  # starts the proxy
+```
+
+Then configure your AI client to connect to `mcp-slim-guard` instead of MCPJungle directly, and set MCPJungle as the upstream in `mcp-slim-guard.yml`.
+
+MCPJungle **manages** which tools clients can see. mcp-slim-guard **protects** every call that passes through.
+
 # Contributing 💻
 
 We welcome contributions from the community! 
