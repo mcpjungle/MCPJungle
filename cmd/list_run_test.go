@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/mcpjungle/mcpjungle/client"
@@ -63,5 +64,47 @@ func TestRunListTools_GroupUsesEffectiveToolsAPI(t *testing.T) {
 	}
 	if bytes.Contains([]byte(output), []byte("ghost")) {
 		t.Fatalf("did not expect output to contain non-existing tool, got: %s", output)
+	}
+}
+
+func TestRunListTools_TrimsToolDescriptions(t *testing.T) {
+	description := strings.Repeat("a", 40) + "\n\t" + strings.Repeat("b", 50)
+	wantSummary := strings.Repeat("a", 40) + " " + strings.Repeat("b", 36) + "..."
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v0/tools" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_ = json.NewEncoder(w).Encode([]*types.Tool{
+			{Name: "long-tool", Description: description, Enabled: true},
+		})
+	}))
+	defer server.Close()
+
+	origClient := apiClient
+	origServer := listToolsCmdServerName
+	origGroup := listToolsCmdGroupName
+	defer func() {
+		apiClient = origClient
+		listToolsCmdServerName = origServer
+		listToolsCmdGroupName = origGroup
+	}()
+
+	apiClient = client.NewClient(server.URL, "", http.DefaultClient)
+	listToolsCmdServerName = ""
+	listToolsCmdGroupName = ""
+
+	cmd := &cobra.Command{}
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+
+	if err := runListTools(cmd, nil); err != nil {
+		t.Fatalf("runListTools returned error: %v", err)
+	}
+
+	want := "\n" + wantSummary + "\n\n"
+	if !strings.Contains(out.String(), want) {
+		t.Fatalf("expected trimmed tool description %q, got: %s", want, out.String())
 	}
 }
