@@ -243,18 +243,19 @@ func isTelemetryEnabled(desiredServerMode model.ServerMode) (bool, error) {
 	return telemetryEnabled, nil
 }
 
-// getBindPort returns the TCP port to bind the mcpjungle server to
-// precedence: command line flag > environment variable > default
 // getBindHost returns the interface to bind to.
 // precedence: command line flag > environment variable > all interfaces
+// An explicit empty --host is meaningful: it forces the historical all-interface
+// bind even when MCPJUNGLE_HOST is set.
 func getBindHost() string {
-	host := startServerCmdBindHost
-	if host == "" {
-		host = os.Getenv(BindHostEnvVar)
+	if startServerCmd.Flags().Changed("host") {
+		return startServerCmdBindHost
 	}
-	return host
+	return os.Getenv(BindHostEnvVar)
 }
 
+// getBindPort returns the TCP port to bind the mcpjungle server to
+// precedence: command line flag > environment variable > default
 func getBindPort() string {
 	port := startServerCmdBindPort
 	if port == "" {

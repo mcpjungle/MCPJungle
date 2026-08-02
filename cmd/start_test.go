@@ -51,6 +51,14 @@ func TestStartCommandFlags(t *testing.T) {
 		}
 	})
 
+	t.Run("start command has host flag", func(t *testing.T) {
+		if hostFlag := startServerCmd.Flags().Lookup("host"); hostFlag == nil {
+			t.Fatal("Start command missing 'host' flag")
+		} else if hostFlag.Usage == "" {
+			t.Error("host flag should have usage description")
+		}
+	})
+
 	t.Run("start command has sqlite db path flag", func(t *testing.T) {
 		if sqlitePathFlag := startServerCmd.Flags().Lookup("sqlite-db-path"); sqlitePathFlag == nil {
 			t.Fatal("Start command missing 'sqlite-db-path' flag")
@@ -73,6 +81,77 @@ func TestStartCommandFlags(t *testing.T) {
 		} else if prodFlag.Usage == "" {
 			t.Error("prod flag should have usage description")
 		}
+	})
+}
+
+func withBindHostFlag(t *testing.T, value string, changed bool, fn func()) {
+	t.Helper()
+
+	hostFlag := startServerCmd.Flags().Lookup("host")
+	if hostFlag == nil {
+		t.Fatal("Start command missing 'host' flag")
+	}
+
+	originalValue := startServerCmdBindHost
+	originalChanged := hostFlag.Changed
+
+	startServerCmdBindHost = value
+	hostFlag.Changed = changed
+	defer func() {
+		startServerCmdBindHost = originalValue
+		hostFlag.Changed = originalChanged
+	}()
+
+	fn()
+}
+
+func TestGetBindHost(t *testing.T) {
+	t.Run("returns empty string when unset", func(t *testing.T) {
+		withBindHostFlag(t, "", false, func() {
+			withEnv(map[string]string{
+				BindHostEnvVar: "",
+			}, func() {
+				if got := getBindHost(); got != "" {
+					t.Fatalf("expected empty bind host, got %q", got)
+				}
+			})
+		})
+	})
+
+	t.Run("uses env var when flag is unset", func(t *testing.T) {
+		withBindHostFlag(t, "", false, func() {
+			withEnv(map[string]string{
+				BindHostEnvVar: "127.0.0.1",
+			}, func() {
+				if got := getBindHost(); got != "127.0.0.1" {
+					t.Fatalf("expected env bind host, got %q", got)
+				}
+			})
+		})
+	})
+
+	t.Run("flag takes precedence over env var", func(t *testing.T) {
+		withBindHostFlag(t, "0.0.0.0", true, func() {
+			withEnv(map[string]string{
+				BindHostEnvVar: "127.0.0.1",
+			}, func() {
+				if got := getBindHost(); got != "0.0.0.0" {
+					t.Fatalf("expected flag bind host, got %q", got)
+				}
+			})
+		})
+	})
+
+	t.Run("explicit empty flag overrides env var", func(t *testing.T) {
+		withBindHostFlag(t, "", true, func() {
+			withEnv(map[string]string{
+				BindHostEnvVar: "127.0.0.1",
+			}, func() {
+				if got := getBindHost(); got != "" {
+					t.Fatalf("expected empty bind host from explicit flag, got %q", got)
+				}
+			})
+		})
 	})
 }
 
