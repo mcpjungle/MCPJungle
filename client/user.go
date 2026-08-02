@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
@@ -118,6 +119,28 @@ func (c *Client) ListUsers() ([]*types.User, error) {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 	return users, nil
+}
+
+// GetUserConfigs returns the configurations of all users.
+// The returned configs can be used to recreate the users elsewhere.
+// Access tokens are not included as the list endpoint does not return them.
+func (c *Client) GetUserConfigs() ([]types.UserConfig, error) {
+	users, err := c.ListUsers()
+	if err != nil {
+		return nil, err
+	}
+
+	configs := make([]types.UserConfig, 0, len(users))
+	for _, u := range users {
+		// Populate access_token_ref with a hint so the operator knows to supply the
+		// token via environment variable before reimporting.
+		envVarHint := "MCPJUNGLE_USER_TOKEN_" + strings.ToUpper(strings.ReplaceAll(u.Username, "-", "_"))
+		configs = append(configs, types.UserConfig{
+			Username:       u.Username,
+			AccessTokenRef: types.AccessTokenRef{Env: envVarHint},
+		})
+	}
+	return configs, nil
 }
 
 // Whoami sends a request to get information about the user associated with the provided access token
