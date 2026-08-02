@@ -172,8 +172,8 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		// instrument gin
 		r.Use(otelgin.Middleware(s.otelProviders.ServiceName()))
 
-		// expose prometheus metrics endpoint
-		r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+		// expose prometheus metrics endpoint - admin access only in production mode
+		r.GET("/metrics", s.requireInitialized(), s.requireAdminUser(), gin.WrapH(promhttp.Handler()))
 	}
 
 	r.GET(
