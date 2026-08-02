@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"reflect"
 	"strings"
@@ -272,8 +273,10 @@ func TestPrepareSHTTPClientOptions_NoHeadersNoBearer(t *testing.T) {
 		Headers:     nil,
 	}
 	opts := prepareSHTTPClientOptions("srv", conf)
-	if len(opts) != 0 {
-		t.Fatalf("expected no options when no headers and no bearer token, got %d", len(opts))
+	// The proxy-aware HTTP client option is always present, even when no headers
+	// and no bearer token are configured.
+	if len(opts) != 1 {
+		t.Fatalf("expected 1 option (proxy client) when no headers and no bearer token, got %d", len(opts))
 	}
 }
 
@@ -286,8 +289,9 @@ func TestPrepareSHTTPClientOptions_HeaderOnly(t *testing.T) {
 		},
 	}
 	opts := prepareSHTTPClientOptions("srv", conf)
-	if len(opts) != 1 {
-		t.Fatalf("expected 1 option when headers present, got %d", len(opts))
+	// proxy client option + headers option
+	if len(opts) != 2 {
+		t.Fatalf("expected 2 options (proxy client + headers) when headers present, got %d", len(opts))
 	}
 }
 
@@ -298,8 +302,9 @@ func TestPrepareSHTTPClientOptions_BearerOnly(t *testing.T) {
 		Headers:     nil,
 	}
 	opts := prepareSHTTPClientOptions("srv", conf)
-	if len(opts) != 1 {
-		t.Fatalf("expected 1 option when bearer token present, got %d", len(opts))
+	// proxy client option + bearer-token-as-header option
+	if len(opts) != 2 {
+		t.Fatalf("expected 2 options (proxy client + bearer header) when bearer token present, got %d", len(opts))
 	}
 }
 
@@ -318,13 +323,108 @@ func TestPrepareSHTTPClientOptions_BearerWithCustomAuthorization(t *testing.T) {
 	defer log.SetOutput(old)
 
 	opts := prepareSHTTPClientOptions("my-server", conf)
-	if len(opts) != 1 {
-		t.Fatalf("expected 1 option when custom Authorization header present, got %d", len(opts))
+	// proxy client option + custom Authorization header option
+	if len(opts) != 2 {
+		t.Fatalf("expected 2 options (proxy client + custom Authorization header) when custom Authorization header present, got %d", len(opts))
 	}
 
 	logOutput := buf.String()
 	if !strings.Contains(logOutput, "custom Authorization header will be used for MCP server my-server; bearer_token ignored") {
 		t.Fatalf("expected log to mention bearer_token ignored when custom Authorization header present, got: %q", logOutput)
+	}
+}
+
+// clearProxyEnv unsets every proxy-related variable (both upper and lower case forms)
+// that httpproxy.FromEnvironment consults, so tests are not influenced by the ambient
+// CI/developer environment.
+func clearProxyEnv(t *testing.T) {
+	t.Helper()
+	for _, k := range []string{
+		"HTTP_PROXY", "http_proxy",
+		"HTTPS_PROXY", "https_proxy",
+		"NO_PROXY", "no_proxy",
+	} {
+		t.Setenv(k, "")
+	}
+}
+
+func TestProxyAwareHTTPClient_HonorsHTTPSProxy(t *testing.T) {
+	clearProxyEnv(t)
+	t.Setenv("HTTPS_PROXY", "http://proxy.example.com:8080")
+
+	c := proxyAwareHTTPClient()
+	tr, ok := c.Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("expected *http.Transport, got %T", c.Transport)
+	}
+	if tr.Proxy == nil {
+		t.Fatal("expected a non-nil Proxy function on the transport")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, "https://upstream.example.com/mcp", nil)
+	if err != nil {
+		t.Fatalf("failed to build request: %v", err)
+	}
+	proxyURL, err := tr.Proxy(req)
+	if err != nil {
+		t.Fatalf("proxy func returned error: %v", err)
+	}
+	if proxyURL == nil {
+		t.Fatal("expected request to be proxied, got nil proxy URL")
+	}
+	if proxyURL.Host != "proxy.example.com:8080" {
+		t.Fatalf("expected proxy host proxy.example.com:8080, got %s", proxyURL.Host)
+	}
+}
+
+func TestProxyAwareHTTPClient_NoProxyEnvDefault(t *testing.T) {
+	clearProxyEnv(t)
+
+	c := proxyAwareHTTPClient()
+	tr, ok := c.Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("expected *http.Transport, got %T", c.Transport)
+	}
+
+	req, err := http.NewRequest(http.MethodGet, "https://upstream.example.com/mcp", nil)
+	if err != nil {
+		t.Fatalf("failed to build request: %v", err)
+	}
+	proxyURL, err := tr.Proxy(req)
+	if err != nil {
+		t.Fatalf("proxy func returned error: %v", err)
+	}
+	if proxyURL != nil {
+		t.Fatalf("expected no proxy when no env vars set, got %s", proxyURL)
+	}
+}
+
+func TestProxyAwareHTTPClient_NoProxyHonored(t *testing.T) {
+	clearProxyEnv(t)
+	t.Setenv("HTTPS_PROXY", "http://proxy.example.com:8080")
+	t.Setenv("NO_PROXY", "internal.example.com")
+
+	c := proxyAwareHTTPClient()
+	tr := c.Transport.(*http.Transport)
+
+	// A URL matching NO_PROXY must bypass the proxy.
+	bypassReq, _ := http.NewRequest(http.MethodGet, "https://internal.example.com/mcp", nil)
+	proxyURL, err := tr.Proxy(bypassReq)
+	if err != nil {
+		t.Fatalf("proxy func returned error: %v", err)
+	}
+	if proxyURL != nil {
+		t.Fatalf("expected NO_PROXY host to bypass proxy, got %s", proxyURL)
+	}
+
+	// A non-matching URL must still be proxied.
+	proxiedReq, _ := http.NewRequest(http.MethodGet, "https://upstream.example.com/mcp", nil)
+	proxyURL, err = tr.Proxy(proxiedReq)
+	if err != nil {
+		t.Fatalf("proxy func returned error: %v", err)
+	}
+	if proxyURL == nil || proxyURL.Host != "proxy.example.com:8080" {
+		t.Fatalf("expected non-matching host to be proxied via proxy.example.com:8080, got %v", proxyURL)
 	}
 }
 
