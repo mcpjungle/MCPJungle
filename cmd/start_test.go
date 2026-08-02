@@ -111,7 +111,7 @@ func TestGetBindHost(t *testing.T) {
 			withEnv(map[string]string{
 				BindHostEnvVar: "",
 			}, func() {
-				if got := getBindHost(); got != "" {
+				if got := getBindHost(startServerCmd); got != "" {
 					t.Fatalf("expected empty bind host, got %q", got)
 				}
 			})
@@ -123,7 +123,7 @@ func TestGetBindHost(t *testing.T) {
 			withEnv(map[string]string{
 				BindHostEnvVar: "127.0.0.1",
 			}, func() {
-				if got := getBindHost(); got != "127.0.0.1" {
+				if got := getBindHost(startServerCmd); got != "127.0.0.1" {
 					t.Fatalf("expected env bind host, got %q", got)
 				}
 			})
@@ -135,7 +135,7 @@ func TestGetBindHost(t *testing.T) {
 			withEnv(map[string]string{
 				BindHostEnvVar: "127.0.0.1",
 			}, func() {
-				if got := getBindHost(); got != "0.0.0.0" {
+				if got := getBindHost(startServerCmd); got != "0.0.0.0" {
 					t.Fatalf("expected flag bind host, got %q", got)
 				}
 			})
@@ -147,7 +147,7 @@ func TestGetBindHost(t *testing.T) {
 			withEnv(map[string]string{
 				BindHostEnvVar: "127.0.0.1",
 			}, func() {
-				if got := getBindHost(); got != "" {
+				if got := getBindHost(startServerCmd); got != "" {
 					t.Fatalf("expected empty bind host from explicit flag, got %q", got)
 				}
 			})

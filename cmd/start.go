@@ -33,6 +33,8 @@ import (
 )
 
 const (
+	// TODO: Add MCPJUNGLE_BIND_PORT while keeping PORT for backward compatibility,
+	// matching the MCPJUNGLE_BIND_HOST naming pattern.
 	BindPortEnvVar  = "PORT"
 	BindPortDefault = "8080"
 
@@ -41,7 +43,7 @@ const (
 	// interface; "127.0.0.1" makes a local gateway reachable only from the host,
 	// which matters because a development-mode server has no authentication and
 	// its tools can act on the upstreams it proxies.
-	BindHostEnvVar = "MCPJUNGLE_HOST"
+	BindHostEnvVar = "MCPJUNGLE_BIND_HOST"
 
 	DBUrlEnvVar            = "DATABASE_URL"
 	SQLiteDBPathEnvVar     = "SQLITE_DB_PATH"
@@ -246,9 +248,9 @@ func isTelemetryEnabled(desiredServerMode model.ServerMode) (bool, error) {
 // getBindHost returns the interface to bind to.
 // precedence: command line flag > environment variable > all interfaces
 // An explicit empty --host is meaningful: it forces the historical all-interface
-// bind even when MCPJUNGLE_HOST is set.
-func getBindHost() string {
-	if startServerCmd.Flags().Changed("host") {
+// bind even when MCPJUNGLE_BIND_HOST is set.
+func getBindHost(cmd *cobra.Command) string {
+	if cmd.Flags().Changed("host") {
 		return startServerCmdBindHost
 	}
 	return os.Getenv(BindHostEnvVar)
@@ -450,7 +452,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 	}
 
 	bindPort := getBindPort()
-	bindAddr := net.JoinHostPort(getBindHost(), bindPort)
+	bindAddr := net.JoinHostPort(getBindHost(cmd), bindPort)
 
 	mcpProxyServer, sseMcpProxyServer := newProxyServers()
 
