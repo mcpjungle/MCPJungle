@@ -9,6 +9,36 @@ import (
 	"github.com/mcpjungle/mcpjungle/pkg/testhelpers"
 )
 
+func TestNewUpstreamTLSClientDefaultConfig(t *testing.T) {
+	cfg := model.UpstreamTLSServerConfig{
+		TLSCAFile:             "",
+		TLSInsecureSkipVerify: false,
+	}
+
+	client, err := NewUpstreamTLSClient(cfg)
+	if err != nil {
+		t.Errorf("Expected no error for default config, got: %v", err)
+	}
+	if client == nil {
+		t.Error("Expected non-nil client for default config")
+	}
+}
+
+func TestNewUpstreamTLSClientCAFileNotFound(t *testing.T) {
+	cfg := model.UpstreamTLSServerConfig{
+		TLSCAFile:             "/nonexistent/path/to/ca.crt",
+		TLSInsecureSkipVerify: false,
+	}
+
+	client, err := NewUpstreamTLSClient(cfg)
+	if err == nil {
+		t.Error("Expected error for non-existent CA file, got nil")
+	}
+	if client != nil {
+		t.Error("Expected nil client when CA file not found")
+	}
+}
+
 func TestNewMCPClientService(t *testing.T) {
 	db, err := testhelpers.CreateTestDB()
 	testhelpers.AssertNoError(t, err)
