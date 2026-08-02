@@ -288,20 +288,17 @@ func (s *Server) updateToolGroupHandler() gin.HandlerFunc {
 // toolGroupMCPServerCallHandler handles incoming MCP requests from for a specific tool group.
 func (s *Server) toolGroupMCPServerCallHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// get the Proxy MCP server for the specified tool group
 		groupName := c.Param("name")
-		groupMcpServer, exists := s.toolGroupService.GetToolGroupMCPServer(groupName)
-		if !exists {
-			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("tool group not found: %s", groupName)})
+
+		streamableServer, err := s.getGroupStreamableServer(groupName)
+		if err != nil {
+			c.JSON(
+				http.StatusNotFound,
+				gin.H{"error": fmt.Sprintf("failed to get streamable server for group %s: %v", groupName, err)},
+			)
 			return
 		}
 
-		// serve the MCP request using the MCP server
-		// TODO: Make this API more efficient
-		// This api sits in the hot path because we expect high traffic on MCP tool calling.
-		// It is inefficient to create a new StreamableHTTPServer for each request.
-		// Maybe pre-create a StreamableHTTPServer for each tool group and store it in the ToolGroupMCPServer struct?
-		streamableServer := server.NewStreamableHTTPServer(groupMcpServer)
 		streamableServer.ServeHTTP(c.Writer, c.Request)
 	}
 }
@@ -333,6 +330,30 @@ func (s *Server) getGroupSseServer(groupName string) (*server.SSEServer, error) 
 	s.groupSseServers.Store(groupName, sseServer)
 
 	return sseServer, nil
+}
+
+// getGroupStreamableServer returns a StreamableHTTPServer for a specific group,
+// creating one if it doesn't already exist. It ensures that each tool group has
+// its own StreamableHTTPServer instance to maintain session state across requests.
+func (s *Server) getGroupStreamableServer(groupName string) (*server.StreamableHTTPServer, error) {
+	// Try to get existing server first
+	if serverVal, ok := s.groupStreamableServers.Load(groupName); ok {
+		return serverVal.(*server.StreamableHTTPServer), nil
+	}
+
+	// Get the MCP proxy server for the group
+	groupMcpServer, exists := s.toolGroupService.GetToolGroupMCPServer(groupName)
+	if !exists {
+		return nil, fmt.Errorf("tool group not found: %s", groupName)
+	}
+
+	// Create new StreamableHTTPServer
+	streamableServer := server.NewStreamableHTTPServer(groupMcpServer)
+
+	// Store for future use
+	s.groupStreamableServers.Store(groupName, streamableServer)
+
+	return streamableServer, nil
 }
 
 // toolGroupSseMCPServerCallHandler handles SSE connection requests (/sse) for a specific tool group.
