@@ -334,6 +334,59 @@ func TestNewToolGroupService_DegradedPersistedGroupDoesNotFailStartup(t *testing
 	}
 }
 
+func TestNewToolGroupService_PartialResolutionKeepsValidTools(t *testing.T) {
+	db := setupInMemoryDB(t)
+
+	validServer, err := model.NewStdioServer("valid-server", "Valid server", "echo", nil, nil, "")
+	if err != nil {
+		t.Fatalf("failed to create valid server model: %v", err)
+	}
+	if err := db.Create(validServer).Error; err != nil {
+		t.Fatalf("failed to persist valid server: %v", err)
+	}
+
+	validTool := model.Tool{
+		ServerID:    validServer.ID,
+		Name:        "sum",
+		Description: "adds numbers",
+		InputSchema: []byte(`{"type":"object"}`),
+		Enabled:     true,
+	}
+	if err := db.Create(&validTool).Error; err != nil {
+		t.Fatalf("failed to persist valid tool: %v", err)
+	}
+
+	// This group references one server that still resolves and one that is missing.
+	// The missing server must be skipped while the valid server's tools are preserved,
+	// rather than the whole group being emptied (issue #233).
+	partialGroup := model.ToolGroup{
+		Name:            "partial-group",
+		IncludedServers: datatypes.JSON([]byte(`["valid-server","missing-server"]`)),
+	}
+	if err := db.Create(&partialGroup).Error; err != nil {
+		t.Fatalf("failed to persist partial group: %v", err)
+	}
+
+	mcpService := newTestMCPService(t, db)
+
+	svc, err := NewToolGroupService(db, mcpService)
+	if err != nil {
+		t.Fatalf("expected partial resolution not to fail startup, got: %v", err)
+	}
+
+	proxy, ok := svc.GetToolGroupMCPServer("partial-group")
+	if !ok {
+		t.Fatal("expected partial group MCP proxy to be initialized")
+	}
+	tools := proxy.ListTools()
+	if len(tools) != 1 {
+		t.Fatalf("expected partial group proxy to expose 1 surviving tool, got %d", len(tools))
+	}
+	if _, ok := tools["valid-server__sum"]; !ok {
+		t.Fatalf("expected partial group proxy to expose valid-server__sum, got keys %v", reflect.ValueOf(tools).MapKeys())
+	}
+}
+
 func TestCreateToolGroup_InvalidIncludedServerStillFailsFast(t *testing.T) {
 	db := setupInMemoryDB(t)
 	s := &ToolGroupService{
