@@ -1,3 +1,5 @@
+[![MCP Toplist](https://mcptoplist.com/badge/glama%2Fmcpjungle%2FMCPJungle.svg)](https://mcptoplist.com/server/glama%2Fmcpjungle%2FMCPJungle)
+
 <h1 align="center">
   MCPJungle
 </h1>
