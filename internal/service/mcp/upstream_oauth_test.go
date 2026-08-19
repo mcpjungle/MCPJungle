@@ -23,10 +23,16 @@ import (
 )
 
 type mockOAuthUpstream struct {
-	server           *httptest.Server
-	accessToken      string
-	registerCalls    int
-	lastRegisterBody map[string]any
+	server                     *httptest.Server
+	accessToken                string
+	registerCalls              int
+	lastRegisterBody           map[string]any
+	tokenCalls                 int
+	v1TokenCalls               int
+	lastTokenForm              url.Values
+	lastV1TokenForm            url.Values
+	expectedV1TokenResource    string
+	forceV1TokenFailure        bool
 }
 
 func newMockOAuthUpstream(t *testing.T) *mockOAuthUpstream {
@@ -49,6 +55,13 @@ func newMockOAuthUpstream(t *testing.T) *mockOAuthUpstream {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"authorization_servers": []string{mock.server.URL},
 			"resource":              mock.server.URL + "/mcp",
+		})
+	})
+
+	mux.HandleFunc("/.well-known/oauth-protected-resource/v1/mcp", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"authorization_servers": []string{mock.server.URL},
+			"resource":              mock.server.URL + "/v1/mcp",
 		})
 	})
 
@@ -92,6 +105,34 @@ func newMockOAuthUpstream(t *testing.T) *mockOAuthUpstream {
 
 	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
 		require.NoError(t, r.ParseForm())
+		mock.tokenCalls++
+		mock.lastTokenForm = r.PostForm
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"access_token":  mock.accessToken,
+			"token_type":    "Bearer",
+			"refresh_token": "mock-refresh-token",
+			"expires_in":    3600,
+			"scope":         "mcp.read",
+		})
+	})
+
+	mux.HandleFunc("/v1/token", func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, r.ParseForm())
+		mock.v1TokenCalls++
+		mock.lastV1TokenForm = r.PostForm
+		if mock.expectedV1TokenResource != "" {
+			require.Equal(t, mock.expectedV1TokenResource, r.PostForm.Get("resource"))
+		}
+		if mock.forceV1TokenFailure {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"error":             "invalid_request",
+				"error_description": "mock failure",
+			})
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"access_token":  mock.accessToken,
@@ -103,6 +144,15 @@ func newMockOAuthUpstream(t *testing.T) *mockOAuthUpstream {
 	})
 
 	mux.Handle("/mcp", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer "+mock.accessToken {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte("unauthorized"))
+			return
+		}
+		streamable.ServeHTTP(w, r)
+	}))
+
+	mux.Handle("/v1/mcp", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer "+mock.accessToken {
 			w.WriteHeader(http.StatusUnauthorized)
 			_, _ = w.Write([]byte("unauthorized"))
@@ -432,4 +482,158 @@ func TestDeregisterMcpServer_HardDeletesUpstreamOAuthState(t *testing.T) {
 	var pendingCount int64
 	require.NoError(t, setup.DB.Unscoped().Model(&model.UpstreamOAuthPendingSession{}).Where("server_name = ?", "todoist").Count(&pendingCount).Error)
 	require.Zero(t, pendingCount)
+}
+
+func TestRegistrationEndpointCandidates_IncludesVersionedFallback(t *testing.T) {
+	t.Parallel()
+
+	candidates := registrationEndpointCandidates(
+		"https://mcp.atlassian.com/register/",
+		"https://mcp.atlassian.com/v1/mcp",
+	)
+
+	require.Contains(t, candidates, "https://mcp.atlassian.com/register/")
+	require.Contains(t, candidates, "https://mcp.atlassian.com/register")
+	require.Contains(t, candidates, "https://mcp.atlassian.com/v1/register")
+}
+
+func TestNormalizeOAuthEndpointURL_UsesUpstreamVersionPrefix(t *testing.T) {
+	t.Parallel()
+
+	authorizeURL := normalizeOAuthEndpointURL(
+		"https://mcp.atlassian.com/authorize?client_id=test",
+		"https://mcp.atlassian.com/v1/mcp",
+		"authorize",
+	)
+	require.Equal(t, "https://mcp.atlassian.com/v1/authorize?client_id=test", authorizeURL)
+
+	tokenURL := normalizeOAuthEndpointURL(
+		"https://mcp.atlassian.com/token",
+		"https://mcp.atlassian.com/v1/mcp",
+		"token",
+	)
+	require.Equal(t, "https://mcp.atlassian.com/v1/token", tokenURL)
+}
+
+func TestDiscoverOAuthResourceIndicator_UsesProtectedResourceMetadata(t *testing.T) {
+	t.Parallel()
+
+	const expectedResource = "https://provider.example.com/mcp"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/.well-known/oauth-protected-resource/mcp", r.URL.Path)
+		_ = json.NewEncoder(w).Encode(map[string]any{"resource": expectedResource})
+	}))
+	t.Cleanup(server.Close)
+
+	resource := discoverOAuthResourceIndicator(context.Background(), server.URL+"/mcp")
+	require.Equal(t, expectedResource, resource)
+}
+
+func TestExchangeAuthorizationCodeForToken_IncludesResourceParam(t *testing.T) {
+	t.Parallel()
+
+	const expectedResource = "https://provider.example.com/mcp"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPost, r.Method)
+		require.NoError(t, r.ParseForm())
+		require.Equal(t, expectedResource, r.Form.Get("resource"))
+		require.Equal(t, "authorization_code", r.Form.Get("grant_type"))
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"access_token":  "token",
+			"token_type":    "Bearer",
+			"refresh_token": "refresh",
+			"expires_in":    3600,
+		})
+	}))
+	t.Cleanup(server.Close)
+
+	token, err := exchangeAuthorizationCodeForToken(
+		context.Background(),
+		server.URL,
+		"client-id",
+		"client-secret",
+		"http://localhost/callback",
+		"pkce-verifier",
+		"auth-code",
+		expectedResource,
+	)
+	require.NoError(t, err)
+	require.Equal(t, "token", token.AccessToken)
+}
+
+func TestProcessOAuthAuthorizationCode_ManualBranchIncludesResource(t *testing.T) {
+	t.Parallel()
+
+	service, setup := newOAuthCapableService(t)
+	upstream := newMockOAuthUpstream(t)
+	upstream.expectedV1TokenResource = upstream.server.URL + "/v1/mcp"
+
+	server := newOAuthHTTPServerModel(t, upstream.server.URL+"/v1/mcp")
+	require.NoError(t, setup.DB.Create(server).Error)
+
+	input := &types.RegisterServerInput{
+		Name:             "todoist",
+		Description:      "OAuth upstream",
+		Transport:        string(types.TransportStreamableHTTP),
+		URL:              upstream.server.URL + "/v1/mcp",
+		OAuthRedirectURI: "http://127.0.0.1:9999/oauth/callback",
+		OAuthClientID:    "mock-client-id",
+		OAuthScopes:      []string{"mcp.read"},
+	}
+
+	err := service.processOAuthAuthorizationCode(
+		context.Background(),
+		server,
+		input,
+		"test-code-verifier",
+		"expected-state",
+		"mock-auth-code",
+	)
+	require.NoError(t, err)
+	require.Equal(t, 1, upstream.v1TokenCalls)
+	require.Equal(t, 0, upstream.tokenCalls)
+	require.Equal(t, upstream.server.URL+"/v1/mcp", upstream.lastV1TokenForm.Get("resource"))
+
+	stored, err := getStoredUpstreamOAuthToken(setup.DB, "todoist")
+	require.NoError(t, err)
+	require.Equal(t, upstream.accessToken, stored.AccessToken)
+}
+
+func TestProcessOAuthAuthorizationCode_ManualFailureDoesNotRetryHandlerFlow(t *testing.T) {
+	t.Parallel()
+
+	service, setup := newOAuthCapableService(t)
+	upstream := newMockOAuthUpstream(t)
+	upstream.forceV1TokenFailure = true
+
+	server := newOAuthHTTPServerModel(t, upstream.server.URL+"/v1/mcp")
+	require.NoError(t, setup.DB.Create(server).Error)
+
+	input := &types.RegisterServerInput{
+		Name:             "todoist",
+		Description:      "OAuth upstream",
+		Transport:        string(types.TransportStreamableHTTP),
+		URL:              upstream.server.URL + "/v1/mcp",
+		OAuthRedirectURI: "http://127.0.0.1:9999/oauth/callback",
+		OAuthClientID:    "mock-client-id",
+		OAuthScopes:      []string{"mcp.read"},
+	}
+
+	err := service.processOAuthAuthorizationCode(
+		context.Background(),
+		server,
+		input,
+		"test-code-verifier",
+		"expected-state",
+		"mock-auth-code",
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to exchange OAuth authorization code for token")
+	require.Equal(t, 1, upstream.v1TokenCalls)
+	require.Equal(t, 0, upstream.tokenCalls)
+
+	_, lookupErr := getStoredUpstreamOAuthToken(setup.DB, "todoist")
+	require.Error(t, lookupErr)
 }
