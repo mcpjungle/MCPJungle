@@ -30,6 +30,10 @@ type mockOAuthUpstream struct {
 }
 
 func newMockOAuthUpstream(t *testing.T) *mockOAuthUpstream {
+	return newMockOAuthUpstreamWithRootMetadata(t, false)
+}
+
+func newMockOAuthUpstreamWithRootMetadata(t *testing.T, rootMetadata bool) *mockOAuthUpstream {
 	t.Helper()
 
 	upstreamMCP := mcpserver.NewMCPServer("oauth-upstream", "0.1.0")
@@ -45,12 +49,20 @@ func newMockOAuthUpstream(t *testing.T) *mockOAuthUpstream {
 	mock := &mockOAuthUpstream{accessToken: "mock-access-token"}
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/.well-known/oauth-protected-resource/mcp", func(w http.ResponseWriter, r *http.Request) {
+	protectedResourceHandler := func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"authorization_servers": []string{mock.server.URL},
 			"resource":              mock.server.URL + "/mcp",
 		})
-	})
+	}
+	if rootMetadata {
+		mux.HandleFunc("/.well-known/oauth-protected-resource", protectedResourceHandler)
+		mux.HandleFunc("/.well-known/oauth-protected-resource/mcp", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusForbidden)
+		})
+	} else {
+		mux.HandleFunc("/.well-known/oauth-protected-resource/mcp", protectedResourceHandler)
+	}
 
 	mux.HandleFunc("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -104,6 +116,9 @@ func newMockOAuthUpstream(t *testing.T) *mockOAuthUpstream {
 
 	mux.Handle("/mcp", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer "+mock.accessToken {
+			if rootMetadata {
+				w.Header().Set("WWW-Authenticate", `Bearer resource_metadata="`+mock.server.URL+`/.well-known/oauth-protected-resource"`)
+			}
 			w.WriteHeader(http.StatusUnauthorized)
 			_, _ = w.Write([]byte("unauthorized"))
 			return
@@ -303,13 +318,37 @@ func TestBootstrapUpstreamOAuth_UsesConfiguredClientCredentialsWithoutDCR(t *tes
 	require.Error(t, err)
 
 	var pendingErr *UpstreamOAuthAuthorizationPendingError
-	require.True(t, errors.As(err, &pendingErr))
+	require.ErrorAs(t, err, &pendingErr)
 	require.Equal(t, 0, upstream.registerCalls)
 
 	var session model.UpstreamOAuthPendingSession
 	require.NoError(t, setup.DB.Where("session_id = ?", pendingErr.SessionID).First(&session).Error)
 	require.Equal(t, input.OAuthClientID, session.ClientID)
 	require.Equal(t, input.OAuthClientSecret, session.ClientSecret)
+}
+
+func TestBootstrapUpstreamOAuth_UsesAdvertisedRootProtectedResourceMetadata(t *testing.T) {
+	t.Parallel()
+
+	service, setup := newOAuthCapableService(t)
+	upstream := newMockOAuthUpstreamWithRootMetadata(t, true)
+	server := newOAuthHTTPServerModel(t, upstream.server.URL+"/mcp")
+	input := &types.RegisterServerInput{
+		Name:             "root-metadata",
+		Transport:        string(types.TransportStreamableHTTP),
+		URL:              upstream.server.URL + "/mcp",
+		OAuthRedirectURI: "http://127.0.0.1:9999/oauth/callback",
+		OAuthClientID:    "provider-client-id",
+	}
+
+	err := service.RegisterMcpServerWithOAuthSupport(context.Background(), input, server, false, "tester")
+	var pendingErr *UpstreamOAuthAuthorizationPendingError
+	require.ErrorAs(t, err, &pendingErr)
+	require.Contains(t, pendingErr.AuthorizationURL, upstream.server.URL+"/authorize")
+
+	var session model.UpstreamOAuthPendingSession
+	require.NoError(t, setup.DB.Where("session_id = ?", pendingErr.SessionID).First(&session).Error)
+	require.Equal(t, input.OAuthClientID, session.ClientID)
 }
 
 func TestBootstrapUpstreamOAuth_ReplacesExistingPendingSessionWithHardDelete(t *testing.T) {
@@ -344,7 +383,7 @@ func TestBootstrapUpstreamOAuth_ReplacesExistingPendingSessionWithHardDelete(t *
 	require.Error(t, err)
 
 	var pendingErr *UpstreamOAuthAuthorizationPendingError
-	require.True(t, errors.As(err, &pendingErr))
+	require.ErrorAs(t, err, &pendingErr)
 
 	var pendingSessions []model.UpstreamOAuthPendingSession
 	require.NoError(t, setup.DB.Unscoped().Where("server_name = ?", "todoist").Find(&pendingSessions).Error)

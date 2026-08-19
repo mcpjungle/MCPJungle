@@ -663,7 +663,7 @@ func (m *MCPService) processOAuthAuthorizationCode(ctx context.Context, server *
 			return fmt.Errorf("failed to create OAuth HTTP client for token exchange: %w", err)
 		}
 		defer c.Close()
-		_, err = c.Initialize(ctx, defaultHTTPInitializeRequest(conf.URL))
+		_, err = initializeHTTPClient(ctx, c, conf.URL, m.mcpServerInitReqTimeoutSec)
 		if !errors.As(err, &oauthErr) {
 			if err == nil {
 				return fmt.Errorf("unexpectedly initialized upstream server before OAuth token exchange")
