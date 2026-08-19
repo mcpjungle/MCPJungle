@@ -261,6 +261,9 @@ func initializeHTTPClient(ctx context.Context, c *client.Client, url string, ini
 	initCtx, cancel := context.WithTimeout(ctx, time.Duration(initReqTimeoutSec)*time.Second)
 	defer cancel()
 
+	if err := c.Start(initCtx); err != nil {
+		return nil, err
+	}
 	return c.Initialize(initCtx, defaultHTTPInitializeRequest(url))
 }
 
