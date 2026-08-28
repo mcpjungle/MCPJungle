@@ -65,11 +65,14 @@ For the enterprise bootstrap flow and login workflow, see [Enterprise operations
 
 Several `mcpjungle` commands accept a `-c` / `--conf` flag pointing to a JSON file instead of inline CLI flags. This section documents every supported JSON format.
 
-### `${VAR_NAME}` placeholder substitution
+### Secret placeholder substitution
 
-All JSON config files support environment variable placeholders in string fields. Before sending the request to the server, the CLI expands every `${VAR_NAME}` occurrence using the current shell environment.
+All JSON config files support environment variable and OS keychain placeholders in string fields. Before sending the request to the server, the CLI expands each placeholder locally.
+
+#### Environment variables
 
 Rules:
+
 - Only `${VAR_NAME}` syntax is recognized — not `$VAR_NAME`.
 - Placeholders can appear anywhere inside a string, including as a substring: `"prefix-${VAR}-suffix"`.
 - Substitution runs in the CLI process, so the variable must be set in the environment where you run the command.
@@ -84,6 +87,66 @@ Rules:
   "bearer_token": "${API_TOKEN}"
 }
 ```
+
+#### OS keychain secrets
+
+Use `${keychain:<key>}` to read a secret from the native credential store. The key becomes the credential's service name. The account defaults to the current username from `$USER`, or the equivalent current OS username when `$USER` is unavailable.
+
+For example, `${keychain:github-token}` reads the credential whose service is `github-token` and whose account is your current username:
+
+```json
+{
+  "name": "github",
+  "transport": "stdio",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-github"],
+  "env": {
+    "GITHUB_PERSONAL_ACCESS_TOKEN": "${keychain:github-token}"
+  }
+}
+```
+
+Store the matching credential with your platform's credential tool.
+
+<Tabs>
+  <Tab title="macOS">
+    ```bash
+    security add-generic-password -U \
+      -a "$USER" \
+      -s github-token \
+      -w
+    ```
+
+    Keep `-w` as the final option so `security` prompts for the secret without placing it in your shell history.
+  </Tab>
+  <Tab title="Linux">
+    Linux requires a Secret Service-compatible keyring, such as GNOME Keyring. Store the secret with `secret-tool`:
+
+    ```bash
+    secret-tool store \
+      --label="MCPJungle GitHub token" \
+      service github-token \
+      username "$USER"
+    ```
+
+    `secret-tool` prompts for the secret value.
+  </Tab>
+  <Tab title="Windows">
+    In PowerShell, `cmdkey` stores the credential under the combined `<service>:<account>` target expected by the keyring backend:
+
+    ```powershell
+    cmdkey /generic:"github-token:$env:USERNAME" /user:"$env:USERNAME"
+    ```
+
+    `cmdkey` prompts for the secret when `/pass` is omitted.
+  </Tab>
+</Tabs>
+
+Keychain placeholders follow the same interpolation rules as environment variables. They work in nested objects, string arrays, headers, bearer tokens, and strings containing multiple placeholders. Missing credentials, unavailable keychain backends, and unsupported provider names cause configuration resolution to fail before the request is submitted.
+
+<Warning>
+  Keychain resolution protects the secret at rest on your local machine, but it does not provide end-to-end secret-reference semantics. The CLI sends the resolved plaintext value to the MCPJungle server, where it may be persisted just like an interpolated environment variable.
+</Warning>
 
 ### Register a Streamable HTTP server
 

@@ -200,8 +200,8 @@ func readMcpServerConfig(filePath string) (types.RegisterServerInput, error) {
 	if err := json.Unmarshal(data, &input); err != nil {
 		return input, fmt.Errorf("failed to parse config file: %w", err)
 	}
-	if err := configresolver.ResolveEnvVars(&input); err != nil {
-		return input, fmt.Errorf("failed to resolve config file environment variables: %w", err)
+	if err := configresolver.ResolveConfig(&input); err != nil {
+		return input, fmt.Errorf("failed to resolve config file secrets: %w", err)
 	}
 
 	return input, nil

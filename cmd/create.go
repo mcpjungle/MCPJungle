@@ -307,8 +307,8 @@ func readToolGroupConfig(filePath string) (*types.ToolGroup, error) {
 	if err := json.Unmarshal(data, &input); err != nil {
 		return &input, fmt.Errorf("failed to parse config file: %w", err)
 	}
-	if err := configresolver.ResolveEnvVars(&input); err != nil {
-		return &input, fmt.Errorf("failed to resolve config file environment variables: %w", err)
+	if err := configresolver.ResolveConfig(&input); err != nil {
+		return &input, fmt.Errorf("failed to resolve config file secrets: %w", err)
 	}
 
 	return &input, nil
@@ -325,8 +325,8 @@ func readMcpClientConfig(filePath string) (*types.McpClientConfig, error) {
 	if err := json.Unmarshal(data, &input); err != nil {
 		return &input, fmt.Errorf("failed to parse config file: %w", err)
 	}
-	if err := configresolver.ResolveEnvVars(&input); err != nil {
-		return &input, fmt.Errorf("failed to resolve config file environment variables: %w", err)
+	if err := configresolver.ResolveConfig(&input); err != nil {
+		return &input, fmt.Errorf("failed to resolve config file secrets: %w", err)
 	}
 
 	return &input, nil
@@ -343,8 +343,8 @@ func readUserConfig(filePath string) (*types.UserConfig, error) {
 	if err := json.Unmarshal(data, &input); err != nil {
 		return &input, fmt.Errorf("failed to parse config file: %w", err)
 	}
-	if err := configresolver.ResolveEnvVars(&input); err != nil {
-		return &input, fmt.Errorf("failed to resolve config file environment variables: %w", err)
+	if err := configresolver.ResolveConfig(&input); err != nil {
+		return &input, fmt.Errorf("failed to resolve config file secrets: %w", err)
 	}
 
 	return &input, nil
