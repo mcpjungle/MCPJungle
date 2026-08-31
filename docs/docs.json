@@ -50,7 +50,8 @@
               "guides/manage-resources",
               "guides/tool-groups",
               "guides/session-modes",
-              "guides/register-popular-servers"
+              "guides/register-popular-servers",
+              "guides/toa-optional-register-gate"
             ]
           },
           {
