@@ -57,6 +57,8 @@ Start with a local setup. Scale to a shared team gateway when you need it.
  
  Your AI Clients can also access the docs using its MCP server `https://docs.mcpjungle.com/mcp`!
 
+Optional offline delivery-evidence gate before register: [docs/guides/toa-optional-register-gate.mdx](docs/guides/toa-optional-register-gate.mdx).
+
 ## Quickstart
 
 This quickstart guide will show you how to:
