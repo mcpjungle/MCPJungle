@@ -5,7 +5,7 @@ Dockerfile.multiarch is an optional source-owned example for building
 linux/amd64 and linux/arm64 from the same pinned repository revision.
 
 It uses Node 22 locked dashboard build, including the repository-level
-assets/ Vite alias; Go 1.25 CGO and the architecture-specific GNU C compiler
+assets/ Vite alias; Go 1.26 CGO and the architecture-specific GNU C compiler
 and libc headers for SQLite; and a target-platform runtime based on the pinned
 MCPJungle 0.4.6 STDIO image. It does not install host-level QEMU or binfmt.
 

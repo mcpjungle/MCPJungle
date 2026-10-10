@@ -9,7 +9,7 @@ COPY web/dashboard/ ./
 COPY assets/ /src/assets/
 RUN npm run build
 
-FROM --platform=$BUILDPLATFORM golang:1.25.6-bookworm AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.9-bookworm AS builder
 ARG TARGETOS
 ARG TARGETARCH
 # Cross-compile CGO (SQLite) without installing binfmt/QEMU on shared hosts.
