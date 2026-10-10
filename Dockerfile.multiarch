@@ -1,0 +1,47 @@
+# Optional cross-architecture build from the checked-out upstream source.
+# The main Dockerfile and stdio.Dockerfile remain unchanged.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS dashboard
+WORKDIR /src/web/dashboard
+COPY web/dashboard/package.json web/dashboard/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY web/dashboard/ ./
+# Vite resolves @repo-assets to the repository root, not to web/dashboard.
+COPY assets/ /src/assets/
+RUN npm run build
+
+FROM --platform=$BUILDPLATFORM golang:1.25.6-bookworm AS builder
+ARG TARGETOS
+ARG TARGETARCH
+# Cross-compile CGO (SQLite) without installing binfmt/QEMU on shared hosts.
+RUN set -eux; \
+    native="$(go env GOARCH)"; \
+    if [ "$TARGETARCH" != "$native" ]; then \
+      case "$TARGETARCH" in \
+        amd64) cross=gcc-x86-64-linux-gnu; cross_libc=libc6-dev-amd64-cross ;; \
+        arm64) cross=gcc-aarch64-linux-gnu; cross_libc=libc6-dev-arm64-cross ;; \
+        *) echo "Unsupported cross-architecture: $TARGETARCH" >&2; exit 1 ;; \
+      esac; \
+      apt-get update; apt-get install -y --no-install-recommends "$cross" "$cross_libc"; \
+      rm -rf /var/lib/apt/lists/*; \
+    fi
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod,sharing=locked go mod download
+COPY . .
+COPY --from=dashboard /src/web/dashboard/dist ./internal/dashboardui/dist
+RUN --mount=type=cache,target=/go/pkg/mod,sharing=locked \
+    --mount=type=cache,target=/root/.cache/go-build,sharing=locked \
+    set -eux; \
+    if [ "$TARGETARCH" = "$(go env GOARCH)" ]; then cc=gcc; \
+    elif [ "$TARGETARCH" = amd64 ]; then cc=x86_64-linux-gnu-gcc; \
+    elif [ "$TARGETARCH" = arm64 ]; then cc=aarch64-linux-gnu-gcc; \
+    else exit 1; fi; \
+    CGO_ENABLED=1 GOOS="$TARGETOS" GOARCH="$TARGETARCH" CC="$cc" \
+      go build -trimpath -ldflags="-s -w" -o /tmp/mcpjungle .
+
+FROM --platform=$TARGETPLATFORM ghcr.io/mcpjungle/mcpjungle:0.4.6-stdio
+COPY --from=builder /tmp/mcpjungle /mcpjungle
+
+ENV HOME=/tmp
+WORKDIR /tmp
+USER 65532:65532
