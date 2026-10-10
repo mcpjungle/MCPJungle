@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/mark3labs/mcp-go/client"
+	mcpserver "github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"gorm.io/gorm"
@@ -82,14 +83,36 @@ func NewSessionManager(cfg *SessionManagerConfig) *SessionManager {
 	return sm
 }
 
+// upstreamSessionCacheKey is derived from a trusted MCP-go transport session,
+// not from a caller-provided header. Ordinary "stateful" retains legacy global
+// server sharing; isolated mode is explicit opt-in for stateful browser backends.
+func upstreamSessionCacheKey(ctx context.Context, upstream *model.McpServer) (string, error) {
+	if upstream.SessionMode != types.SessionModeStatefulIsolated {
+		return upstream.Name, nil
+	}
+	negotiated := mcpserver.ClientSessionFromContext(ctx)
+	if negotiated == nil || negotiated.SessionID() == "" {
+		return "", fmt.Errorf("isolated stateful upstream %s requires a negotiated MCP transport session", upstream.Name)
+	}
+	var principal uint
+	if client, ok := ctx.Value("client").(*model.McpClient); ok && client != nil {
+		principal = client.ID
+	}
+	return fmt.Sprintf("isolated:%d:%s:%d:%s", len(upstream.Name), upstream.Name, principal, negotiated.SessionID()), nil
+}
+
 // GetOrCreateSession returns an existing session for the server or creates a new one.
 // This method should only be called for servers with SessionMode set to stateful.
 func (sm *SessionManager) GetOrCreateSession(ctx context.Context, server *model.McpServer) (*client.Client, error) {
+	key, err := upstreamSessionCacheKey(ctx, server)
+	if err != nil {
+		return nil, err
+	}
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
 	// Check if we have an existing session
-	if session, exists := sm.sessions[server.Name]; exists {
+	if session, exists := sm.sessions[key]; exists {
 		session.LastUsedAt = time.Now()
 		return session.Client, nil
 	}
@@ -100,7 +123,7 @@ func (sm *SessionManager) GetOrCreateSession(ctx context.Context, server *model.
 		return nil, fmt.Errorf("failed to create session for server '%s': %w", server.Name, err)
 	}
 
-	sm.sessions[server.Name] = &ManagedSession{
+	sm.sessions[key] = &ManagedSession{
 		ServerName: server.Name,
 		Client:     mcpClient,
 		CreatedAt:  time.Now(),
@@ -116,34 +139,48 @@ func (sm *SessionManager) GetOrCreateSession(ctx context.Context, server *model.
 func (sm *SessionManager) CloseSession(serverName string) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-
-	if session, exists := sm.sessions[serverName]; exists {
-		if session.Client != nil {
-			if err := session.Client.Close(); err != nil {
-				log.Printf("[SessionManager] Error closing session for server '%s': %v", serverName, err)
-			}
+	for key, session := range sm.sessions {
+		if session.ServerName != serverName {
+			continue
 		}
-		delete(sm.sessions, serverName)
-		log.Printf("[SessionManager] Closed session for server '%s'", serverName)
+		sm.closeManagedSession(key, session, "server deregistration")
 	}
 }
 
-// InvalidateSession closes and removes a session due to a detected error.
-// This is called reactively when a connection error is detected during a tool call.
-// The next call to GetOrCreateSession will create a fresh session.
+// InvalidateSession maintains the administrative per-server invalidation API.
 func (sm *SessionManager) InvalidateSession(serverName string, reason string) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-
-	if session, exists := sm.sessions[serverName]; exists {
-		if session.Client != nil {
-			if err := session.Client.Close(); err != nil {
-				log.Printf("[SessionManager] Error closing unhealthy session for server '%s': %v", serverName, err)
-			}
+	for key, session := range sm.sessions {
+		if session.ServerName != serverName {
+			continue
 		}
-		delete(sm.sessions, serverName)
-		log.Printf("[SessionManager] Invalidated unhealthy session for server '%s': %s", serverName, reason)
+		sm.closeManagedSession(key, session, reason)
 	}
+}
+
+// InvalidateScopedSession cannot evict another client's upstream browser after
+// a single transport session fails. The client identity also guards replacement
+// sessions against late errors from a prior connection.
+func (sm *SessionManager) InvalidateScopedSession(key string, expected *client.Client, reason string) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	session, exists := sm.sessions[key]
+	if !exists || session.Client != expected {
+		return
+	}
+	sm.closeManagedSession(key, session, reason)
+}
+
+// closeManagedSession must be invoked under sm.mu.
+func (sm *SessionManager) closeManagedSession(key string, session *ManagedSession, reason string) {
+	if session.Client != nil {
+		if err := session.Client.Close(); err != nil {
+			log.Printf("[SessionManager] Error closing session for server '%s': %v", session.ServerName, err)
+		}
+	}
+	delete(sm.sessions, key)
+	log.Printf("[SessionManager] Closed session for server '%s' (%s)", session.ServerName, reason)
 }
 
 // CloseAllSessions closes all managed sessions.
@@ -155,7 +192,7 @@ func (sm *SessionManager) CloseAllSessions() {
 	for name, session := range sm.sessions {
 		if session.Client != nil {
 			if err := session.Client.Close(); err != nil {
-				log.Printf("[SessionManager] Error closing session for server '%s': %v", name, err)
+				log.Printf("[SessionManager] Error closing session for server '%s': %v", session.ServerName, err)
 			}
 		}
 		delete(sm.sessions, name)
@@ -179,8 +216,12 @@ func (sm *SessionManager) Shutdown() {
 func (sm *SessionManager) HasSession(serverName string) bool {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
-	_, exists := sm.sessions[serverName]
-	return exists
+	for _, session := range sm.sessions {
+		if session.ServerName == serverName {
+			return true
+		}
+	}
+	return false
 }
 
 // SessionCount returns the number of active sessions.
@@ -221,10 +262,10 @@ func (sm *SessionManager) cleanupIdleSessions() {
 
 	for name, session := range sm.sessions {
 		if now.Sub(session.LastUsedAt) > idleThreshold {
-			log.Printf("[SessionManager] Closing idle session for server '%s' (idle for %v)", name, now.Sub(session.LastUsedAt))
+			log.Printf("[SessionManager] Closing idle session for server '%s' (idle for %v)", session.ServerName, now.Sub(session.LastUsedAt))
 			if session.Client != nil {
 				if err := session.Client.Close(); err != nil {
-					log.Printf("[SessionManager] Error closing session for server '%s': %v", name, err)
+					log.Printf("[SessionManager] Error closing session for server '%s': %v", session.ServerName, err)
 				}
 			}
 			delete(sm.sessions, name)
