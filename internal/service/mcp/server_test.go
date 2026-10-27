@@ -170,8 +170,12 @@ func TestRegisterMcpServerWithOAuthSupport_StreamableHTTPRegistersServerAndEntit
 		mcpserver.WithPromptCapabilities(true),
 		mcpserver.WithResourceCapabilities(true, true),
 	)
+	echoTool := mcp.NewTool("echo", mcp.WithString("msg"))
+	echoTool.Meta = &mcp.Meta{AdditionalFields: map[string]any{
+		"openai/fileParams": []string{"file"},
+	}}
 	upstream.AddTool(
-		mcp.NewTool("echo", mcp.WithString("msg")),
+		echoTool,
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			msg, _ := request.GetArguments()["msg"].(string)
 			return mcp.NewToolResultText(msg), nil
@@ -233,6 +237,10 @@ func TestRegisterMcpServerWithOAuthSupport_StreamableHTTPRegistersServerAndEntit
 	tool, err := service.GetTool("catalog__echo")
 	require.NoError(t, err)
 	assert.Equal(t, "catalog__echo", tool.Name)
+	require.NotNil(t, tool.Meta)
+	var toolMeta map[string]any
+	require.NoError(t, json.Unmarshal(tool.Meta, &toolMeta))
+	assert.Equal(t, []any{"file"}, toolMeta["openai/fileParams"])
 
 	prompts, err := service.ListPromptsByServer("catalog")
 	require.NoError(t, err)
