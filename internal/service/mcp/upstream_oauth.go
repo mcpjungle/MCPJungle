@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	mcpgoclient "github.com/mark3labs/mcp-go/client"
@@ -330,6 +332,7 @@ func (m *MCPService) bootstrapUpstreamOAuth(ctx context.Context, input *types.Re
 	if err != nil {
 		return fmt.Errorf("failed to build OAuth authorization URL: %w", err)
 	}
+	authURL = normalizeOAuthEndpointURL(authURL, input.URL, "authorize")
 
 	inputJSON, err := json.Marshal(input)
 	if err != nil {
@@ -463,22 +466,77 @@ func registerOAuthClientWithoutEmptyScope(
 	if err != nil {
 		return "", "", fmt.Errorf("failed to marshal registration request: %w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, metadata.RegistrationEndpoint, bytes.NewReader(reqBody))
+
+	endpoints := registrationEndpointCandidates(metadata.RegistrationEndpoint, input.URL)
+	var lastErr error
+
+	for _, endpoint := range endpoints {
+		clientID, clientSecret, statusCode, reqErr := registerOAuthClientAtEndpoint(ctx, endpoint, reqBody)
+		if reqErr == nil {
+			return clientID, clientSecret, nil
+		}
+		if statusCode == http.StatusForbidden {
+			return "", "", errUpstreamOAuthDCRUnsupported
+		}
+		lastErr = reqErr
+		if statusCode != http.StatusNotFound {
+			return "", "", reqErr
+		}
+	}
+
+	if lastErr != nil {
+		return "", "", lastErr
+	}
+	return "", "", fmt.Errorf("failed to dynamically register OAuth client")
+}
+
+func registrationEndpointCandidates(registrationEndpoint, upstreamURL string) []string {
+	seen := map[string]struct{}{}
+	add := func(candidate string, out *[]string) {
+		if candidate == "" {
+			return
+		}
+		if _, ok := seen[candidate]; ok {
+			return
+		}
+		seen[candidate] = struct{}{}
+		*out = append(*out, candidate)
+	}
+
+	candidates := make([]string, 0, 4)
+	add(registrationEndpoint, &candidates)
+	add(strings.TrimRight(registrationEndpoint, "/"), &candidates)
+
+	upstreamParsed, err := url.Parse(upstreamURL)
+	if err == nil && upstreamParsed.Scheme != "" && upstreamParsed.Host != "" {
+		segments := strings.Split(strings.Trim(upstreamParsed.Path, "/"), "/")
+		if len(segments) > 0 && segments[0] != "" {
+			base := *upstreamParsed
+			base.Path = "/" + segments[0] + "/register"
+			base.RawQuery = ""
+			base.Fragment = ""
+			add(base.String(), &candidates)
+		}
+	}
+
+	return candidates
+}
+
+func registerOAuthClientAtEndpoint(ctx context.Context, endpoint string, reqBody []byte) (string, string, int, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(reqBody))
 	if err != nil {
-		return "", "", fmt.Errorf("failed to create registration request: %w", err)
+		return "", "", 0, fmt.Errorf("failed to create registration request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to send registration request: %w", err)
+		return "", "", 0, fmt.Errorf("failed to send registration request: %w", err)
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		if resp.StatusCode == http.StatusForbidden {
-			return "", "", errUpstreamOAuthDCRUnsupported
-		}
 		body, _ := io.ReadAll(resp.Body)
 		var oauthErr struct {
 			Error            string `json:"error"`
@@ -486,11 +544,11 @@ func registerOAuthClientWithoutEmptyScope(
 		}
 		if err := json.Unmarshal(body, &oauthErr); err == nil && oauthErr.Error != "" {
 			if oauthErr.ErrorDescription != "" {
-				return "", "", fmt.Errorf("OAuth error: %s - %s", oauthErr.Error, oauthErr.ErrorDescription)
+				return "", "", resp.StatusCode, fmt.Errorf("OAuth error: %s - %s", oauthErr.Error, oauthErr.ErrorDescription)
 			}
-			return "", "", fmt.Errorf("OAuth error: %s", oauthErr.Error)
+			return "", "", resp.StatusCode, fmt.Errorf("OAuth error: %s", oauthErr.Error)
 		}
-		return "", "", fmt.Errorf("registration request failed with status %d: %s", resp.StatusCode, body)
+		return "", "", resp.StatusCode, fmt.Errorf("registration request failed with status %d: %s", resp.StatusCode, body)
 	}
 
 	var regResponse struct {
@@ -498,9 +556,201 @@ func registerOAuthClientWithoutEmptyScope(
 		ClientSecret string `json:"client_secret,omitempty"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&regResponse); err != nil {
-		return "", "", fmt.Errorf("failed to decode registration response: %w", err)
+		return "", "", resp.StatusCode, fmt.Errorf("failed to decode registration response: %w", err)
 	}
-	return regResponse.ClientID, regResponse.ClientSecret, nil
+
+	return regResponse.ClientID, regResponse.ClientSecret, resp.StatusCode, nil
+}
+
+func normalizeOAuthEndpointURL(endpointURL, upstreamURL, endpointName string) string {
+	if endpointURL == "" {
+		return deriveVersionedOAuthEndpoint(upstreamURL, endpointName)
+	}
+
+	parsedEndpoint, err := url.Parse(endpointURL)
+	if err != nil || parsedEndpoint.Scheme == "" || parsedEndpoint.Host == "" {
+		return endpointURL
+	}
+
+	versionSegment := discoverVersionSegment(upstreamURL)
+	if versionSegment == "" {
+		return endpointURL
+	}
+
+	endpointPath := strings.Trim(parsedEndpoint.Path, "/")
+	parts := strings.Split(endpointPath, "/")
+	if len(parts) == 1 {
+		if parts[0] == endpointName {
+			parsedEndpoint.Path = "/" + versionSegment + "/" + endpointName
+			return parsedEndpoint.String()
+		}
+	}
+	if len(parts) == 2 && parts[0] == versionSegment {
+		return endpointURL
+	}
+
+	return endpointURL
+}
+
+func discoverVersionSegment(upstreamURL string) string {
+	parsed, err := url.Parse(upstreamURL)
+	if err != nil {
+		return ""
+	}
+	segments := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+	candidate := segments[0]
+	if len(candidate) >= 2 && strings.HasPrefix(candidate, "v") {
+		allDigits := true
+		for _, r := range candidate[1:] {
+			if r < '0' || r > '9' {
+				allDigits = false
+				break
+			}
+		}
+		if allDigits {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func deriveVersionedOAuthEndpoint(upstreamURL, endpointName string) string {
+	parsed, err := url.Parse(upstreamURL)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return ""
+	}
+	versionSegment := discoverVersionSegment(upstreamURL)
+	if versionSegment == "" {
+		return ""
+	}
+	parsed.Path = "/" + versionSegment + "/" + endpointName
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return parsed.String()
+}
+
+func discoverOAuthResourceIndicator(ctx context.Context, upstreamURL string) string {
+	resourceURL := strings.TrimSpace(upstreamURL)
+	if resourceURL == "" {
+		return ""
+	}
+
+	parsedResource, err := url.Parse(resourceURL)
+	if err != nil || parsedResource.Scheme == "" || parsedResource.Host == "" {
+		return ""
+	}
+	parsedResource.RawQuery = ""
+	parsedResource.Fragment = ""
+	resourceURL = parsedResource.String()
+
+	metadataPath := "/.well-known/oauth-protected-resource" + ensureLeadingSlash(strings.TrimSuffix(parsedResource.Path, "/"))
+	metadataURL := parsedResource.Scheme + "://" + parsedResource.Host + metadataPath
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, metadataURL, nil)
+	if err != nil {
+		return resourceURL
+	}
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return resourceURL
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return resourceURL
+	}
+
+	var metadata struct {
+		Resource string `json:"resource"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&metadata); err != nil {
+		return resourceURL
+	}
+
+	candidate := strings.TrimSpace(metadata.Resource)
+	if candidate == "" {
+		return resourceURL
+	}
+
+	parsedCandidate, err := url.Parse(candidate)
+	if err != nil || parsedCandidate.Scheme == "" || parsedCandidate.Host == "" {
+		return resourceURL
+	}
+	parsedCandidate.RawQuery = ""
+	parsedCandidate.Fragment = ""
+	return parsedCandidate.String()
+}
+
+func ensureLeadingSlash(path string) string {
+	if path == "" {
+		return ""
+	}
+	if strings.HasPrefix(path, "/") {
+		return path
+	}
+	return "/" + path
+}
+
+func exchangeAuthorizationCodeForToken(ctx context.Context, tokenEndpoint, clientID, clientSecret, redirectURI, codeVerifier, code, resource string) (*mcpgotransport.Token, error) {
+	form := url.Values{}
+	form.Set("grant_type", "authorization_code")
+	form.Set("code", code)
+	form.Set("redirect_uri", redirectURI)
+	form.Set("code_verifier", codeVerifier)
+	if clientID != "" {
+		form.Set("client_id", clientID)
+	}
+	if clientSecret != "" {
+		form.Set("client_secret", clientSecret)
+	}
+	if resource != "" {
+		form.Set("resource", resource)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenEndpoint, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create token request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send token request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("token request failed with status %d: %s", resp.StatusCode, body)
+	}
+
+	var payload struct {
+		AccessToken  string `json:"access_token"`
+		TokenType    string `json:"token_type"`
+		RefreshToken string `json:"refresh_token,omitempty"`
+		Scope        string `json:"scope,omitempty"`
+		ExpiresIn    int64  `json:"expires_in,omitempty"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return nil, fmt.Errorf("failed to decode token response: %w", err)
+	}
+	if payload.AccessToken == "" {
+		return nil, fmt.Errorf("token response missing access_token")
+	}
+
+	token := &mcpgotransport.Token{
+		AccessToken:  payload.AccessToken,
+		TokenType:    payload.TokenType,
+		RefreshToken: payload.RefreshToken,
+		Scope:        payload.Scope,
+	}
+	if payload.ExpiresIn > 0 {
+		token.ExpiresAt = time.Now().Add(time.Duration(payload.ExpiresIn) * time.Second)
+	}
+	return token, nil
 }
 
 func joinScopes(scopes []string) string {
@@ -700,9 +950,29 @@ func (m *MCPService) processOAuthAuthorizationCode(ctx context.Context, server *
 		return fmt.Errorf("failed to retrieve OAuth handler for upstream server")
 	}
 
-	oauthErr.Handler.SetExpectedState(state)
-	if err := oauthErr.Handler.ProcessAuthorizationResponse(ctx, code, state, codeVerifier); err != nil {
+	rawTokenEndpoint := ""
+	if metadata, err := oauthErr.Handler.GetServerMetadata(ctx); err == nil {
+		rawTokenEndpoint = metadata.TokenEndpoint
+	}
+	tokenEndpoint := normalizeOAuthEndpointURL(rawTokenEndpoint, input.URL, "token")
+	if tokenEndpoint == "" || tokenEndpoint == rawTokenEndpoint {
+		oauthErr.Handler.SetExpectedState(state)
+		if err := oauthErr.Handler.ProcessAuthorizationResponse(ctx, code, state, codeVerifier); err != nil {
+			return fmt.Errorf("failed to exchange OAuth authorization code for token: %w", err)
+		}
+		return nil
+	}
+
+	resourceIndicator := discoverOAuthResourceIndicator(ctx, input.URL)
+	token, err := exchangeAuthorizationCodeForToken(ctx, tokenEndpoint, input.OAuthClientID, input.OAuthClientSecret, input.OAuthRedirectURI, codeVerifier, code, resourceIndicator)
+	if err != nil {
+		// Do not retry token exchange with the same authorization code via handler flow.
+		// Authorization codes are often single-use and may already be invalidated.
 		return fmt.Errorf("failed to exchange OAuth authorization code for token: %w", err)
+	}
+
+	if err := tokenStore.SaveToken(ctx, token); err != nil {
+		return fmt.Errorf("failed to persist OAuth token: %w", err)
 	}
 
 	return nil
