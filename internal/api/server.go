@@ -74,6 +74,12 @@ type Server struct {
 	// We need to maintain one instance for each group for sse to work correctly.
 	groupSseServers sync.Map
 
+	// groupStreamableServers keeps track of mcp-go's StreamableHTTPServer instances
+	// created for each tool group. These instances serve requests to tool groups'
+	// /mcp endpoints. We need to maintain one instance per group for the Streamable
+	// HTTP protocol to work correctly (session state must persist across requests).
+	groupStreamableServers sync.Map
+
 	// dashboardOAuthMu guards dashboardOAuthResults, which is a short-lived
 	// in-memory cache used by the browser-based dashboard OAuth flow.
 	dashboardOAuthMu sync.Mutex
