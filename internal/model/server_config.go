@@ -37,6 +37,24 @@ type ServerConfig struct {
 	// Initialized indicates whether the server has been initialized.
 	// If this is set to false, the server is not yet ready for use and all requests to it should be rejected.
 	Initialized bool `gorm:"not null;default:false"`
+
+	// UpstreamTLS holds TLS trust configuration for MCPJungle-to-upstream MCP server connections.
+	UpstreamTLS UpstreamTLSServerConfig `gorm:"embedded;embeddedPrefix:upstream_tls_"`
+}
+
+// UpstreamTLSServerConfig holds TLS trust configuration for MCPJungle-to-upstream MCP server connections.
+// This configuration applies exclusively to connections initiated by MCPJungle toward upstream MCP servers,
+// not to client-to-gateway TLS termination.
+type UpstreamTLSServerConfig struct {
+	// TLSCAFile is the path to a CA certificate file used to verify upstream MCP server TLS certificates.
+	// When empty, the system's default CA certificates are used.
+	TLSCAFile string `gorm:"type:varchar(500)"`
+
+	// TLSInsecureSkipVerify controls whether a client verifies the upstream MCP server's
+	// certificate chain and host name. If TLSInsecureSkipVerify is true, TLS accepts any
+	// certificate presented by the server and any host name in that certificate.
+	// This should only be used for local/development workflows.
+	TLSInsecureSkipVerify bool `gorm:"default:false"`
 }
 
 func (c *ServerConfig) BeforeSave(tx *gorm.DB) (err error) {
