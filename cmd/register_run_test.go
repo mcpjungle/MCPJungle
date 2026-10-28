@@ -102,6 +102,48 @@ func TestRunRegisterMCPServer_PrintsPromptsAndResourcesWithoutTools(t *testing.T
 	}
 }
 
+func TestPrintRegisteredServerSummary_TrimsToolDescriptions(t *testing.T) {
+	description := strings.Repeat("a", 40) + "\n\t" + strings.Repeat("b", 50)
+	wantSummary := strings.Repeat("a", 40) + " " + strings.Repeat("b", 36) + "..."
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v0/tools":
+			_ = json.NewEncoder(w).Encode([]*types.Tool{
+				{Name: "long-tool", Description: description},
+			})
+		case "/api/v0/prompts":
+			_ = json.NewEncoder(w).Encode([]model.Prompt{})
+		case "/api/v0/resources":
+			_ = json.NewEncoder(w).Encode([]*types.Resource{})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	origClient := apiClient
+	defer func() { apiClient = origClient }()
+	apiClient = client.NewClient(server.URL, "", http.DefaultClient)
+
+	cmd := &cobra.Command{}
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+
+	registeredServer := &types.McpServer{
+		Name:      "test-server",
+		Transport: string(types.TransportStreamableHTTP),
+	}
+	if err := printRegisteredServerSummary(cmd, registeredServer); err != nil {
+		t.Fatalf("printRegisteredServerSummary returned error: %v", err)
+	}
+
+	want := "1. long-tool: " + wantSummary + "\n\n"
+	if !strings.Contains(out.String(), want) {
+		t.Fatalf("expected trimmed tool description %q, got: %s", want, out.String())
+	}
+}
+
 func TestRunRegisterMCPServer_PrintsEmptySummaryWhenNoCapabilitiesExist(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
