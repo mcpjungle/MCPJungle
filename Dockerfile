@@ -11,6 +11,9 @@ LABEL org.opencontainers.image.vendor="mcpjungle"
 COPY mcpjungle /mcpjungle
 
 EXPOSE 8080
+ENV HOME=/tmp
+WORKDIR /tmp
+USER 65532:65532
 ENTRYPOINT ["/mcpjungle"]
 
 # Run the Registry Server by default
