@@ -253,6 +253,11 @@ func (m *MCPService) setResourcesEnabled(entity string, enabled bool) ([]string,
 		}
 	}
 
+	if enabled {
+		m.notifyResourceAddition(resource.URI)
+	} else {
+		m.notifyResourceDeletion(resource.URI)
+	}
 	return []string{resource.URI}, nil
 }
 
@@ -292,6 +297,11 @@ func (m *MCPService) setServerResourcesEnabled(s *model.McpServer, enabled bool)
 			}
 		}
 
+		if enabled {
+			m.notifyResourceAddition(resources[i].URI)
+		} else {
+			m.notifyResourceDeletion(resources[i].URI)
+		}
 		changedURIs = append(changedURIs, resources[i].URI)
 	}
 
@@ -333,6 +343,7 @@ func (m *MCPService) registerServerResources(ctx context.Context, s *model.McpSe
 		} else {
 			m.mcpProxyServer.AddResource(resource, m.mcpProxyResourceHandler)
 		}
+		m.notifyResourceAddition(resource.URI)
 	}
 
 	return nil
@@ -361,6 +372,29 @@ func (m *MCPService) deregisterServerResources(s *model.McpServer) error {
 	} else {
 		m.mcpProxyServer.DeleteResources(resourceURIs...)
 	}
+	m.notifyResourceDeletion(resourceURIs...)
 
 	return nil
+}
+
+// SetResourceCallbacks keeps group MCP Apps resources in sync when a backend
+// registers, deregisters, enables or disables UI resources.
+func (m *MCPService) SetResourceCallbacks(added func(string) error, deleted func(...string)) {
+	m.resourceAdditionCallback = added
+	m.resourceDeletionCallback = deleted
+}
+
+func (m *MCPService) notifyResourceAddition(uri string) {
+	if m.resourceAdditionCallback == nil {
+		return
+	}
+	if err := m.resourceAdditionCallback(uri); err != nil {
+		log.Printf("[ERROR] failed to project new MCP UI resource: %v", err)
+	}
+}
+
+func (m *MCPService) notifyResourceDeletion(uris ...string) {
+	if m.resourceDeletionCallback != nil {
+		m.resourceDeletionCallback(uris...)
+	}
 }

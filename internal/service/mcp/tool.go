@@ -242,6 +242,7 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 			}
 			// set the tool name to its canonical form in the proxy
 			mcpTool.Name = entity
+			mcpTool = projectUIResourceURI(serverName, mcpTool)
 
 			if s.Transport == types.TransportSSE {
 				m.sseMcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
@@ -300,6 +301,7 @@ func (m *MCPService) setToolsEnabled(entity string, enabled bool) ([]string, err
 			}
 			// set the tool name to its canonical form in the proxy
 			mcpTool.Name = canonicalToolName
+			mcpTool = projectUIResourceURI(s.Name, mcpTool)
 
 			if s.Transport == types.TransportSSE {
 				m.sseMcpProxyServer.AddTool(mcpTool, m.MCPProxyToolCallHandler)
@@ -366,6 +368,7 @@ func (m *MCPService) registerServerTools(ctx context.Context, s *model.McpServer
 		// Set tool name to include the server name prefix to make it recognizable by MCPJungle
 		// then add the tool to the appropriate MCP proxy server
 		tool.Name = canonicalToolName
+		tool = projectUIResourceURI(s.Name, tool)
 
 		if s.Transport == types.TransportSSE {
 			m.sseMcpProxyServer.AddTool(tool, m.MCPProxyToolCallHandler)

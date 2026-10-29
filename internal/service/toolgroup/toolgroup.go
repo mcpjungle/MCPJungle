@@ -62,6 +62,7 @@ func NewToolGroupService(db *gorm.DB, mcpService *mcp.MCPService) (*ToolGroupSer
 	// register callbacks with mcp service to be notified when a tool gets added/removed
 	mcpService.SetToolDeletionCallback(s.handleToolDeletion)
 	mcpService.SetToolAdditionCallback(s.handleToolAddition)
+	mcpService.SetResourceCallbacks(s.handleResourceAddition, s.handleResourceDeletion)
 
 	if err := s.initToolGroupMCPServers(); err != nil {
 		return nil, fmt.Errorf("failed to initialize tool group MCP servers: %w", err)
@@ -115,8 +116,14 @@ func (s *ToolGroupService) CreateToolGroup(group *model.ToolGroup) error {
 
 		if parentServer.Transport == types.TransportSSE {
 			sseMcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+			if err := s.addUIResource(sseMcpServer, tool); err != nil {
+				return err
+			}
 		} else {
 			mcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+			if err := s.addUIResource(mcpServer, tool); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -218,6 +225,9 @@ func (s *ToolGroupService) UpdateToolGroup(name string, updatedGroup *model.Tool
 	for _, tool := range sseToolsToAdd {
 		sseMcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
 	}
+	if err := s.reconcileUIResources(mcpServer, sseMcpServer, oldToolNames, updatedToolNames); err != nil {
+		return nil, err
+	}
 
 	// as a final step, update the tool group record in the database
 	// we only persist this update after successfully updating the in-memory state
@@ -303,7 +313,7 @@ func (s *ToolGroupService) newMCPServer(groupName string) *server.MCPServer {
 	return server.NewMCPServer(
 		fmt.Sprintf("MCPJungle proxy MCP server for tool group: %s", groupName),
 		version.GetVersion(),
-		server.WithResourceCapabilities(false, false),
+		server.WithResourceCapabilities(true, false),
 		server.WithToolCapabilities(true),
 		server.WithPromptCapabilities(true),
 		server.WithToolFilter(mcp.ProxyToolFilter),
@@ -315,7 +325,7 @@ func (s *ToolGroupService) newSseMCPServer(groupName string) *server.MCPServer {
 	return server.NewMCPServer(
 		fmt.Sprintf("MCPJungle proxy MCP server for SSE transport for tool group: %s", groupName),
 		version.GetVersion(),
-		server.WithResourceCapabilities(false, false),
+		server.WithResourceCapabilities(true, false),
 		server.WithToolCapabilities(true),
 		server.WithPromptCapabilities(true),
 		server.WithToolFilter(mcp.ProxyToolFilter),
@@ -400,8 +410,14 @@ func (s *ToolGroupService) initToolGroupMCPServers() error {
 
 			if parentServer.Transport == types.TransportSSE {
 				sseMcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+				if err := s.addUIResource(sseMcpServer, tool); err != nil {
+					return err
+				}
 			} else {
 				mcpServer.AddTool(tool, s.mcpService.MCPProxyToolCallHandler)
+				if err := s.addUIResource(mcpServer, tool); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -422,11 +438,10 @@ func (s *ToolGroupService) handleToolDeletion(tools ...string) {
 	defer s.sseMcpServerMu.Unlock()
 
 	for _, mcpServer := range s.mcpServers {
-		mcpServer.DeleteTools(tools...)
+		removeToolsAndUIResources(mcpServer, tools...)
 	}
-
 	for _, sseMcpServer := range s.sseMcpServers {
-		sseMcpServer.DeleteTools(tools...)
+		removeToolsAndUIResources(sseMcpServer, tools...)
 	}
 }
 
@@ -481,6 +496,9 @@ func (s *ToolGroupService) handleToolAddition(newTool string) error {
 			sseMcpServer, exists := s.sseMcpServers[name]
 			if exists {
 				sseMcpServer.AddTool(newToolInstance, s.mcpService.MCPProxyToolCallHandler)
+				if err := s.addUIResource(sseMcpServer, newToolInstance); err != nil {
+					return err
+				}
 			}
 			continue
 		}
@@ -488,8 +506,141 @@ func (s *ToolGroupService) handleToolAddition(newTool string) error {
 		mcpServer, exists := s.mcpServers[name]
 		if exists {
 			mcpServer.AddTool(newToolInstance, s.mcpService.MCPProxyToolCallHandler)
+			if err := s.addUIResource(mcpServer, newToolInstance); err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
+}
+
+// addUIResource adds only the enabled MCP Apps resource referenced by this tool
+// and validated to be owned by the same backend. Ordinary resources are not
+// leaked into tool-only group projections.
+func (s *ToolGroupService) addUIResource(proxy *server.MCPServer, tool mcpgo.Tool) error {
+	resource, err := s.mcpService.UIResourceForTool(tool)
+	if err != nil {
+		return err
+	}
+	if resource != nil {
+		proxy.AddResource(*resource, s.mcpService.ProxyReadResource)
+	}
+	return nil
+}
+
+func (s *ToolGroupService) reconcileUIResources(normal, sse *server.MCPServer, oldTools, newTools []string) error {
+	// Explicitly drop any prior UI mappings before rebuilding the two scoped
+	// sets, so removing one tool never leaves its private UI asset visible.
+	oldURIs := make(map[string]struct{})
+	for _, name := range oldTools {
+		tool, ok := s.mcpService.GetToolInstance(name)
+		if !ok {
+			continue
+		}
+		if uri := mcp.ToolUIResourceURI(tool); uri != "" {
+			oldURIs[uri] = struct{}{}
+		}
+	}
+	for uri := range oldURIs {
+		normal.DeleteResources(uri)
+		sse.DeleteResources(uri)
+	}
+	for _, name := range newTools {
+		tool, ok := s.mcpService.GetToolInstance(name)
+		if !ok {
+			continue
+		}
+		parent, err := s.mcpService.GetToolParentServer(name)
+		if err != nil {
+			return err
+		}
+		proxy := normal
+		if parent.Transport == types.TransportSSE {
+			proxy = sse
+		}
+		if err := s.addUIResource(proxy, tool); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Resource registration follows tool registration. Refresh a group only if
+// it selected a tool referring to the exact published URI.
+func (s *ToolGroupService) handleResourceAddition(uri string) error {
+	groups, err := s.ListToolGroups()
+	if err != nil {
+		return err
+	}
+	for _, group := range groups {
+		names, err := group.ResolveEffectiveTools(s.mcpService)
+		if err != nil {
+			continue
+		}
+		for _, name := range names {
+			tool, ok := s.mcpService.GetToolInstance(name)
+			if !ok || mcp.ToolUIResourceURI(tool) != uri {
+				continue
+			}
+			parent, err := s.mcpService.GetToolParentServer(name)
+			if err != nil {
+				return err
+			}
+			var proxy *server.MCPServer
+			var exists bool
+			if parent.Transport == types.TransportSSE {
+				proxy, exists = s.GetToolGroupSseMCPServer(group.Name)
+			} else {
+				proxy, exists = s.GetToolGroupMCPServer(group.Name)
+			}
+			if exists {
+				if err := s.addUIResource(proxy, tool); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (s *ToolGroupService) handleResourceDeletion(uris ...string) {
+	s.mcpServersMu.RLock()
+	defer s.mcpServersMu.RUnlock()
+	s.sseMcpServerMu.RLock()
+	defer s.sseMcpServerMu.RUnlock()
+	for _, proxy := range s.mcpServers {
+		proxy.DeleteResources(uris...)
+	}
+	for _, proxy := range s.sseMcpServers {
+		proxy.DeleteResources(uris...)
+	}
+}
+
+// removeToolsAndUIResources also checks shared UI assets: a resource stays
+// only while another permitted tool in this same projection references it.
+func removeToolsAndUIResources(proxy *server.MCPServer, names ...string) {
+	before := proxy.ListTools()
+	candidate := make(map[string]struct{})
+	for _, name := range names {
+		if entry, ok := before[name]; ok {
+			if uri := mcp.ToolUIResourceURI(entry.Tool); uri != "" {
+				candidate[uri] = struct{}{}
+			}
+		}
+	}
+	proxy.DeleteTools(names...)
+	after := proxy.ListTools()
+	for uri := range candidate {
+		shared := false
+		for _, entry := range after {
+			if mcp.ToolUIResourceURI(entry.Tool) == uri {
+				shared = true
+				break
+			}
+		}
+		if !shared {
+			proxy.DeleteResources(uri)
+		}
+	}
 }
