@@ -371,20 +371,32 @@ func TestRegisterOAuthClientWithoutEmptyScope_HonorsProxyEnv(t *testing.T) {
 func TestBootstrapUpstreamOAuth_UsesConfiguredClientCredentialsWithoutDCR(t *testing.T) {
 	t.Parallel()
 
+	for _, transport := range []types.McpServerTransport{types.TransportStreamableHTTP, types.TransportSSE} {
+		t.Run(string(transport), func(t *testing.T) {
+			t.Parallel()
+			testBootstrapUpstreamOAuthWithConfiguredCredentials(t, transport)
+		})
+	}
+}
+
+func testBootstrapUpstreamOAuthWithConfiguredCredentials(t *testing.T, transport types.McpServerTransport) {
+	t.Helper()
+
 	service, setup := newOAuthCapableService(t)
 	upstream := newMockOAuthUpstream(t)
-	server := newOAuthHTTPServerModel(t, upstream.server.URL+"/mcp")
 
 	input := &types.RegisterServerInput{
 		Name:              "todoist",
-		Transport:         string(types.TransportStreamableHTTP),
+		Transport:         string(transport),
 		URL:               upstream.server.URL + "/mcp",
 		OAuthRedirectURI:  "http://127.0.0.1:9999/oauth/callback",
 		OAuthClientID:     "provider-client-id",
 		OAuthClientSecret: "provider-client-secret",
 	}
 
-	err := service.RegisterMcpServerWithOAuthSupport(context.Background(), input, server, false, "tester")
+	server, err := createServerFromRegisterInput(input)
+	require.NoError(t, err)
+	err = service.RegisterMcpServerWithOAuthSupport(context.Background(), input, server, false, "tester")
 	require.Error(t, err)
 
 	var pendingErr *UpstreamOAuthAuthorizationPendingError

@@ -33,8 +33,17 @@ import (
 )
 
 const (
+	// TODO: Add MCPJUNGLE_BIND_PORT while keeping PORT for backward compatibility,
+	// matching the MCPJUNGLE_BIND_HOST naming pattern.
 	BindPortEnvVar  = "PORT"
 	BindPortDefault = "8080"
+
+	// BindHostEnvVar configures the interface the HTTP server binds to.
+	// Empty (the default) keeps the historical behaviour of listening on every
+	// interface; "127.0.0.1" makes a local gateway reachable only from the host,
+	// which matters because a development-mode server has no authentication and
+	// its tools can act on the upstreams it proxies.
+	BindHostEnvVar = "MCPJUNGLE_BIND_HOST"
 
 	DBUrlEnvVar            = "DATABASE_URL"
 	SQLiteDBPathEnvVar     = "SQLITE_DB_PATH"
@@ -66,6 +75,7 @@ const (
 )
 
 var (
+	startServerCmdBindHost          string
 	startServerCmdBindPort          string
 	startServerCmdSQLiteDBPath      string
 	startServerCmdEnterpriseEnabled bool
@@ -103,6 +113,16 @@ func init() {
 		"port",
 		"",
 		fmt.Sprintf("port to bind the HTTP server to (overrides env var %s)", BindPortEnvVar),
+	)
+	startServerCmd.Flags().StringVar(
+		&startServerCmdBindHost,
+		"host",
+		"",
+		fmt.Sprintf(
+			"host/interface to bind the HTTP server to, eg- 127.0.0.1 for local-only access "+
+				"(overrides env var %s; empty means all interfaces)",
+			BindHostEnvVar,
+		),
 	)
 	startServerCmd.Flags().StringVar(
 		&startServerCmdSQLiteDBPath,
@@ -223,6 +243,17 @@ func isTelemetryEnabled(desiredServerMode model.ServerMode) (bool, error) {
 	}
 
 	return telemetryEnabled, nil
+}
+
+// getBindHost returns the interface to bind to.
+// precedence: command line flag > environment variable > all interfaces
+// An explicit empty --host is meaningful: it forces the historical all-interface
+// bind even when MCPJUNGLE_BIND_HOST is set.
+func getBindHost(cmd *cobra.Command) string {
+	if cmd.Flags().Changed("host") {
+		return startServerCmdBindHost
+	}
+	return os.Getenv(BindHostEnvVar)
 }
 
 // getBindPort returns the TCP port to bind the mcpjungle server to
@@ -421,6 +452,7 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 	}
 
 	bindPort := getBindPort()
+	bindAddr := net.JoinHostPort(getBindHost(cmd), bindPort)
 
 	mcpProxyServer, sseMcpProxyServer := newProxyServers()
 
@@ -526,14 +558,14 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 
 	// Display startup banner when the server is started
 	cmd.Print(asciiArt)
-	cmd.Printf("MCPJungle HTTP server listening on :%s\n\n", bindPort)
+	cmd.Printf("MCPJungle HTTP server listening on %s\n\n", bindAddr)
 
 	// Create a cancellable base context for all requests - when cancelled, all active connections terminate
 	requestBaseCtx, cancelRequests := context.WithCancel(context.Background())
 
 	// Create HTTP server for graceful shutdown support
 	httpServer := &http.Server{
-		Addr:    ":" + bindPort,
+		Addr:    bindAddr,
 		Handler: s.Router(),
 		BaseContext: func(l net.Listener) context.Context {
 			return requestBaseCtx

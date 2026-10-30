@@ -12,6 +12,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"   # repo root
 BIN_PATH="$ROOT_DIR/bin/mcpjungle"                            # compiled binary
 REGISTRY_PORT="${REGISTRY_PORT:-18080}"
 REGISTRY_URL="http://127.0.0.1:${REGISTRY_PORT}"              # local registry
+BIND_HOST_TEST_PORT="${BIND_HOST_TEST_PORT:-18084}"
+BIND_HOST_TEST_URL="http://127.0.0.1:${BIND_HOST_TEST_PORT}"
 OAUTH_MOCK_PORT="${OAUTH_MOCK_PORT:-18081}"
 OAUTH_MOCK_URL="http://127.0.0.1:${OAUTH_MOCK_PORT}"
 ENTERPRISE_PORT="${ENTERPRISE_PORT:-18082}"
@@ -122,6 +124,10 @@ cleanup_temp_files() {
     rm -f "$REGISTRY_LOG"
   fi
 
+  if [[ -n "${BIND_HOST_TEST_LOG:-}" ]]; then
+    rm -f "$BIND_HOST_TEST_LOG"
+  fi
+
   if [[ -n "${ENTERPRISE_LOG:-}" ]]; then
     rm -f "$ENTERPRISE_LOG"
   fi
@@ -160,6 +166,10 @@ cleanup_temp_files() {
 
   if [[ -n "${REGISTRY_RUNTIME_DIR:-}" ]]; then
     rm -rf "$REGISTRY_RUNTIME_DIR"
+  fi
+
+  if [[ -n "${BIND_HOST_TEST_RUNTIME_DIR:-}" ]]; then
+    rm -rf "$BIND_HOST_TEST_RUNTIME_DIR"
   fi
 
   if [[ -n "${ENTERPRISE_RUNTIME_DIR:-}" ]]; then
@@ -666,7 +676,29 @@ mkdir -p "$ROOT_DIR/bin"
 pushd "$ROOT_DIR" >/dev/null
 go build -o "$BIN_PATH" .
 
-# 2) Start local server + wait for health
+# 2) Verify host binding configuration
+log "Testing MCPJUNGLE_BIND_HOST bind address"
+BIND_HOST_TEST_RUNTIME_DIR=$(mktemp -d)
+BIND_HOST_TEST_SQLITE_DB_PATH="$BIND_HOST_TEST_RUNTIME_DIR/.mcpjungle.db"
+BIND_HOST_TEST_LOG=$(mktemp)
+(
+  cd "$BIND_HOST_TEST_RUNTIME_DIR"
+  MCPJUNGLE_BIND_HOST=127.0.0.1 exec "$BIN_PATH" start --port "$BIND_HOST_TEST_PORT" --sqlite-db-path "$BIND_HOST_TEST_SQLITE_DB_PATH"
+) >"$BIND_HOST_TEST_LOG" 2>&1 &
+BIN_SERVER_PID=$!
+
+wait_for_health "$BIND_HOST_TEST_URL/health"
+if ! grep -q "MCPJungle HTTP server listening on 127.0.0.1:${BIND_HOST_TEST_PORT}" "$BIND_HOST_TEST_LOG"; then
+  echo "ERROR: expected MCPJUNGLE_BIND_HOST startup banner to include 127.0.0.1:${BIND_HOST_TEST_PORT}" >&2
+  cat "$BIND_HOST_TEST_LOG" >&2
+  exit 1
+fi
+
+kill "$BIN_SERVER_PID" || true
+wait "$BIN_SERVER_PID" 2>/dev/null || true
+unset BIN_SERVER_PID
+
+# 3) Start local server + wait for health
 log "Starting server via local binary on port ${REGISTRY_PORT}"
 reset_runtime_state
 REGISTRY_RUNTIME_DIR=$(mktemp -d)
@@ -687,12 +719,12 @@ if [[ -f "$REGISTRY_RUNTIME_DIR/mcpjungle.db" ]]; then
   exit 1
 fi
 
-# 3) Basic CLI sanity checks
+# 4) Basic CLI sanity checks
 log "Verifying CLI help and version"
 "$BIN_PATH" --help >/dev/null
 "$BIN_PATH" --registry "$REGISTRY_URL" version
 
-# 4) Register a test MCP server (idempotent)
+# 5) Register a test MCP server (idempotent)
 log "Ensuring 'context7' server is registered"
 if ! "$BIN_PATH" --registry "$REGISTRY_URL" list servers 2>/dev/null | grep -q "context7"; then
   "$BIN_PATH" --registry "$REGISTRY_URL" register \
@@ -703,7 +735,7 @@ else
   log "'context7' already registered"
 fi
 
-# 5) Exercise tools via registry
+# 6) Exercise tools via registry
 log "Listing tools"
 "$BIN_PATH" --registry "$REGISTRY_URL" list tools
 
@@ -711,7 +743,7 @@ log "Invoking context7__resolve-library-id"
 "$BIN_PATH" --registry "$REGISTRY_URL" invoke context7__resolve-library-id \
   --input '{"libraryName":"lodash"}' >/dev/null
 
-# 6) Test upstream OAuth registration and later authenticated tool calls
+# 7) Test upstream OAuth registration and later authenticated tool calls
 log "Testing upstream OAuth registration flow with a local mock MCP server"
 start_mock_oauth_upstream
 wait_for_health "${OAUTH_MOCK_URL}/healthz"
@@ -783,7 +815,7 @@ if [[ "$OAUTH_STATEFUL_SECOND_INVOKE" != *"oauth echo: hello stateful oauth agai
   exit 1
 fi
 
-# 7) Test filesystem MCP server on the local host
+# 8) Test filesystem MCP server on the local host
 log "Testing filesystem MCP server on the local host"
 
 if ! "$BIN_PATH" --registry "$REGISTRY_URL" init-server; then
@@ -808,7 +840,7 @@ unset FS_CONFIG
 
 "$BIN_PATH" --registry "$REGISTRY_URL" invoke filesystem__list_allowed_directories --input '{}' >/dev/null
 
-# 8) Test stateful session mode
+# 9) Test stateful session mode
 log "Testing stateful session mode (session reuse for faster subsequent calls)"
 LOCAL_REGISTRY="$REGISTRY_URL"
 
@@ -848,7 +880,7 @@ else
   log "⚠️  Times similar (MCP server may have fast startup)"
 fi
 
-# 9) Test tool groups
+# 10) Test tool groups
 log "Testing tool groups"
 
 GROUP_CONFIG=$(mktemp)
@@ -895,7 +927,7 @@ if [[ "$GROUP_INVOKE_OUTPUT" != *"oauth echo: hello group"* ]]; then
   exit 1
 fi
 
-# 10) Test enterprise-only user and MCP client features
+# 11) Test enterprise-only user and MCP client features
 log "Testing enterprise users and MCP clients"
 
 ENTERPRISE_RUNTIME_DIR=$(mktemp -d)
@@ -990,7 +1022,7 @@ HOME="$ENTERPRISE_ADMIN_HOME" "$BIN_PATH" --registry "$ENTERPRISE_URL" create gr
 rm -f "$ENTERPRISE_GROUP_CONFIG"
 unset ENTERPRISE_GROUP_CONFIG
 
-# 11) Test enterprise export for currently supported entities
+# 12) Test enterprise export for currently supported entities
 log "Testing enterprise export"
 
 ENTERPRISE_EXPORT_DIR=$(mktemp -d)
@@ -1020,11 +1052,11 @@ if ! grep -q '"name": "enterprise-group"' "$ENTERPRISE_EXPORT_DIR/groups/enterpr
   exit 1
 fi
 
-# 12) Print Homebrew formula config snippet
+# 13) Print Homebrew formula config snippet
 log "Homebrew formula config (from .goreleaser.yaml)"
 sed -n '/^brews:/,/^dockers:/p' "$ROOT_DIR/.goreleaser.yaml" || true
 
-# 13) Run manual API error response verification against an isolated server
+# 14) Run manual API error response verification against an isolated server
 log "Running manual API error response verification"
 BIN_PATH="$BIN_PATH" "$ROOT_DIR/scripts/test-api-error-responses.sh"
 popd >/dev/null

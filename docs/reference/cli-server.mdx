@@ -13,12 +13,16 @@ Starts the Mcpjungle HTTP server and MCP gateway.
 mcpjungle start [flags]
 ```
 
-The server listens on port `8080` by default and exposes the MCP proxy at `/mcp`. On first run in development mode, it automatically initializes itself — no additional setup is needed.
+The server listens on all interfaces on port `8080` by default and exposes the MCP proxy at `/mcp`. On first run in development mode, it automatically initializes itself — no additional setup is needed.
 
 ### Flags
 
 <ParamField body="--port" type="string">
   TCP port to bind the HTTP server to. Overrides the `PORT` environment variable. Defaults to `8080`.
+</ParamField>
+
+<ParamField body="--host" type="string">
+  Host or network interface to bind the HTTP server to. Overrides the `MCPJUNGLE_BIND_HOST` environment variable. Defaults to all interfaces. Use `127.0.0.1` for local-only access.
 </ParamField>
 
 <ParamField body="--sqlite-db-path" type="string">
@@ -47,6 +51,12 @@ Start on a custom port:
 
 ```bash
 mcpjungle start --port 9000
+```
+
+Start with local-only network access:
+
+```bash
+mcpjungle start --host 127.0.0.1
 ```
 
 Start with a custom SQLite file:
