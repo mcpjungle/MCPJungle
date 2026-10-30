@@ -55,11 +55,13 @@ The dashboard script runs `npm ci` if `node_modules` is missing, builds the fron
 | Full Go suite, including E2E | `go test ./...` |
 | Static analysis | `go vet ./...` |
 | Repository lint | `golangci-lint run` |
-| CLI integration checks | `bash ./scripts/test-mcpjungle.sh` |
-| HTTP error-contract checks | `bash ./scripts/test-api-error-responses.sh` |
+| CLI/shell end-to-end checks, including HTTP error contracts | `bash ./scripts/test-mcpjungle.sh` |
+| HTTP error-contract checks only (standalone) | `bash ./scripts/test-api-error-responses.sh` |
 
-- Start with focused checks; run broader checks before handing off substantive code changes. See the verification guidance below and the PR template for submission requirements.
+- Start with focused checks during development; follow the completion requirements below before handing off any code change. See the PR template for additional submission requirements.
 - E2E tests launch local HTTP servers and STDIO upstreams using `npx` and `@modelcontextprotocol/server-everything`. Tests using the shared E2E setup skip if `npx` is absent; package downloads may need network access.
+- `scripts/test-mcpjungle.sh` builds the binary, exercises CLI/server workflows, and invokes `scripts/test-api-error-responses.sh` as its final test step using the same binary. A successful full run covers both shell suites; do not rerun the API-error script separately unless focused verification is needed. The main script stops on failure, so an early failure does not establish that the API-error checks ran.
+- `go test ./...` runs the Go tests, including `internal/e2e`, but does not invoke either shell script. The shell end-to-end script does not run the Go test suite either. Report these as separate verification results.
 - The CLI integration script needs `npx` and external connectivity, including Context7. Distinguish environment or upstream failures from regressions; report skipped or blocked checks.
 - Use temporary databases and isolated test configuration for manual checks. The CLI can persist credentials in `~/.mcpjungle.conf`; do not overwrite an operator's existing configuration or use their database for tests.
 - `go.mod` and `go.sum` own Go dependencies. Run `go mod tidy` after dependency changes. If an ignored local `vendor/` exists, refresh it with `go mod vendor` or use module-aware mode to avoid stale dependencies.
@@ -79,13 +81,20 @@ The dashboard script runs `npm ci` if `node_modules` is missing, builds the fron
 
 ## Verification by change
 
-- Add or extend meaningful regression tests for changed behavior; prefer existing helpers and local mock upstreams. Read assertions rather than inferring coverage from test names alone.
+Before handing off any code change:
+
+- Assess whether tests need to be added or updated. Cover changed behavior and bug fixes with meaningful tests where applicable; prefer existing helpers and local mock upstreams. Read assertions rather than inferring coverage from test names alone.
+- Run relevant focused tests during development, then run `go test ./...` against the final changes. For Go changes, also run `golangci-lint run`. Follow the dashboard guide for additional frontend checks.
+- Assess whether user-facing behavior, configuration, CLI/API contracts, or developer workflows require documentation updates, and make those updates. Do not add tests or edit documentation solely to satisfy a checklist when neither adds value.
+- Report commands run and their outcomes, including failures, skipped tests, and checks that could not run. Never imply the full suite passed without qualification if tests were skipped. Do not disable checks to hide a failure.
+
+These requirements apply before finishing the task, not after every individual edit. Use the following guidance for the affected behavior:
+
 - For gateway/auth changes, cover allowed and denied access, relevant global/group endpoints, affected transports, and header handling.
 - For registry/session changes, check persistence, exposed capabilities after mutations or startup, connection cleanup, and stateful reuse/invalidation as applicable.
 - For dependency upgrades, review intervening releases and relevant source changes, then test affected behavior. Compilation alone does not establish compatibility; error identities, HTTP behavior, OAuth discovery, and defaults can change.
 - For dashboard changes, follow its child guide, rebuild the embedded assets, run relevant Go API/E2E tests, and inspect the Go-served UI.
 - For docs-only changes, check affected links, navigation, examples, and MDX as applicable; Go tests are unnecessary unless executable behavior also changed.
-- Report commands run, their outcomes, and material verification gaps. Do not describe skipped tests as passing or disable checks to hide a failure.
 
 ## Documentation and contribution
 

@@ -84,6 +84,10 @@ Running Mcpjungle as a standalone container without an external database is only
   </Step>
 </Steps>
 
+<Warning>
+  If you deploy behind a reverse proxy, check the [localhost protection and upstream Host-header requirements](/deployment/production#reverse-proxies-and-localhost-protection). A proxy connection reaching MCPJungle over loopback can receive `403 Forbidden` if it preserves a public `Host` header. Connections arriving on a container-network address are not subject to this particular check.
+</Warning>
+
 ## Choosing an image
 
 Mcpjungle publishes two Docker image variants:
