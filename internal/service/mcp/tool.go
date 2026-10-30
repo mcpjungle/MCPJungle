@@ -164,7 +164,11 @@ func (m *MCPService) InvokeTool(ctx context.Context, name string, args map[strin
 		return nil, fmt.Errorf("failed to convert MCP response to api response: %w", err)
 	}
 
-	outcome = telemetry.ToolCallOutcomeSuccess
+	// A completed call can still be a tool-level error (CallToolResult.IsError);
+	// only record success when the tool did not report an error.
+	if !callToolResp.IsError {
+		outcome = telemetry.ToolCallOutcomeSuccess
+	}
 
 	return result, nil
 }

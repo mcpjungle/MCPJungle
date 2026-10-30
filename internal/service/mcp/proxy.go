@@ -77,6 +77,10 @@ func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request mcp.Ca
 	if err != nil {
 		outcome = telemetry.ToolCallOutcomeError
 		session.invalidateOnError(err) // Invalidate unhealthy stateful sessions
+	} else if res != nil && res.IsError {
+		// The call completed but the tool reported a tool-level error
+		// (CallToolResult.IsError); count it as an error, not a success.
+		outcome = telemetry.ToolCallOutcomeError
 	}
 
 	// forward the request to the upstream MCP server and relay the response back
