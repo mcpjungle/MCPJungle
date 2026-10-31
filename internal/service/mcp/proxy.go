@@ -83,6 +83,12 @@ func (m *MCPService) MCPProxyToolCallHandler(ctx context.Context, request mcp.Ca
 	return res, err
 }
 
+// ProxyReadResource forwards a group-authorized resource to its original backend.
+// Group services register only UI resources referenced by their permitted tools.
+func (m *MCPService) ProxyReadResource(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+	return m.mcpProxyResourceHandler(ctx, request)
+}
+
 // mcpProxyResourceHandler handles resource reads for the MCP proxy server
 // by forwarding the request to the appropriate upstream MCP server and
 // relaying the response back.
@@ -200,6 +206,7 @@ func (m *MCPService) initMCPProxyServer() error {
 		// since multiple tools can belong to the same server
 		var server *model.McpServer
 		serverName, _, _ := splitServerToolName(tool.Name)
+		tool = projectUIResourceURI(serverName, tool)
 
 		server, exists := mcpServerModelsCache[serverName]
 		if !exists {

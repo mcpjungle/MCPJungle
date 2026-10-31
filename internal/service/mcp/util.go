@@ -162,6 +162,16 @@ func convertToolModelToMcpObject(t *model.Tool) (mcp.Tool, error) {
 		}
 	}
 
+	// Restore arbitrary tool definition metadata when reconstructing from the database.
+	if len(t.Meta) > 0 {
+		var meta mcp.Meta
+		if err := json.Unmarshal(t.Meta, &meta); err != nil {
+			log.Printf("[WARN] failed to unmarshal metadata for tool %s: %v", t.Name, err)
+		} else {
+			mcpTool.Meta = &meta
+		}
+	}
+
 	// NOTE: if more fields are added to the tool in DB, they should be set here as well
 
 	return mcpTool, nil

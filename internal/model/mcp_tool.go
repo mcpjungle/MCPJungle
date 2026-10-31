@@ -28,6 +28,9 @@ type Tool struct {
 	// These hints help LLMs understand tool behavior (e.g., read-only vs destructive).
 	Annotations datatypes.JSON `json:"annotations" gorm:"type:jsonb"`
 
+	// Meta stores arbitrary MCP tool definition metadata, including extension fields.
+	Meta datatypes.JSON `json:"meta" gorm:"type:jsonb"`
+
 	// ServerID is the ID of the MCP server that provides this tool.
 	ServerID uint      `json:"-" gorm:"not null"`
 	Server   McpServer `json:"-" gorm:"foreignKey:ServerID;references:ID"`
