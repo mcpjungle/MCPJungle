@@ -36,6 +36,16 @@ Mcpjungle also creates SSE endpoints for the group:
   If a tool included in a group is later disabled globally or deregistered, it becomes unavailable through the group endpoint automatically. Re-enabling or re-registering the tool makes it available again without any changes to the group configuration.
 </Note>
 
+<Note>
+  A group also exposes an MCP Apps UI resource when one of its selected tools
+  advertises `_meta.ui.resourceUri` pointing to a registered `ui://` resource.
+  MCPJungle rewrites that tool metadata to the corresponding globally unique
+  `mcpj://res/...` URI. The group then supports `resources/list` and
+  `resources/read` for exactly those selected, enabled UI resources.
+  Unselected backends, unrelated resources and removed tools do not grant
+  resource access.
+</Note>
+
 ## Configuration file format
 
 You define a group in a JSON file and pass it to the `create group` command. Three fields control which tools are included:
@@ -174,8 +184,12 @@ These commands are useful for verifying that a group is configured correctly bef
 ## Known limitations
 
 <AccordionGroup>
-  <Accordion title="Prompts & Resources are currently not supported in Tool Groups">
-    [MCP Prompts](https://modelcontextprotocol.io/specification/2025-06-18/server/prompts) and Resources are not currently available through group endpoints. Clients connected to a group endpoint cannot discover or invoke prompts. This is a known issue tracked at [mcpjungle#136](https://github.com/mcpjungle/MCPJungle/issues/136).
+  <Accordion title="Prompts and unrelated resources are not exposed in Tool Groups">
+    [MCP Prompts](https://modelcontextprotocol.io/specification/2025-06-18/server/prompts)
+    remain unavailable through group endpoints; this is tracked at
+    [mcpjungle#136](https://github.com/mcpjungle/MCPJungle/issues/136).
+    General-purpose resources that are not referenced by a selected tool's
+    MCP Apps UI metadata are intentionally not projected by the group.
   </Accordion>
   <Accordion title="Enterprise mode: only admins can create groups">
     When Mcpjungle runs in `enterprise` mode, only an admin account can create Tool Groups. Standard users do not have permission to create groups. Support for user-scoped groups is planned for a future release.
