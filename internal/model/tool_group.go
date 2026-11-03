@@ -112,3 +112,65 @@ func (g *ToolGroup) ResolveEffectiveTools(mcpService ToolResolver) ([]string, er
 
 	return result, nil
 }
+
+// ResolveEffectiveToolsTolerant resolves the effective tools for this group like
+// ResolveEffectiveTools, but tolerates included servers that can no longer be resolved.
+//
+// Instead of returning early when ListToolsByServer fails for an included server, it
+// records that server name in skipped and continues resolving the remaining servers and
+// the explicit included/excluded tools. This is intended for startup rehydration, where
+// a referenced MCP server may have been deregistered: the group should still expose every
+// tool that still resolves rather than being emptied entirely.
+//
+// The returned skipped slice lists the included servers that could not be resolved, so the
+// caller can emit a clear warning. err is only non-nil for unmarshalling failures of the
+// group's own JSON fields, which indicate a corrupt record rather than a missing reference.
+//
+// Tool exclusions are applied last, mirroring ResolveEffectiveTools.
+func (g *ToolGroup) ResolveEffectiveToolsTolerant(mcpService ToolResolver) (tools []string, skipped []string, err error) {
+	effectiveTools := make(map[string]bool)
+
+	// Add tools from included_tools
+	includedTools, err := g.GetTools()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get included tools: %w", err)
+	}
+	for _, tool := range includedTools {
+		effectiveTools[tool] = true
+	}
+
+	// Add tools from included_servers, skipping any server that fails to resolve.
+	includedServers, err := g.GetServers()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get included servers: %w", err)
+	}
+	for _, serverName := range includedServers {
+		serverTools, err := mcpService.ListToolsByServer(serverName)
+		if err != nil {
+			// The server can no longer be resolved (e.g. it was deregistered).
+			// Skip it instead of discarding the whole group.
+			skipped = append(skipped, serverName)
+			continue
+		}
+		for _, tool := range serverTools {
+			effectiveTools[tool.Name] = true
+		}
+	}
+
+	// Remove tools from excluded_tools
+	excludedTools, err := g.GetExcludedTools()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get excluded tools: %w", err)
+	}
+	for _, tool := range excludedTools {
+		delete(effectiveTools, tool)
+	}
+
+	// Convert map to slice
+	result := make([]string, 0, len(effectiveTools))
+	for tool := range effectiveTools {
+		result = append(result, tool)
+	}
+
+	return result, skipped, nil
+}
