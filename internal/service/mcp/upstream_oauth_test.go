@@ -243,6 +243,31 @@ func TestUpstreamOAuthDCRUnsupportedUserError(t *testing.T) {
 	}
 }
 
+func TestPrepareOAuthConfig_UsesProxyAwareHTTPClient(t *testing.T) {
+	clearProxyEnv(t)
+	t.Setenv("HTTPS_PROXY", "http://proxy.example.com:8080")
+
+	cfg := prepareOAuthConfig(
+		&types.RegisterServerInput{
+			OAuthRedirectURI: "http://127.0.0.1:7777/oauth/callback",
+		},
+		mcpgoclient.NewMemoryTokenStore(),
+	)
+
+	require.NotNil(t, cfg.HTTPClient)
+	tr, ok := cfg.HTTPClient.Transport.(*http.Transport)
+	require.True(t, ok)
+	require.NotNil(t, tr.Proxy)
+
+	req, err := http.NewRequest(http.MethodGet, "https://upstream.example.com/.well-known/oauth-authorization-server", nil)
+	require.NoError(t, err)
+
+	proxyURL, err := tr.Proxy(req)
+	require.NoError(t, err)
+	require.NotNil(t, proxyURL)
+	require.Equal(t, "proxy.example.com:8080", proxyURL.Host)
+}
+
 func TestRegisterOAuthClientWithoutEmptyScope_OmitsScopeWhenUnset(t *testing.T) {
 	t.Parallel()
 
@@ -281,6 +306,66 @@ func TestRegisterOAuthClientWithoutEmptyScope_OmitsScopeWhenUnset(t *testing.T) 
 	if _, exists := upstream.lastRegisterBody["scope"]; exists {
 		t.Fatalf("expected scope to be omitted from DCR payload, got %#v", upstream.lastRegisterBody["scope"])
 	}
+}
+
+func TestRegisterOAuthClientWithoutEmptyScope_HonorsProxyEnv(t *testing.T) {
+	clearProxyEnv(t)
+
+	var proxySawRegistration bool
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.String() != "http://upstream.example/register" {
+			t.Fatalf("unexpected proxied request: %s %s", r.Method, r.URL.String())
+		}
+		proxySawRegistration = true
+
+		defer r.Body.Close()
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		require.Equal(t, "mcpjungle-test", body["client_name"])
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"client_id": "proxied-client-id",
+		})
+	}))
+	defer proxy.Close()
+	t.Setenv("HTTP_PROXY", proxy.URL)
+
+	metadataServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"issuer":                 "http://upstream.example",
+			"authorization_endpoint": "http://upstream.example/authorize",
+			"token_endpoint":         "http://upstream.example/token",
+			"registration_endpoint":  "http://upstream.example/register",
+			"response_types_supported": []string{
+				"code",
+			},
+		})
+	}))
+	defer metadataServer.Close()
+
+	handler := mcpgotransport.NewOAuthHandler(mcpgotransport.OAuthConfig{
+		RedirectURI:           "http://127.0.0.1:7777/oauth/callback",
+		TokenStore:            mcpgoclient.NewMemoryTokenStore(),
+		AuthServerMetadataURL: metadataServer.URL,
+		HTTPClient: &http.Client{
+			Transport: &http.Transport{},
+		},
+	})
+
+	clientID, clientSecret, err := registerOAuthClientWithoutEmptyScope(
+		context.Background(),
+		handler,
+		&types.RegisterServerInput{
+			OAuthRedirectURI: "http://127.0.0.1:7777/oauth/callback",
+		},
+		"mcpjungle-test",
+	)
+	require.NoError(t, err)
+	require.Equal(t, "proxied-client-id", clientID)
+	require.Empty(t, clientSecret)
+	require.True(t, proxySawRegistration)
 }
 
 func TestBootstrapUpstreamOAuth_UsesConfiguredClientCredentialsWithoutDCR(t *testing.T) {

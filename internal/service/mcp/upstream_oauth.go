@@ -193,6 +193,7 @@ func prepareOAuthConfig(input *types.RegisterServerInput, tokenStore mcpgotransp
 		Scopes:       input.OAuthScopes,
 		TokenStore:   tokenStore,
 		PKCEEnabled:  true,
+		HTTPClient:   proxyAwareHTTPClient(),
 	}
 }
 
@@ -267,7 +268,8 @@ func (m *MCPService) bootstrapUpstreamOAuth(ctx context.Context, input *types.Re
 		if err != nil {
 			return err
 		}
-		c, err := mcpgoclient.NewOAuthSSEClient(conf.URL, prepareOAuthConfig(input, mcpgoclient.NewMemoryTokenStore()))
+		opts := []mcpgotransport.ClientOption{mcpgotransport.WithHTTPClient(proxyAwareHTTPClient())}
+		c, err := mcpgoclient.NewOAuthSSEClient(conf.URL, prepareOAuthConfig(input, mcpgoclient.NewMemoryTokenStore()), opts...)
 		if err != nil {
 			return fmt.Errorf("failed to create OAuth SSE client for MCP server: %w", err)
 		}
@@ -404,7 +406,8 @@ func (m *MCPService) buildOAuthHandlerForRegisteredClient(ctx context.Context, s
 		if err != nil {
 			return nil, err
 		}
-		c, err := mcpgoclient.NewOAuthSSEClient(conf.URL, prepareOAuthConfig(input, mcpgoclient.NewMemoryTokenStore()))
+		opts := []mcpgotransport.ClientOption{mcpgotransport.WithHTTPClient(proxyAwareHTTPClient())}
+		c, err := mcpgoclient.NewOAuthSSEClient(conf.URL, prepareOAuthConfig(input, mcpgoclient.NewMemoryTokenStore()), opts...)
 		if err != nil {
 			return nil, err
 		}
@@ -470,7 +473,7 @@ func registerOAuthClientWithoutEmptyScope(
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := proxyAwareHTTPClient().Do(req)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to send registration request: %w", err)
 	}
@@ -675,7 +678,8 @@ func (m *MCPService) processOAuthAuthorizationCode(ctx context.Context, server *
 		if err != nil {
 			return err
 		}
-		c, err := mcpgoclient.NewOAuthSSEClient(conf.URL, prepareOAuthConfig(input, tokenStore))
+		opts := []mcpgotransport.ClientOption{mcpgotransport.WithHTTPClient(proxyAwareHTTPClient())}
+		c, err := mcpgoclient.NewOAuthSSEClient(conf.URL, prepareOAuthConfig(input, tokenStore), opts...)
 		if err != nil {
 			return fmt.Errorf("failed to create OAuth SSE client for token exchange: %w", err)
 		}
