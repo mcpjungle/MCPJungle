@@ -1,0 +1,12 @@
+.git
+node_modules
+**/node_modules
+web/dashboard/dist
+internal/dashboardui/dist
+.build-cache
+.candidate
+*.log
+.env
+.env.*
+*.key
+*.pem
