@@ -26,6 +26,10 @@ const (
 	// Useful for MCP servers that require session persistence (e.g., after login)
 	// or for servers with slow cold start times.
 	SessionModeStateful SessionMode = "stateful"
+
+	// SessionModeStatefulIsolated retains state only within one authenticated
+	// MCP transport session, never sharing a browser between independent sessions.
+	SessionModeStatefulIsolated SessionMode = "stateful_isolated"
 )
 
 // McpServer represents an MCP server registered in the MCPJungle registry.
@@ -141,12 +145,14 @@ func ValidateSessionMode(input string) (SessionMode, error) {
 	switch input {
 	case string(SessionModeStateful):
 		return SessionModeStateful, nil
+	case string(SessionModeStatefulIsolated):
+		return SessionModeStatefulIsolated, nil
 	case string(SessionModeStateless), "":
 		return SessionModeStateless, nil
 	default:
 		return "", fmt.Errorf(
-			"unsupported session mode: %s (acceptable values: '%s', '%s')",
-			input, SessionModeStateless, SessionModeStateful,
+			"unsupported session mode: %s (acceptable values: '%s', '%s', '%s')",
+			input, SessionModeStateless, SessionModeStateful, SessionModeStatefulIsolated,
 		)
 	}
 }

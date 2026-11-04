@@ -56,7 +56,8 @@ type McpServer struct {
 
 	// SessionMode controls how mcpjungle manages connections to this MCP server.
 	// "stateless" (default): Creates a new connection for each tool call.
-	// "stateful": Maintains a persistent connection across tool calls.
+	// "stateful": Maintains one shared persistent connection across tool calls.
+	// "stateful_isolated": Maintains one persistent connection per authenticated MCP transport session.
 	SessionMode types.SessionMode `json:"session_mode" gorm:"type:varchar(20);default:'stateless'"`
 }
 

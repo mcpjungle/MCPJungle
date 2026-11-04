@@ -39,6 +39,7 @@ type sessionResult struct {
 
 	// For stateful sessions, these are used for reactive invalidation on errors
 	serverName     string
+	sessionKey     string
 	sessionManager *SessionManager
 }
 
@@ -59,7 +60,11 @@ func (sr *sessionResult) invalidateOnError(err error) {
 
 	// Check if this looks like a connection error
 	if isConnectionError(err) {
-		sr.sessionManager.InvalidateSession(sr.serverName, err.Error())
+		if sr.sessionKey != "" {
+			sr.sessionManager.InvalidateScopedSession(sr.sessionKey, sr.client, err.Error())
+		} else {
+			sr.sessionManager.InvalidateSession(sr.serverName, err.Error())
+		}
 	}
 }
 
@@ -67,14 +72,19 @@ func (sr *sessionResult) invalidateOnError(err error) {
 // For stateful servers, it returns a persistent session from the SessionManager.
 // For stateless servers, it creates a new session that should be closed after use.
 func (m *MCPService) getSession(ctx context.Context, server *model.McpServer) (*sessionResult, error) {
-	if server.SessionMode == types.SessionModeStateful {
+	if server.SessionMode == types.SessionModeStateful || server.SessionMode == types.SessionModeStatefulIsolated {
 		// Use the session manager for stateful sessions
 		mcpClient, err := m.sessionManager.GetOrCreateSession(ctx, server)
 		if err != nil {
 			return nil, err
 		}
+		key, err := upstreamSessionCacheKey(ctx, server)
+		if err != nil {
+			return nil, err
+		}
 		return &sessionResult{
 			client:         mcpClient,
+			sessionKey:     key,
 			shouldClose:    false, // Don't close stateful sessions after each call
 			serverName:     server.Name,
 			sessionManager: m.sessionManager,
