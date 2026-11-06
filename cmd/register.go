@@ -240,7 +240,7 @@ func printRegisteredServerSummary(cmd *cobra.Command, s *types.McpServer) error 
 		cmd.Println()
 		cmd.Println("The following tools are now available from this server:")
 		for i, tool := range tools {
-			cmd.Printf("%d. %s: %s\n\n", i+1, tool.Name, tool.Description)
+			cmd.Printf("%d. %s: %s\n\n", i+1, tool.Name, summarizeToolDescription(tool.Description))
 		}
 		printedSection = true
 	}
