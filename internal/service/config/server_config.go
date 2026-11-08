@@ -4,6 +4,8 @@ package config
 import (
 	"errors"
 	"fmt"
+	"log"
+	"os"
 
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"gorm.io/gorm"
@@ -28,6 +30,14 @@ func (s *ServerConfigService) GetConfig() (model.ServerConfig, error) {
 	}
 	if err != nil {
 		return model.ServerConfig{}, fmt.Errorf("failed to fetch server configuration from db: %v", err)
+	}
+	if config.UpstreamTLS.TLSInsecureSkipVerify {
+		log.Printf("[WARN] TLS certificate verification is disabled for upstream MCP server connections (TLSInsecureSkipVerify=true). This should only be used for local/development workflows and must not be enabled in production.")
+	}
+	if config.UpstreamTLS.TLSCAFile != "" {
+		if _, err := os.Stat(config.UpstreamTLS.TLSCAFile); err != nil {
+			return model.ServerConfig{}, fmt.Errorf("upstream TLS CA file does not exist: %s", config.UpstreamTLS.TLSCAFile)
+		}
 	}
 	return config, nil
 }

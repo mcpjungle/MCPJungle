@@ -2,8 +2,13 @@
 package mcpclient
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
+	"log"
+	"net/http"
+	"os"
 
 	"github.com/mcpjungle/mcpjungle/internal"
 	"github.com/mcpjungle/mcpjungle/internal/model"
@@ -100,4 +105,34 @@ func (m *McpClientService) UpdateClient(updatedClient model.McpClient) (*model.M
 		return nil, err
 	}
 	return &client, nil
+}
+
+// NewUpstreamTLSClient creates an HTTP client configured with the TLS settings from the given UpstreamTLSServerConfig.
+// It loads the CA certificate file (if specified) into RootCAs and applies InsecureSkipVerify if enabled.
+func NewUpstreamTLSClient(cfg model.UpstreamTLSServerConfig) (*http.Client, error) {
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: cfg.TLSInsecureSkipVerify,
+	}
+
+	if cfg.TLSInsecureSkipVerify {
+		log.Printf("[WARN] TLS certificate verification is disabled for upstream MCP server connections (TLSInsecureSkipVerify=true). This should only be used for local/development workflows and must not be enabled in production.")
+	}
+
+	if cfg.TLSCAFile != "" {
+		caCert, err := os.ReadFile(cfg.TLSCAFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read CA file: %w", err)
+		}
+		caCertPool := x509.NewCertPool()
+		if !caCertPool.AppendCertsFromPEM(caCert) {
+			return nil, fmt.Errorf("failed to parse CA certificate from PEM data")
+		}
+		tlsConfig.RootCAs = caCertPool
+	}
+
+	return &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+	}, nil
 }
