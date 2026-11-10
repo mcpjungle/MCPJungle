@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import logoUrl from "@repo-assets/logo.png";
 import { api } from "@/lib/api";
 import type {
@@ -453,6 +453,31 @@ function createInitialToolGroupForm(): ToolGroupFormState {
   };
 }
 
+function IndeterminateCheckbox({
+  checked,
+  indeterminate,
+  onChange,
+}: {
+  checked: boolean;
+  indeterminate: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.indeterminate = indeterminate;
+    }
+  }, [indeterminate]);
+  return (
+    <input
+      checked={checked}
+      onChange={() => onChange(!checked)}
+      ref={ref}
+      type="checkbox"
+    />
+  );
+}
+
 export default function App() {
   const [section, setSection] = useState<AppSection>("servers");
   const [loadState, setLoadState] = useState<LoadState>("loading");
@@ -465,6 +490,7 @@ export default function App() {
   const [promptFilter, setPromptFilter] = useState("");
   const [toolGroupToolFilter, setToolGroupToolFilter] = useState("");
   const [toolGroupToolServerFilter, setToolGroupToolServerFilter] = useState("all");
+  const [collapsedToolGroupServers, setCollapsedToolGroupServers] = useState<string[]>([]);
   const [expandedServer, setExpandedServer] = useState<string | null>(null);
   const [expandedTool, setExpandedTool] = useState<string | null>(null);
   const [expandedToolGroup, setExpandedToolGroup] = useState<string | null>(null);
@@ -569,6 +595,27 @@ export default function App() {
         toolDescription(tool).toLowerCase().includes(term),
     );
   }, [data.tools?.tools, toolGroupToolFilter, toolGroupToolServerFilter]);
+
+  const availableToolGroupToolsByServer = useMemo(() => {
+    const groups = new Map<string, DashboardTool[]>();
+    for (const tool of availableToolGroupTools) {
+      groups.set(tool.server, [...(groups.get(tool.server) ?? []), tool]);
+    }
+    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [availableToolGroupTools]);
+
+  const selectedToolGroupToolsByServer = useMemo(() => {
+    const toolsByCanonicalName = new Map((data.tools?.tools ?? []).map((tool) => [tool.canonical_name, tool]));
+    const groups = new Map<string, { canonicalName: string; name: string }[]>();
+    for (const canonicalName of toolGroupForm.selectedTools) {
+      const tool = toolsByCanonicalName.get(canonicalName);
+      const separator = canonicalName.indexOf("__");
+      const server = tool?.server ?? (separator > 0 ? canonicalName.slice(0, separator) : "other");
+      const name = tool?.name ?? (separator > 0 ? canonicalName.slice(separator + 2) : canonicalName);
+      groups.set(server, [...(groups.get(server) ?? []), { canonicalName, name }]);
+    }
+    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [data.tools?.tools, toolGroupForm.selectedTools]);
 
   const filteredPrompts = useMemo(() => {
     const prompts = data.prompts?.prompts ?? [];
@@ -681,6 +728,7 @@ export default function App() {
     setToolGroupOpen(false);
     setToolGroupForm(createInitialToolGroupForm());
     setToolGroupError("");
+    setCollapsedToolGroupServers([]);
   }
 
   function toggleToolGroupSelection(canonicalName: string) {
@@ -690,6 +738,34 @@ export default function App() {
         ? current.selectedTools.filter((name) => name !== canonicalName)
         : [...current.selectedTools, canonicalName],
     }));
+  }
+
+  function selectAllShownToolGroupTools() {
+    setToolGroupForm((current) => {
+      const selected = new Set(current.selectedTools);
+      const additions = availableToolGroupTools
+        .map((tool) => tool.canonical_name)
+        .filter((canonicalName) => !selected.has(canonicalName));
+      return { ...current, selectedTools: [...current.selectedTools, ...additions] };
+    });
+  }
+
+  function setToolGroupServerSelection(canonicalNames: string[], checked: boolean) {
+    setToolGroupForm((current) => {
+      const names = new Set(canonicalNames);
+      const remaining = current.selectedTools.filter((name) => !names.has(name));
+      return { ...current, selectedTools: checked ? [...remaining, ...canonicalNames] : remaining };
+    });
+  }
+
+  function toggleToolGroupServerCollapsed(server: string) {
+    setCollapsedToolGroupServers((current) =>
+      current.includes(server) ? current.filter((name) => name !== server) : [...current, server],
+    );
+  }
+
+  function clearToolGroupSelection() {
+    setToolGroupForm((current) => ({ ...current, selectedTools: [] }));
   }
 
   function removeToolGroupSelection(canonicalName: string) {
@@ -1841,14 +1917,20 @@ export default function App() {
                   <div className="tool-group-selector panel">
                     <div className="tool-group-selector-header">
                       <strong>Available tools</strong>
+                      {availableToolGroupTools.length > 0 ? (
+                        <button className="text-action" onClick={selectAllShownToolGroupTools} type="button">
+                          Select all shown
+                        </button>
+                      ) : null}
                     </div>
                     {(data.tools?.tools.length ?? 0) > 0 ? (
                       <>
-                        <div className="toolbar-cluster">
+                        <div className="tool-group-toolbar">
                           <input
                             className="table-filter compact-filter"
                             onChange={(event) => setToolGroupToolFilter(event.target.value)}
                             placeholder="Search tools"
+                            type="search"
                             value={toolGroupToolFilter}
                           />
                           <select
@@ -1865,21 +1947,63 @@ export default function App() {
                           </select>
                         </div>
                         <div className="tool-pick-list">
-                          {availableToolGroupTools.map((tool) => {
-                            const selected = toolGroupForm.selectedTools.includes(tool.canonical_name);
+                          {availableToolGroupTools.length === 0 ? (
+                            <p className="empty-inline">No tools match your search.</p>
+                          ) : null}
+                          {availableToolGroupToolsByServer.map(([server, tools]) => {
+                            const selectedCount = tools.filter((tool) =>
+                              toolGroupForm.selectedTools.includes(tool.canonical_name),
+                            ).length;
+                            const collapsed = collapsedToolGroupServers.includes(server) && !toolGroupToolFilter.trim();
                             return (
-                              <button
-                                className={`tool-pick-item ${selected ? "is-selected" : ""}`}
-                                key={tool.canonical_name}
-                                onClick={() => toggleToolGroupSelection(tool.canonical_name)}
-                                type="button"
-                              >
-                                <div className="table-primary">{tool.name}</div>
-                                <code className="identifier-code" title={tool.canonical_name}>
-                                  {tool.canonical_name}
-                                </code>
-                                <div className="table-secondary">{tool.server}</div>
-                              </button>
+                              <div className="tool-pick-group" key={server}>
+                                <div className={`tool-pick-server-row ${selectedCount > 0 ? "is-selected" : ""}`}>
+                                  <label className="tool-pick-server-label">
+                                    <IndeterminateCheckbox
+                                      checked={selectedCount === tools.length}
+                                      indeterminate={selectedCount > 0 && selectedCount < tools.length}
+                                      onChange={(checked) =>
+                                        setToolGroupServerSelection(
+                                          tools.map((tool) => tool.canonical_name),
+                                          checked,
+                                        )
+                                      }
+                                    />
+                                    <span className="tool-pick-name">{server}</span>
+                                  </label>
+                                  <span className="tool-pick-count">
+                                    {selectedCount}/{tools.length}
+                                  </span>
+                                  <button
+                                    aria-expanded={!collapsed}
+                                    aria-label={`${collapsed ? "Expand" : "Collapse"} ${server}`}
+                                    className="tool-pick-toggle"
+                                    onClick={() => toggleToolGroupServerCollapsed(server)}
+                                    type="button"
+                                  >
+                                    {collapsed ? "▸" : "▾"}
+                                  </button>
+                                </div>
+                                {collapsed
+                                  ? null
+                                  : tools.map((tool) => {
+                                      const selected = toolGroupForm.selectedTools.includes(tool.canonical_name);
+                                      return (
+                                        <label
+                                          className={`tool-pick-item ${selected ? "is-selected" : ""}`}
+                                          key={tool.canonical_name}
+                                          title={tool.canonical_name}
+                                        >
+                                          <input
+                                            checked={selected}
+                                            onChange={() => toggleToolGroupSelection(tool.canonical_name)}
+                                            type="checkbox"
+                                          />
+                                          <span className="tool-pick-name">{tool.name}</span>
+                                        </label>
+                                      );
+                                    })}
+                              </div>
                             );
                           })}
                         </div>
@@ -1891,20 +2015,36 @@ export default function App() {
 
                   <div className="tool-group-selector panel">
                     <div className="tool-group-selector-header">
-                      <strong>Selected tools</strong>
+                      <strong>Selected ({toolGroupForm.selectedTools.length})</strong>
+                      {toolGroupForm.selectedTools.length > 0 ? (
+                        <button className="text-action" onClick={clearToolGroupSelection} type="button">
+                          Clear all
+                        </button>
+                      ) : null}
                     </div>
-                    {toolGroupForm.selectedTools.length > 0 ? (
+                    {selectedToolGroupToolsByServer.length > 0 ? (
                       <div className="selected-tool-list">
-                        {toolGroupForm.selectedTools.map((toolName) => (
-                          <button
-                            className="selected-tool-chip"
-                            key={toolName}
-                            onClick={() => removeToolGroupSelection(toolName)}
-                            type="button"
-                          >
-                            <code>{toolName}</code>
-                            <span>Remove</span>
-                          </button>
+                        {selectedToolGroupToolsByServer.map(([server, tools]) => (
+                          <div className="selected-tool-group" key={server}>
+                            <div className="selected-tool-server">
+                              {server} <span>{tools.length}</span>
+                            </div>
+                            <div className="selected-tool-chips">
+                              {tools.map(({ canonicalName, name }) => (
+                                <button
+                                  aria-label={`Remove ${canonicalName}`}
+                                  className="selected-tool-chip"
+                                  key={canonicalName}
+                                  onClick={() => removeToolGroupSelection(canonicalName)}
+                                  title={canonicalName}
+                                  type="button"
+                                >
+                                  <code>{name}</code>
+                                  <span aria-hidden="true">×</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         ))}
                       </div>
                     ) : (
