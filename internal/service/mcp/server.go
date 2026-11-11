@@ -184,6 +184,17 @@ func (m *MCPService) ListMcpServers() ([]model.McpServer, error) {
 	return servers, nil
 }
 
+// ListEnabledMcpServers returns only the MCP servers whose enabled flag is true.
+// It is used by lazy-mode discovery so disabled servers never reach the
+// agent's context.
+func (m *MCPService) ListEnabledMcpServers() ([]model.McpServer, error) {
+	var servers []model.McpServer
+	if err := m.db.Where("enabled = ?", true).Find(&servers).Error; err != nil {
+		return nil, err
+	}
+	return servers, nil
+}
+
 // GetMcpServer fetches a server from the database by name.
 func (m *MCPService) GetMcpServer(name string) (*model.McpServer, error) {
 	var serverModel model.McpServer

@@ -143,7 +143,36 @@ mcpjungle enable prompt context7
 |---|-----------------------------------------------------------------------------|
 | Main gateway (`/mcp`) | Disabled tools, prompts and resources are not listed and cannot be called.                 |
 | Tool Groups | A disabled tool does not remain available just because a group includes it. |
+| Lazy discovery (`/mcp?mode=lazy`) | Disabled servers are filtered out before the agent sees them. Disabled tools are filtered from `mcpjungle__show_server_tools`. |
 | CLI and HTTP API | Disabled entities can still be listed, inspected, and re-enabled.           |
+
+## Lazy discovery (`/mcp?mode=lazy`)
+
+For agents that would be overwhelmed by a full tool listing, the gateway also exposes a **lazy discovery** variant at `/mcp?mode=lazy` and `/v0/groups/{name}/mcp?mode=lazy`. Instead of registering every enabled tool, it registers three fixed meta-tools:
+
+- `mcpjungle__list_servers` — returns one entry per enabled MCP server the caller is allowed to see, with the server name, description, transport, and the count of enabled tools it provides.
+- `mcpjungle__show_server_tools` — requires the `server` argument. It activates that server's enabled canonical `<server-name>__<tool-name>` tools in the current MCP session, sends `notifications/tools/list_changed`, and returns their descriptions and input schemas as confirmation.
+- `mcpjungle__invoke` — compatibility fallback for MCP clients that do not make dynamically activated tools callable. It accepts a canonical tool name and JSON arguments, then invokes the enabled, authorized upstream tool through the proxy.
+
+The recommended workflow is:
+
+1. Call `mcpjungle__list_servers` to see which servers are available.
+2. Pick a server and call `mcpjungle__show_server_tools` with `server=<name>` to activate its tools for the current session and obtain their schemas.
+3. If the client exposes the activated canonical tool, invoke it directly as `<server>__<tool>`.
+4. Otherwise call `mcpjungle__invoke` with `name: "<server>__<tool>"` and `arguments` set to a JSON object string matching the schema from step 2.
+
+For example, a client that cannot dynamically expose Context7 tools can call:
+
+```json
+{
+  "name": "context7__resolve-library-id",
+  "arguments": "{\"libraryName\":\"Rete.js\",\"query\":\"What is Rete.js?\"}"
+}
+```
+
+Use the returned library ID in a second `mcpjungle__invoke` call to `context7__query-docs`.
+
+In **enterprise** mode, all three meta-tools honour the client's server allow list, so an unauthorized server never appears in `mcpjungle__list_servers`, `mcpjungle__show_server_tools` rejects it, and `mcpjungle__invoke` cannot forward its tools.
 
 ## Operational notes
 
