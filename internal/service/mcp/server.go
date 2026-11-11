@@ -34,7 +34,7 @@ func (m *MCPService) RegisterMcpServerWithOAuthSupport(
 	if s.Transport != types.TransportStreamableHTTP && s.Transport != types.TransportSSE {
 		return err
 	}
-	if !errors.Is(err, mcpgotransport.ErrUnauthorized) {
+	if !errors.Is(err, mcpgotransport.ErrAuthorizationRequired) {
 		return err
 	}
 
