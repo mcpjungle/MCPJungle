@@ -74,7 +74,9 @@ func (s *lazyTestSession) Initialized() bool { return s.initialized }
 func (s *lazyTestSession) NotificationChannel() chan<- mcp.JSONRPCNotification {
 	return s.notifications
 }
+
 func (s *lazyTestSession) SessionID() string { return s.id }
+
 func (s *lazyTestSession) GetSessionTools() map[string]mcpserver.ServerTool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -84,6 +86,7 @@ func (s *lazyTestSession) GetSessionTools() map[string]mcpserver.ServerTool {
 	}
 	return result
 }
+
 func (s *lazyTestSession) SetSessionTools(tools map[string]mcpserver.ServerTool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -103,16 +106,19 @@ func lazyActivationContext(t *testing.T, service *MCPService, ctx context.Contex
 	return service.LazyMcpProxyServer().WithContext(ctx, session), session
 }
 
-// TestLazyProxyServer_RegistersExactlyTwoMetaTools pins the public surface
-// of the lazy proxy: an agent must only see `mcpjungle__list_servers` and
-// `mcpjungle__show_server_tools`. The old `mcpjungle__list_tools` and
-// `mcpjungle__invoke` meta-tools must not leak through.
-func TestLazyProxyServer_RegistersExactlyTwoMetaTools(t *testing.T) {
+// TestLazyProxyServer_RegistersOnlyMetaTools pins the public surface of the
+// lazy proxy: an agent must only see `mcpjungle__list_servers`,
+// `mcpjungle__show_server_tools`, and the `mcpjungle__invoke` fallback for
+// static clients. Upstream tools and the old `mcpjungle__list_tools`
+// meta-tool must not leak through.
+func TestLazyProxyServer_RegistersOnlyMetaTools(t *testing.T) {
 	service := lazyTestService(t)
 	tools := service.LazyMcpProxyServer().ListTools()
-	assert.Len(t, tools, 2)
+	assert.Len(t, tools, 3)
 	assert.Contains(t, tools, metaToolListServers)
 	assert.Contains(t, tools, metaToolShowServerTools)
+	assert.Contains(t, tools, metaToolInvoke)
+	assert.NotContains(t, tools, "mcpjungle__list_tools")
 }
 
 func TestLazyProxyServer_InitializeExplainsDiscoveryWorkflow(t *testing.T) {
@@ -286,7 +292,7 @@ func TestLazyDiscovery_ShowServerToolsActivatesOnlyCurrentSession(t *testing.T) 
 	require.Contains(t, tools, "alpha__search")
 	assert.NotContains(t, tools, "beta__lookup")
 	assert.Equal(t, "alpha__search", tools["alpha__search"].Tool.Name)
-	require.Equal(t, "notifications/tools/list_changed", (<-session.notifications).Notification.Method)
+	require.Equal(t, "notifications/tools/list_changed", (<-session.notifications).Method)
 
 	result, err = service.lazyShowServerToolsHandler(ctx, lazyRequest(metaToolShowServerTools, map[string]any{"server": "alpha"}))
 	require.NoError(t, err)
