@@ -22,6 +22,8 @@ import type {
 import { CopyButton } from "@/components/CopyButton";
 import { EmptyStateCard } from "@/components/EmptyStateCard";
 import { NavSidebar } from "@/components/NavSidebar";
+import { applyTheme, setTheme, onSystemThemeChange } from "@/lib/theme";
+import type { Theme } from "@/lib/theme";
 import { SectionCard } from "@/components/SectionCard";
 import { StatusBadge } from "@/components/StatusBadge";
 
@@ -453,12 +455,13 @@ function createInitialToolGroupForm(): ToolGroupFormState {
   };
 }
 
-export default function App() {
+export default function App({ initialTheme }: { initialTheme: Theme }) {
   const [section, setSection] = useState<AppSection>("servers");
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [errorMessage, setErrorMessage] = useState("");
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
   const [data, setData] = useState<DashboardData>({});
+  const [theme, setThemeState] = useState<Theme>(initialTheme);
   const [serverFilter, setServerFilter] = useState("");
   const [toolFilter, setToolFilter] = useState("");
   const [toolServerFilter, setToolServerFilter] = useState("all");
@@ -514,6 +517,24 @@ export default function App() {
   useEffect(() => {
     void loadDashboardData();
   }, []);
+
+  useEffect(() => {
+    applyTheme(theme);
+    setTheme(theme);
+  }, [theme]);
+
+  useEffect(() => {
+    if (theme !== "system") {
+      return;
+    }
+    return onSystemThemeChange(() => {
+      applyTheme("system");
+    });
+  }, [theme]);
+
+  function handleThemeSelect(nextTheme: Theme) {
+    setThemeState(nextTheme);
+  }
 
   const filteredServers = useMemo(() => {
     const servers = data.servers?.servers ?? [];
@@ -924,7 +945,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <NavSidebar active={section} logoUrl={logoUrl} onSelect={setSection} />
+      <NavSidebar active={section} logoUrl={logoUrl} onSelect={setSection} theme={theme} onThemeSelect={handleThemeSelect} />
       <main className="main-shell">
         <header className="topbar">
           <div>
