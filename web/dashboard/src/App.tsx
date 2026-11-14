@@ -1237,7 +1237,10 @@ export default function App() {
                                   </div>
                                 </td>
                                 <td>
-                                  <div className="table-primary">{tool.server}: {tool.name}</div>
+                                  <div className="table-primary">
+                                    {tool.name}
+                                    <span className="tool-server-tag">{tool.server}</span>
+                                  </div>
                                   <code
                                     className="identifier-code tool-canonical-inline"
                                     title={tool.canonical_name}

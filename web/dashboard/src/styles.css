@@ -453,6 +453,16 @@ button:disabled {
 
 .table-primary {
   font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.tool-server-tag {
+  margin-left: auto;
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.85em;
+  white-space: nowrap;
 }
 
 .table-secondary {
