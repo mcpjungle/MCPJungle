@@ -1175,12 +1175,9 @@ export default function App() {
                       <thead>
                         <tr>
                           <th aria-hidden="true" className="expand-column"></th>
-                          <th>Tool</th>
-                          <th>Canonical name</th>
-                          <th>Server</th>
-                          <th>Description</th>
-                          <th>Status</th>
                           <th>Actions</th>
+                          <th>Tool</th>
+                          <th>Description</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1201,31 +1198,6 @@ export default function App() {
                                   <ChevronIcon expanded={expanded} />
                                 </td>
                                 <td>
-                                  <div className="table-primary">{tool.name}</div>
-                                </td>
-                                <td>
-                                  <code className="identifier-code" title={tool.canonical_name}>
-                                    {tool.canonical_name}
-                                  </code>
-                                </td>
-                                <td>{tool.server}</td>
-                                <td>
-                                  <div className="clamped-description" title={toolDescription(tool)}>
-                                    {toolDescription(tool)}
-                                  </div>
-                                </td>
-                                <td>
-                                  <div className="tool-state-line">
-                                    <StatusBadge
-                                      text={tool.enabled ? "Enabled" : "Disabled"}
-                                      tone={tool.enabled ? "good" : "muted"}
-                                    />
-                                    {!tool.server_enabled ? (
-                                      <StatusBadge text="Server disabled" tone="warn" />
-                                    ) : null}
-                                  </div>
-                                </td>
-                                <td>
                                   <div
                                     className="row-actions"
                                     onClick={(event) => event.stopPropagation()}
@@ -1235,6 +1207,21 @@ export default function App() {
                                       title="Copy canonical name"
                                       value={tool.canonical_name}
                                     />
+                                    <span
+                                      aria-label={tool.enabled ? "Enabled" : "Disabled"}
+                                      className="status-emoji"
+                                    >
+                                      {tool.enabled ? "🟢" : "🔴"}
+                                    </span>
+                                    {!tool.server_enabled ? (
+                                      <span
+                                        aria-label="Server disabled"
+                                        className="status-emoji"
+                                        title="Server disabled"
+                                      >
+                                        ⚠️
+                                      </span>
+                                    ) : null}
                                     <button
                                       className="secondary-action"
                                       disabled={isBusy(`tool-toggle:${tool.canonical_name}`)}
@@ -1249,13 +1236,33 @@ export default function App() {
                                     </button>
                                   </div>
                                 </td>
+                                <td>
+                                  <div className="table-primary">
+                                    {tool.name}
+                                    <span className="tool-server-tag">{tool.server}</span>
+                                  </div>
+                                  <code
+                                    className="identifier-code tool-canonical-inline"
+                                    title={tool.canonical_name}
+                                  >
+                                    {tool.canonical_name}
+                                  </code>
+                                </td>
+                                <td>
+                                  <div className="clamped-description" title={toolDescription(tool)}>
+                                    {toolDescription(tool)}
+                                  </div>
+                                </td>
                               </tr>
                               {expanded ? (
                                 <tr className="tool-expanded-row">
-                                  <td className="tool-expanded-cell" colSpan={7}>
+                                  <td className="tool-expanded-cell" colSpan={4}>
                                     <div className="tool-detail-panel">
                                       <div className="tool-detail-header">
                                         <p className="panel-label">Tool details</p>
+                                        {!tool.server_enabled ? (
+                                          <StatusBadge text="Server disabled" tone="warn" />
+                                        ) : null}
                                       </div>
 
                                       <dl className="tool-detail-meta">
