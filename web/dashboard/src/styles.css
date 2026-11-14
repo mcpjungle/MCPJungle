@@ -469,6 +469,22 @@ button:disabled {
   white-space: nowrap;
 }
 
+.status-emoji {
+  font-size: 0.85em;
+  vertical-align: middle;
+}
+
+.tool-canonical-inline {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8em;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -766,7 +782,10 @@ button:disabled {
   display: flex;
   gap: 6px;
   justify-content: flex-start;
-  flex-wrap: wrap;
+}
+
+.row-actions .secondary-action:last-child {
+  margin-left: auto;
 }
 
 .secondary-action {
