@@ -35,8 +35,9 @@ type MCPService struct {
 	mcpProxyServer    *server.MCPServer
 	sseMcpProxyServer *server.MCPServer
 
-	// lazyMcpProxyServer exposes fixed discovery tools to clients using
-	// /mcp?mode=lazy and adds selected upstream tools to individual sessions.
+	// lazyMcpProxyServer exposes the fixed discovery meta-tools to clients
+	// using /mcp?mode=lazy. The set of tools never changes, so no session
+	// tool activation is involved.
 	lazyMcpProxyServer *server.MCPServer
 	toolGroupService   ToolGroupResolver
 

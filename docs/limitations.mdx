@@ -43,3 +43,12 @@ But group-specific endpoints work well with tools only.
 In enterprise mode, only administrators can add MCP servers and create Tool Groups at the moment.
 
 Normal users cannot yet do this.
+
+## Lazy discovery mode
+
+Lazy mode (`/mcp?mode=lazy`) trades a generic calling tool for a much smaller initial tool list. Two consequences are worth knowing before you point an agent at it:
+
+- **The agent decides when to discover.** Mcpjungle cannot make an agent call `mcpjungle__list_tools` before it answers, because that decision belongs to the model. Some models discover the tool list eagerly, others only when they hit a missing capability. If a model answers "I do not have that tool" without checking, the gateway has no way to correct it from the server side. The tool descriptions and the server instructions ask for discovery first, and an unknown-name error may suggest up to ten related authorized tools, but a client can still be told to search first.
+- **Every tool call goes through `mcpjungle__call_tool`.** The client-visible transcript shows the meta-tool rather than the upstream tool name, so a tool call is logged and audited there as `mcpjungle__call_tool` with the canonical tool name in its arguments. Gateway metrics retain the canonical server and tool labels. Use the main `/mcp` endpoint, or a Tool Group endpoint without `?mode=lazy`, when you want the agent to see and call the canonical tool names directly.
+
+Lazy mode also does not project or shrink tool responses. A tool that returns a large payload still fills the agent's context with that payload.

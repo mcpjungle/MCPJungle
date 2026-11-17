@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/mark3labs/mcp-go/client"
@@ -14,7 +15,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// newLazyMCPClient connects to an MCP endpoint with ?mode=lazy appended.
+var lazyMetaTools = []string{
+	"mcpjungle__list_tools",
+	"mcpjungle__describe_tools",
+	"mcpjungle__call_tool",
+}
+
 func newLazyMCPClient(t *testing.T, env *e2eEnv, path string, token string) *client.Client {
 	t.Helper()
 	opts := []transport.StreamableHTTPCOption{}
@@ -65,49 +71,46 @@ func resultText(t *testing.T, res *mcp.CallToolResult) string {
 	return text.Text
 }
 
-func TestE2E_LazyMode_DiscoveryActivationAndInvoke(t *testing.T) {
+func resultEntries(t *testing.T, res *mcp.CallToolResult) []map[string]any {
+	t.Helper()
+	require.False(t, res.IsError, resultText(t, res))
+	var entries []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(resultText(t, res)), &entries))
+	return entries
+}
+
+func TestE2E_LazyMode_DiscoveryDescribeAndInvoke(t *testing.T) {
 	env := setupE2EServer(t, model.ModeDev)
 	registerEverythingServer(t, env, "")
 
 	c := newLazyMCPClient(t, env, "/mcp", "")
 
-	// Before activation only the meta-tools are exposed.
-	assert.ElementsMatch(t,
-		[]string{"mcpjungle__list_servers", "mcpjungle__show_server_tools", "mcpjungle__invoke"},
-		listToolNames(t, c),
-	)
+	assert.ElementsMatch(t, lazyMetaTools, listToolNames(t, c))
 
-	listRes := callTool(t, c, "mcpjungle__list_servers", nil)
-	require.False(t, listRes.IsError, resultText(t, listRes))
-	var servers []map[string]any
-	require.NoError(t, json.Unmarshal([]byte(resultText(t, listRes)), &servers))
-	require.Len(t, servers, 1)
-	assert.Equal(t, "everything", servers[0]["name"])
-	assert.Greater(t, servers[0]["enabled_tool_count"], float64(0))
+	listRes := callTool(t, c, "mcpjungle__list_tools", nil)
+	entries := resultEntries(t, listRes)
+	require.NotEmpty(t, entries, "the registered server must be discoverable")
+	names := toolNames(entries)
+	assert.Contains(t, names, "everything__echo")
+	assert.NotContains(t, entries[0], "input_schema", "discovery must not expose schemas")
 
-	showRes := callTool(t, c, "mcpjungle__show_server_tools", map[string]any{"server": "everything"})
-	require.False(t, showRes.IsError, resultText(t, showRes))
-	var shown []map[string]any
-	require.NoError(t, json.Unmarshal([]byte(resultText(t, showRes)), &shown))
-	assert.Contains(t, toolNames(shown), "everything__echo")
-
-	// Activation adds the upstream tools to this session only.
-	assert.Contains(t, listToolNames(t, c), "everything__echo")
-	other := newLazyMCPClient(t, env, "/mcp", "")
-	assert.NotContains(t, listToolNames(t, other), "everything__echo")
-
-	direct := callTool(t, c, "everything__echo", map[string]any{"message": "lazy direct"})
-	require.False(t, direct.IsError)
-	assert.Contains(t, resultText(t, direct), "lazy direct")
-
-	fallback := callTool(t, other, "mcpjungle__invoke", map[string]any{
-		"name":      "everything__echo",
-		"arguments": `{"message":"lazy fallback"}`,
+	describeRes := callTool(t, c, "mcpjungle__describe_tools", map[string]any{
+		"names": []string{"everything__echo"},
 	})
-	require.False(t, fallback.IsError)
-	assert.Contains(t, resultText(t, fallback), "lazy fallback")
+	described := resultEntries(t, describeRes)
+	require.Len(t, described, 1)
+	assert.Equal(t, "everything__echo", described[0]["name"])
+	assert.NotEmpty(t, described[0]["input_schema"])
 
-	// The eager endpoint is unaffected by lazy-mode dispatch.
+	callRes := callTool(t, c, "mcpjungle__call_tool", map[string]any{
+		"name":      "everything__echo",
+		"arguments": map[string]any{"message": "lazy call"},
+	})
+	require.False(t, callRes.IsError, resultText(t, callRes))
+	assert.Contains(t, resultText(t, callRes), "lazy call")
+
+	assert.ElementsMatch(t, lazyMetaTools, listToolNames(t, c))
+
 	eager := newMCPProxyClient(t, env, "")
 	defer eager.Close()
 	assert.Contains(t, listToolNames(t, eager), "everything__echo")
@@ -120,27 +123,31 @@ func TestE2E_LazyMode_EnterpriseAllowListEnforced(t *testing.T) {
 	deniedToken := createMcpClient(t, env, "lazy-denied", []string{"other"})
 	denied := newLazyMCPClient(t, env, "/mcp", deniedToken)
 
-	listRes := callTool(t, denied, "mcpjungle__list_servers", nil)
-	require.False(t, listRes.IsError)
+	listRes := callTool(t, denied, "mcpjungle__list_tools", nil)
 	assert.JSONEq(t, "[]", resultText(t, listRes))
 
-	showRes := callTool(t, denied, "mcpjungle__show_server_tools", map[string]any{"server": "everything"})
-	assert.True(t, showRes.IsError)
-	assert.NotContains(t, listToolNames(t, denied), "everything__echo")
-
-	invokeRes := callTool(t, denied, "mcpjungle__invoke", map[string]any{
-		"name":      "everything__echo",
-		"arguments": `{"message":"nope"}`,
+	describeRes := callTool(t, denied, "mcpjungle__describe_tools", map[string]any{
+		"names": []string{"everything__echo"},
 	})
-	assert.True(t, invokeRes.IsError)
+	assert.True(t, describeRes.IsError)
+
+	callRes := callTool(t, denied, "mcpjungle__call_tool", map[string]any{
+		"name":      "everything__echo",
+		"arguments": map[string]any{"message": "nope"},
+	})
+	assert.True(t, callRes.IsError)
 
 	allowedToken := createMcpClient(t, env, "lazy-allowed", []string{"everything"})
 	allowed := newLazyMCPClient(t, env, "/mcp", allowedToken)
-	showRes = callTool(t, allowed, "mcpjungle__show_server_tools", map[string]any{"server": "everything"})
-	require.False(t, showRes.IsError, resultText(t, showRes))
-	echo := callTool(t, allowed, "everything__echo", map[string]any{"message": "allowed"})
-	require.False(t, echo.IsError)
-	assert.Contains(t, resultText(t, echo), "allowed")
+	allowedList := callTool(t, allowed, "mcpjungle__list_tools", nil)
+	assert.Contains(t, toolNames(resultEntries(t, allowedList)), "everything__echo")
+
+	allowedCall := callTool(t, allowed, "mcpjungle__call_tool", map[string]any{
+		"name":      "everything__echo",
+		"arguments": map[string]any{"message": "allowed"},
+	})
+	require.False(t, allowedCall.IsError, resultText(t, allowedCall))
+	assert.Contains(t, resultText(t, allowedCall), "allowed")
 }
 
 func TestE2E_LazyMode_GroupEndpointLimitsTools(t *testing.T) {
@@ -155,9 +162,38 @@ func TestE2E_LazyMode_GroupEndpointLimitsTools(t *testing.T) {
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 	c := newLazyMCPClient(t, env, "/v0/groups/lazy-group/mcp", "")
-	showRes := callTool(t, c, "mcpjungle__show_server_tools", map[string]any{"server": "everything"})
-	require.False(t, showRes.IsError, resultText(t, showRes))
-	var shown []map[string]any
-	require.NoError(t, json.Unmarshal([]byte(resultText(t, showRes)), &shown))
-	assert.Equal(t, []string{"everything__echo"}, toolNames(shown))
+
+	listRes := callTool(t, c, "mcpjungle__list_tools", nil)
+	assert.Equal(t, []string{"everything__echo"}, toolNames(resultEntries(t, listRes)))
+
+	describeRes := callTool(t, c, "mcpjungle__describe_tools", map[string]any{
+		"names": []string{"everything__echo"},
+	})
+	require.False(t, describeRes.IsError, resultText(t, describeRes))
+
+	excluded := excludedEverythingTool(t, env)
+	deniedCall := callTool(t, c, "mcpjungle__call_tool", map[string]any{
+		"name":      excluded,
+		"arguments": map[string]any{},
+	})
+	assert.True(t, deniedCall.IsError, "a tool outside the group must not be callable")
+
+	deniedDescribe := callTool(t, c, "mcpjungle__describe_tools", map[string]any{
+		"names": []string{excluded},
+	})
+	assert.True(t, deniedDescribe.IsError, "a tool outside the group must not be described")
+}
+
+func excludedEverythingTool(t *testing.T, env *e2eEnv) string {
+	t.Helper()
+	eager := newMCPProxyClient(t, env, "")
+	defer eager.Close()
+
+	for _, name := range listToolNames(t, eager) {
+		if strings.HasPrefix(name, "everything__") && name != "everything__echo" {
+			return name
+		}
+	}
+	t.Skip("the everything server exposes no further tools")
+	return ""
 }
