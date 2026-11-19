@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"regexp"
@@ -20,6 +21,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/apierrors"
+	"golang.org/x/net/http/httpproxy"
 	"gorm.io/gorm"
 )
 
@@ -215,12 +217,39 @@ func convertResourceModelToMcpObject(r *model.Resource) (mcp.Resource, error) {
 	return mcpResource, nil
 }
 
+// proxyAwareHTTPClient returns an *http.Client whose transport honors the standard
+// HTTP_PROXY/HTTPS_PROXY/NO_PROXY environment variables (and their lowercase forms).
+// This allows mcpjungle to reach upstream MCP servers through a corporate/forward proxy.
+// When no proxy variables are set, the proxy function returns nil for every request, so
+// default (direct) behavior is unchanged.
+//
+// Unlike http.ProxyFromEnvironment (which caches the environment on first use), this reads
+// the proxy configuration from the environment each time the client is constructed.
+func proxyAwareHTTPClient() *http.Client {
+	proxyCfg := httpproxy.FromEnvironment()
+	proxyFunc := proxyCfg.ProxyFunc()
+
+	// Clone http.DefaultTransport so we keep its sensible defaults (dial/TLS timeouts,
+	// idle-connection cleanup, HTTP/2) and only override the proxy resolution.
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.Proxy = func(req *http.Request) (*url.URL, error) {
+		return proxyFunc(req.URL)
+	}
+
+	return &http.Client{Transport: tr}
+}
+
 // prepareSHTTPClientOptions prepares the options (specifically, http headers) for creating a
 // streamable HTTP client based on the MCP server's configuration.
 // If a bearer token is provided in the config and a custom Authorization header is set, the custom header
 // takes precedence and the bearer token is ignored.
 func prepareSHTTPClientOptions(serverName string, conf *model.StreamableHTTPConfig) []transport.StreamableHTTPCOption {
 	var opts []transport.StreamableHTTPCOption
+
+	// Use a proxy-aware HTTP client so upstream connections honor
+	// HTTP_PROXY/HTTPS_PROXY/NO_PROXY. This also applies to the OAuth client path,
+	// which receives the same opts.
+	opts = append(opts, transport.WithHTTPBasicClient(proxyAwareHTTPClient()))
 
 	headers := map[string]string{}
 	for key, value := range conf.Headers {
@@ -303,6 +332,10 @@ func createHTTPMcpServerConn(
 						transport:  s.Transport,
 					},
 					PKCEEnabled: true,
+					// Use a proxy-aware HTTP client so the OAuth handler's own
+					// metadata/registration/token/refresh requests honor
+					// HTTP_PROXY/HTTPS_PROXY/NO_PROXY, matching the MCP transport.
+					HTTPClient: proxyAwareHTTPClient(),
 				}
 				c, err = client.NewOAuthStreamableHttpClient(conf.URL, oauthConfig, opts...)
 				if err != nil {
@@ -451,6 +484,12 @@ func createSSEMcpServerConn(
 		opts []transport.ClientOption
 		c    *client.Client
 	)
+
+	// Use a proxy-aware HTTP client so upstream SSE connections honor
+	// HTTP_PROXY/HTTPS_PROXY/NO_PROXY. This also applies to the OAuth client path,
+	// which receives the same opts.
+	opts = append(opts, transport.WithHTTPClient(proxyAwareHTTPClient()))
+
 	if conf.BearerToken != "" {
 		// If bearer token is provided, set the Authorization header
 		o := transport.WithHeaders(map[string]string{
@@ -478,6 +517,10 @@ func createSSEMcpServerConn(
 						transport:  s.Transport,
 					},
 					PKCEEnabled: true,
+					// Use a proxy-aware HTTP client so the OAuth handler's own
+					// metadata/registration/token/refresh requests honor
+					// HTTP_PROXY/HTTPS_PROXY/NO_PROXY, matching the MCP transport.
+					HTTPClient: proxyAwareHTTPClient(),
 				}
 				c, err = client.NewOAuthSSEClient(conf.URL, oauthConfig, opts...)
 				if err != nil {

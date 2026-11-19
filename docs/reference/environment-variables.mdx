@@ -187,6 +187,42 @@ When the server starts it resolves the database connection in this order:
 
 ---
 
+## Proxies
+
+MCPJungle honors Go's standard proxy environment variables for outbound HTTP(S) requests. The uppercase names below and their lowercase forms are supported.
+
+<ParamField path="HTTP_PROXY" type="string">
+  Proxy URL for outbound plain HTTP requests.
+
+  ```bash
+  export HTTP_PROXY=http://proxy.example.com:8080
+  ```
+
+  For the CLI, this applies to HTTP requests from `mcpjungle` commands to the MCPJungle server. For the server, this applies to HTTP upstream MCP connections, including upstream OAuth metadata discovery, dynamic client registration, and token exchange requests made over HTTP.
+</ParamField>
+
+<ParamField path="HTTPS_PROXY" type="string">
+  Proxy URL for outbound HTTPS requests.
+
+  ```bash
+  export HTTPS_PROXY=http://proxy.example.com:8080
+  ```
+
+  For the CLI, this applies to HTTPS requests from `mcpjungle` commands to the MCPJungle server. For the server, this applies to HTTPS upstream MCP connections, including upstream OAuth metadata discovery, dynamic client registration, and token exchange requests made over HTTPS.
+</ParamField>
+
+<ParamField path="NO_PROXY" type="string">
+  Comma-separated hosts, domains, IP addresses, or CIDR ranges that should bypass `HTTP_PROXY` and `HTTPS_PROXY`.
+
+  ```bash
+  export NO_PROXY=localhost,127.0.0.1,.internal.example.com
+  ```
+
+  Use this for MCPJungle server hosts or upstream MCP hosts that must be reached directly.
+</ParamField>
+
+---
+
 ## Docker
 
 <ParamField path="MCPJUNGLE_IMAGE_TAG" type="string">
@@ -227,4 +263,7 @@ When the server starts it resolves the database connection in this order:
 | `OTEL_ENABLED` | Observability | mode-dependent | Enable OpenTelemetry metrics. |
 | `OTEL_RESOURCE_ATTRIBUTES` | Observability | — | Additional OTel resource attributes. |
 | `SESSION_IDLE_TIMEOUT_SEC` | Connections | `-1` | Idle timeout for stateful sessions. |
+| `HTTP_PROXY` | Proxies | — | Proxy for outbound HTTP requests from the CLI and server. |
+| `HTTPS_PROXY` | Proxies | — | Proxy for outbound HTTPS requests from the CLI and server. |
+| `NO_PROXY` | Proxies | — | Hosts, domains, IPs, or CIDR ranges that bypass configured proxies. |
 | `MCPJUNGLE_IMAGE_TAG` | Docker | `latest` | Docker image tag for Compose deployments. |
