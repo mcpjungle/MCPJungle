@@ -366,13 +366,15 @@ func (s *ToolGroupService) initToolGroupMCPServers() error {
 		mcpServer := s.newMCPServer(group.Name)
 		sseMcpServer := s.newSseMCPServer(group.Name)
 
-		toolNames, err := group.ResolveEffectiveTools(s.mcpService)
+		// Use the tolerant resolver during startup rehydration. If a referenced server can no
+		// longer be resolved (e.g. it was deregistered), we still want to expose every tool that
+		// resolves rather than emptying the whole group. Authoring flows (create/update group)
+		// keep using the strict ResolveEffectiveTools so invalid references fail fast.
+		toolNames, skipped, err := group.ResolveEffectiveToolsTolerant(s.mcpService)
 		if err != nil {
-			// If resolution of any server or specific tool fails for a group, the error is logged and
-			// the group is added as an empty MCP server to the proxy.
-			// This is not ideal, but it ensures that mcpjungle server startup doesn't fail.
-			// TODO: Change design to include all other servers & tools that were resolved.
-			// See https://github.com/mcpjungle/MCPJungle/issues/233
+			// A non-nil error here means the group's own record is corrupt (its JSON fields could
+			// not be unmarshalled), not just a missing reference. The group is initialized as an
+			// empty MCP server so that mcpjungle server startup doesn't fail.
 			log.Printf(
 				"[ERROR] failed to resolve effective tools for tool group %s during startup; the tool group will be initialized as empty: %v",
 				group.Name,
@@ -382,7 +384,19 @@ func (s *ToolGroupService) initToolGroupMCPServers() error {
 			s.addToolGroupSseMCPServer(group.Name, sseMcpServer)
 			continue
 		}
-		// TODO: Log a warning if a group has no tools, ie, len(toolNames) == 0
+		if len(skipped) > 0 {
+			log.Printf(
+				"[WARN] tool group %s references servers that could not be resolved during startup and were skipped: %v; the group will be initialized with its remaining tools",
+				group.Name,
+				skipped,
+			)
+		}
+		if len(toolNames) == 0 {
+			log.Printf(
+				"[WARN] tool group %s resolved to zero tools during startup and will be initialized as empty",
+				group.Name,
+			)
+		}
 
 		for _, name := range toolNames {
 			tool, exists := s.mcpService.GetToolInstance(name)
