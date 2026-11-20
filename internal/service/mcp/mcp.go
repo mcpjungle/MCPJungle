@@ -35,6 +35,12 @@ type MCPService struct {
 	mcpProxyServer    *server.MCPServer
 	sseMcpProxyServer *server.MCPServer
 
+	// lazyMcpProxyServer exposes the fixed discovery meta-tools to clients
+	// using /mcp?mode=lazy. The set of tools never changes, so no session
+	// tool activation is involved.
+	lazyMcpProxyServer *server.MCPServer
+	toolGroupService   ToolGroupResolver
+
 	// toolInstances keeps track of all the in-memory mcp.Tool instances, keyed by their unique names.
 	toolInstances map[string]mcp.Tool
 	mu            sync.RWMutex
@@ -80,8 +86,9 @@ func NewMCPService(c *ServiceConfig) (*MCPService, error) {
 	s := &MCPService{
 		db: c.DB,
 
-		mcpProxyServer:    c.McpProxyServer,
-		sseMcpProxyServer: c.SseMcpProxyServer,
+		mcpProxyServer:     c.McpProxyServer,
+		sseMcpProxyServer:  c.SseMcpProxyServer,
+		lazyMcpProxyServer: newLazyMCPServer(),
 
 		toolInstances: make(map[string]mcp.Tool),
 		mu:            sync.RWMutex{},
@@ -99,7 +106,18 @@ func NewMCPService(c *ServiceConfig) (*MCPService, error) {
 	if err := s.initMCPProxyServer(); err != nil {
 		return nil, fmt.Errorf("failed to initialize MCP proxy server: %w", err)
 	}
+	s.initializeLazyHandlers()
 	return s, nil
+}
+
+// LazyMcpProxyServer returns the lazy-mode MCP server.
+func (m *MCPService) LazyMcpProxyServer() *server.MCPServer {
+	return m.lazyMcpProxyServer
+}
+
+// SetToolGroupService provides group resolution for lazy group endpoints.
+func (m *MCPService) SetToolGroupService(tgs ToolGroupResolver) {
+	m.toolGroupService = tgs
 }
 
 // Shutdown gracefully shuts down the MCP service, closing all stateful sessions.

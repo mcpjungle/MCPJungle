@@ -57,6 +57,7 @@ type Server struct {
 
 	mcpProxyServer    *server.MCPServer
 	sseMcpProxyServer *server.MCPServer
+	lazyMcpHandler    http.Handler
 
 	mcpService       *mcp.MCPService
 	mcpClientService *mcpclient.McpClientService
@@ -109,6 +110,10 @@ func NewServer(opts *ServerOptions) (*Server, error) {
 		otelProviders:         opts.OtelProviders,
 		metrics:               opts.Metrics,
 		dashboardOAuthResults: make(map[string]dashboardOAuthSessionResult),
+	}
+	if s.mcpService != nil {
+		s.mcpService.SetToolGroupService(opts.ToolGroupService)
+		s.lazyMcpHandler = server.NewStreamableHTTPServer(s.mcpService.LazyMcpProxyServer())
 	}
 
 	// Set up the router after the server is fully initialized
@@ -208,20 +213,21 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		r.GET("/assets/*filepath", s.requireInitialized(), requireDashboardMode, gin.WrapH(dashboardFileServer))
 	}
 
-	// Set up the MCP proxy server on /mcp
+	// Set up the MCP proxy server on /mcp. Lazy mode is selected per request
+	// without mutating the proxy's tool registry or creating a handler.
 	streamableHTTPServer := server.NewStreamableHTTPServer(s.mcpProxyServer)
 	r.Any(
 		"/mcp",
 		s.requireInitialized(),
 		s.checkAuthForMcpProxyAccess(),
-		gin.WrapH(streamableHTTPServer),
+		s.mcpProxyDispatchHandler(streamableHTTPServer),
 	)
 
 	r.Any(
 		V0PathPrefix+"/groups/:name/mcp",
 		s.requireInitialized(),
 		s.checkAuthForMcpProxyAccess(),
-		s.toolGroupMCPServerCallHandler(),
+		s.toolGroupMCPServerDispatchHandler(),
 	)
 
 	// Set up the SSE transport-based MCP proxy server for the global /sse endpoint
