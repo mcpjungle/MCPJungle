@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -303,6 +304,7 @@ func (s *Server) toolGroupMCPServerCallHandler() gin.HandlerFunc {
 		// Maybe pre-create a StreamableHTTPServer for each tool group and store it in the ToolGroupMCPServer struct?
 		streamableServer := server.NewStreamableHTTPServer(groupMcpServer)
 		streamableServer.ServeHTTP(c.Writer, c.Request)
+		emitSessionDiagnostic(log.Default(), c.Request, c.Writer.Status())
 	}
 }
 
