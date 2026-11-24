@@ -19,7 +19,7 @@ type UserConfig struct {
 	// a hard-coded access token can be a security risk.
 	// Instead, use the AccessTokenRef field to load the access token from
 	// a secure location.
-	AccessToken string `json:"access_token"`
+	AccessToken string `json:"access_token,omitempty"`
 
 	// AccessTokenRef allows you to specify how to load the access token from
 	// an external source. Use this in production scenarios, especially when

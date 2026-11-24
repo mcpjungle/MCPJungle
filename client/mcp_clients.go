@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 )
@@ -88,6 +89,31 @@ func (c *Client) CreateMcpClient(mcpClient *types.McpClient) (string, error) {
 	}
 
 	return response.AccessToken, nil
+}
+
+// GetMcpClientConfigs returns the configurations of all registered MCP clients.
+// The returned configs can be used to recreate the clients elsewhere.
+// Access tokens are always included since the list endpoint returns them for all clients.
+func (c *Client) GetMcpClientConfigs() ([]types.McpClientConfig, error) {
+	clients, err := c.ListMcpClients()
+	if err != nil {
+		return nil, err
+	}
+
+	configs := make([]types.McpClientConfig, 0, len(clients))
+	for _, cl := range clients {
+		// Populate access_token_ref with a hint so the operator knows to supply the
+		// token via environment variable before reimporting.
+		envVarHint := "MCPJUNGLE_CLIENT_TOKEN_" + strings.ToUpper(strings.ReplaceAll(cl.Name, "-", "_"))
+		cfg := types.McpClientConfig{
+			Name:            cl.Name,
+			Description:     cl.Description,
+			AllowMcpServers: cl.AllowList,
+			AccessTokenRef:  types.AccessTokenRef{Env: envVarHint},
+		}
+		configs = append(configs, cfg)
+	}
+	return configs, nil
 }
 
 func (c *Client) UpdateMcpClient(mcpClient *types.McpClient) error {

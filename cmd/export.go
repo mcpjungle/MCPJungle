@@ -15,12 +15,14 @@ const defaultExportTargetDir = ".mcpjungle"
 const (
 	exportMcpServersDir = "servers"
 	exportToolGroupsDir = "groups"
+	exportMcpClientsDir = "clients"
+	exportUsersDir      = "users"
 )
 
 var exportCmd = &cobra.Command{
 	Use:   "export",
 	Short: "Export configuration files of all entities",
-	Long: "This command creates configuration files for all entities (mcp servers, groups) that exist in mcpjungle.\n" +
+	Long: "This command creates configuration files for all entities (mcp servers, groups, and in enterprise mode: mcp clients and users) that exist in mcpjungle.\n" +
 		"This is useful when you want to track all the entities registered in mcpjungle as code.\n" +
 		fmt.Sprintf("By default, the configurations are exported to a directory named %s in the current working directory.\n\n", defaultExportTargetDir) +
 		"NOTE: In enterprise mode, you must be an admin to export all configurations successfully.",
@@ -119,6 +121,14 @@ func runExport(cmd *cobra.Command, args []string) error {
 	if err := os.Mkdir(serversDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create mcp servers directory: %w", err)
 	}
+	clientsDir := filepath.Join(targetDir, exportMcpClientsDir)
+	if err := os.Mkdir(clientsDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create mcp clients directory: %w", err)
+	}
+	usersDir := filepath.Join(targetDir, exportUsersDir)
+	if err := os.Mkdir(usersDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create users directory: %w", err)
+	}
 
 	cmd.Println("Fetching Tool Group configurations...")
 
@@ -152,6 +162,48 @@ func runExport(cmd *cobra.Command, args []string) error {
 
 			for _, s := range servers {
 				if err := writeJSONConfigFile(serversDir, s.Name, s); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	cmd.Println("Fetching MCP Client configurations (enterprise mode only)...")
+
+	clientConfigs, cErr := apiClient.GetMcpClientConfigs()
+	if cErr != nil {
+		cmd.Printf("warning: failed to fetch mcp client configurations: %v\n", cErr)
+	} else {
+		if len(clientConfigs) == 0 {
+			cmd.Println("No MCP Clients found.")
+		} else {
+			cmd.Printf("Writing MCP Client configurations to %s\n", clientsDir)
+
+			for _, c := range clientConfigs {
+				if err := writeJSONConfigFile(clientsDir, c.Name, c); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	cmd.Println("Fetching User configurations (enterprise mode only)...")
+
+	userConfigs, uErr := apiClient.GetUserConfigs()
+	if uErr != nil {
+		cmd.Printf("warning: failed to fetch user configurations: %v\n", uErr)
+	} else {
+		if len(userConfigs) == 0 {
+			cmd.Println("No Users found.")
+		} else {
+			cmd.Printf("Writing User configurations to %s\n", usersDir)
+
+			for _, u := range userConfigs {
+				// skip admin — it is always created automatically by init-server
+				if u.Username == "admin" {
+					continue
+				}
+				if err := writeJSONConfigFile(usersDir, u.Username, u); err != nil {
 					return err
 				}
 			}
