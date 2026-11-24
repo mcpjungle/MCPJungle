@@ -11,9 +11,9 @@ LABEL org.opencontainers.image.vendor="mcpjungle"
 
 # Install Node.js
 RUN apt-get update \
-    && apt-get install -y curl gnupg \
+    && apt-get install -y --no-install-recommends curl gnupg \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
+    && apt-get install -y --no-install-recommends nodejs \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -21,6 +21,9 @@ RUN apt-get update \
 COPY mcpjungle /mcpjungle
 
 EXPOSE 8080
+ENV HOME=/tmp
+WORKDIR /tmp
+USER 65532:65532
 ENTRYPOINT ["/mcpjungle"]
 
 # Run the Registry Server by default
