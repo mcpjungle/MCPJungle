@@ -8,10 +8,13 @@ import (
 	"time"
 
 	"github.com/mark3labs/mcp-go/client"
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/pkg/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 // mockClient is a minimal mock that satisfies the client.Client interface for testing
@@ -31,6 +34,43 @@ func (m *mockClient) IsClosed() bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.closed
+}
+
+// sessionFixture is an MCP-go negotiated transport session, not a caller-supplied HTTP header.
+type sessionFixture struct{ id string }
+
+func (s *sessionFixture) Initialize()                                         {}
+func (s *sessionFixture) Initialized() bool                                   { return true }
+func (s *sessionFixture) NotificationChannel() chan<- mcp.JSONRPCNotification { return nil }
+func (s *sessionFixture) SessionID() string                                   { return s.id }
+
+// Independent transport sessions must never share the same upstream browser
+// connection, including when they authenticate using a common client token.
+func TestSessionManager_IsolatedStatefulConsumers(t *testing.T) {
+	sm := NewSessionManager(&SessionManagerConfig{IdleTimeoutSec: 0, InitReqTimeoutSec: 10})
+	defer sm.Shutdown()
+	creations := 0
+	sm.createSessionFunc = func(_ context.Context, _ *model.McpServer, _ int) (*client.Client, error) {
+		creations++
+		return nil, nil
+	}
+	upstream := &model.McpServer{Name: "test-server", SessionMode: types.SessionMode("stateful_isolated")}
+	gateway := server.NewMCPServer("session-tests", "1")
+	ctxFor := func(clientID uint, transportID string) context.Context {
+		ctx := context.WithValue(context.Background(), "client", &model.McpClient{Model: gorm.Model{ID: clientID}})
+		return gateway.WithContext(ctx, &sessionFixture{id: transportID})
+	}
+	a := ctxFor(11, "session-a")
+	b := ctxFor(22, "session-b")
+	c := ctxFor(11, "session-c")
+	for _, ctx := range []context.Context{a, a, b, b, c, a} {
+		_, err := sm.GetOrCreateSession(ctx, upstream)
+		require.NoError(t, err)
+	}
+	require.Equal(t, 3, creations, "separate clients/sessions reused the same upstream connection")
+	require.Equal(t, 3, sm.SessionCount())
+	sm.CloseSession("test-server")
+	require.Equal(t, 0, sm.SessionCount(), "server deregistration left isolated sessions alive")
 }
 
 func TestNewSessionManager(t *testing.T) {
