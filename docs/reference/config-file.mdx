@@ -65,6 +65,24 @@ For the enterprise bootstrap flow and login workflow, see [Enterprise operations
 
 Several `mcpjungle` commands accept a `-c` / `--conf` flag pointing to a JSON file instead of inline CLI flags. This section documents every supported JSON format.
 
+### Validate a JSON config file
+
+Run `mcpjungle validate <file>` before using a JSON config file with `register` or `create` commands:
+
+```bash
+mcpjungle validate ./my_server.json
+mcpjungle validate ./my_tool_group.json
+mcpjungle validate ./new_mcp_client.json
+```
+
+The command infers whether the file is an MCP server, tool group, MCP client, or user config. For ambiguous files, pass an explicit type:
+
+```bash
+mcpjungle validate --type mcp-client ./new_mcp_client.json
+```
+
+The validation is static. It checks JSON syntax, required fields, supported transport and session-mode values, URL shape, environment-variable placeholders, and token references. It does not connect to the configured MCP server or check whether referenced servers, tools, clients, or users already exist.
+
 ### `${VAR_NAME}` placeholder substitution
 
 All JSON config files support environment variable placeholders in string fields. Before sending the request to the server, the CLI expands every `${VAR_NAME}` occurrence using the current shell environment.
