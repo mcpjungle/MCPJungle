@@ -201,7 +201,7 @@ func runListTools(cmd *cobra.Command, args []string) error {
 			ed = "DISABLED"
 		}
 		cmd.Printf("%d. %s  [%s]\n", i+1, t.Name, ed)
-		cmd.Println(t.Description)
+		cmd.Println(summarizeToolDescription(t.Description))
 		cmd.Println()
 	}
 
