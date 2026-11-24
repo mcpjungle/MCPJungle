@@ -45,6 +45,9 @@ type MCPService struct {
 	// toolAdditionCallback is a callback that gets invoked when one or more tools is added
 	// (registered or (re)enabled) in mcpjungle.
 	toolAdditionCallback ToolAdditionCallback
+	// UI resources are added after tool discovery, so group projections need resource lifecycle notifications.
+	resourceAdditionCallback func(string) error
+	resourceDeletionCallback func(...string)
 
 	metrics telemetry.CustomMetrics
 
@@ -87,8 +90,10 @@ func NewMCPService(c *ServiceConfig) (*MCPService, error) {
 		mu:            sync.RWMutex{},
 
 		// initialize the callbacks to NOOP functions
-		toolDeletionCallback: func(toolNames ...string) {},
-		toolAdditionCallback: func(toolName string) error { return nil },
+		toolDeletionCallback:     func(toolNames ...string) {},
+		toolAdditionCallback:     func(toolName string) error { return nil },
+		resourceAdditionCallback: func(string) error { return nil },
+		resourceDeletionCallback: func(...string) {},
 
 		metrics: c.Metrics,
 
