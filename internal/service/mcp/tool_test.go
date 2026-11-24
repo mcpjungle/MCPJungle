@@ -29,6 +29,58 @@ func setupTestDBWithTools(t *testing.T) *gorm.DB {
 	return db
 }
 
+func TestPersistedToolMetadataRoundTrip(t *testing.T) {
+	db := setupTestDBWithTools(t)
+
+	withMeta := &model.Tool{
+		Name:        "file-upload",
+		Description: "file input tool",
+		InputSchema: []byte(`{"type":"object"}`),
+		Meta:        []byte(`{"openai/fileParams":["file"],"example/custom":{"enabled":true}}`),
+	}
+	if err := db.Create(withMeta).Error; err != nil {
+		t.Fatalf("persist tool: %v", err)
+	}
+
+	var restored model.Tool
+	if err := db.First(&restored, withMeta.ID).Error; err != nil {
+		t.Fatalf("load persisted tool: %v", err)
+	}
+	converted, err := convertToolModelToMcpObject(&restored)
+	if err != nil {
+		t.Fatalf("convert tool: %v", err)
+	}
+	if converted.Meta == nil {
+		t.Fatal("tool _meta was lost after database round trip")
+	}
+	got, err := json.Marshal(converted.Meta)
+	if err != nil {
+		t.Fatalf("marshal reconstructed _meta: %v", err)
+	}
+	var gotMap, wantMap map[string]any
+	if err := json.Unmarshal(got, &gotMap); err != nil {
+		t.Fatalf("decode reconstructed _meta: %v", err)
+	}
+	if err := json.Unmarshal(withMeta.Meta, &wantMap); err != nil {
+		t.Fatalf("decode original _meta: %v", err)
+	}
+	if !reflect.DeepEqual(gotMap, wantMap) {
+		t.Fatalf("_meta mismatch after database round trip: got %s, want %s", got, withMeta.Meta)
+	}
+
+	withoutMeta := &model.Tool{Name: "plain", InputSchema: []byte(`{"type":"object"}`)}
+	if err := db.Create(withoutMeta).Error; err != nil {
+		t.Fatalf("persist tool without metadata: %v", err)
+	}
+	plain, err := convertToolModelToMcpObject(withoutMeta)
+	if err != nil {
+		t.Fatalf("convert tool without metadata: %v", err)
+	}
+	if plain.Meta != nil {
+		t.Fatalf("unexpected metadata on plain tool: %+v", plain.Meta)
+	}
+}
+
 func TestGetTool_InvalidName(t *testing.T) {
 	db := setupTestDBWithTools(t)
 	service := &MCPService{db: db}

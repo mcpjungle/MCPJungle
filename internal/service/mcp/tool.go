@@ -343,12 +343,18 @@ func (m *MCPService) registerServerTools(ctx context.Context, s *model.McpServer
 		// extracting annotations is also on best-effort basis
 		annotationsJSON, _ := json.Marshal(tool.Annotations)
 
+		var metaJSON []byte
+		if tool.Meta != nil {
+			metaJSON, _ = json.Marshal(tool.Meta)
+		}
+
 		t := &model.Tool{
 			ServerID:    s.ID,
 			Name:        tool.GetName(),
 			Description: tool.Description,
 			InputSchema: jsonSchema,
 			Annotations: annotationsJSON,
+			Meta:        metaJSON,
 		}
 		if err := m.db.Create(t).Error; err != nil {
 			// If registration of a tool fails, we should not fail the entire server registration.
