@@ -58,6 +58,10 @@ type Server struct {
 	mcpProxyServer    *server.MCPServer
 	sseMcpProxyServer *server.MCPServer
 
+	// discoveryMcpHandler serves the discovery-mode MCP server when a client
+	// opts in with the discovery mode query parameter on the MCP endpoint.
+	discoveryMcpHandler http.Handler
+
 	mcpService       *mcp.MCPService
 	mcpClientService *mcpclient.McpClientService
 
@@ -109,6 +113,10 @@ func NewServer(opts *ServerOptions) (*Server, error) {
 		otelProviders:         opts.OtelProviders,
 		metrics:               opts.Metrics,
 		dashboardOAuthResults: make(map[string]dashboardOAuthSessionResult),
+	}
+
+	if s.mcpService != nil && s.mcpService.DiscoveryMcpProxyServer() != nil {
+		s.discoveryMcpHandler = server.NewStreamableHTTPServer(s.mcpService.DiscoveryMcpProxyServer())
 	}
 
 	// Set up the router after the server is fully initialized
@@ -208,13 +216,14 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		r.GET("/assets/*filepath", s.requireInitialized(), requireDashboardMode, gin.WrapH(dashboardFileServer))
 	}
 
-	// Set up the MCP proxy server on /mcp
+	// Set up the MCP proxy server on /mcp. Clients can opt into the discovery-mode
+	// proxy with the discovery query parameter; requests without it hit the eager proxy.
 	streamableHTTPServer := server.NewStreamableHTTPServer(s.mcpProxyServer)
 	r.Any(
 		"/mcp",
 		s.requireInitialized(),
 		s.checkAuthForMcpProxyAccess(),
-		gin.WrapH(streamableHTTPServer),
+		s.mcpProxyDispatchHandler(streamableHTTPServer),
 	)
 
 	r.Any(

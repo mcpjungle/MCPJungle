@@ -35,6 +35,10 @@ type MCPService struct {
 	mcpProxyServer    *server.MCPServer
 	sseMcpProxyServer *server.MCPServer
 
+	// discoveryMcpProxyServer exposes the discovery meta-tools to clients that
+	// opt in with the discovery mode query parameter on the MCP endpoint.
+	discoveryMcpProxyServer *server.MCPServer
+
 	// toolInstances keeps track of all the in-memory mcp.Tool instances, keyed by their unique names.
 	toolInstances map[string]mcp.Tool
 	mu            sync.RWMutex
@@ -96,10 +100,25 @@ func NewMCPService(c *ServiceConfig) (*MCPService, error) {
 
 		sessionManager: sessionManager,
 	}
+
+	// Build the discovery proxy before loading the eager proxies so the handshake
+	// instructions describe the servers registered at startup.
+	summaries, err := s.ListServerSummaries()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load server summaries for discovery mode: %w", err)
+	}
+	s.discoveryMcpProxyServer = newDiscoveryMCPServer(buildDiscoveryInstructions(summaries))
+	s.initDiscoveryTools()
+
 	if err := s.initMCPProxyServer(); err != nil {
 		return nil, fmt.Errorf("failed to initialize MCP proxy server: %w", err)
 	}
 	return s, nil
+}
+
+// DiscoveryMcpProxyServer returns the MCP server that exposes the discovery meta-tools.
+func (m *MCPService) DiscoveryMcpProxyServer() *server.MCPServer {
+	return m.discoveryMcpProxyServer
 }
 
 // Shutdown gracefully shuts down the MCP service, closing all stateful sessions.

@@ -184,6 +184,25 @@ func (m *MCPService) ListMcpServers() ([]model.McpServer, error) {
 	return servers, nil
 }
 
+// ListServerSummaries returns every enabled MCP server together with the number
+// of its enabled tools. It backs the discovery-mode handshake instructions and
+// the no-argument discover_tools listing.
+func (m *MCPService) ListServerSummaries() ([]ServerToolSummary, error) {
+	var summaries []ServerToolSummary
+	err := m.db.
+		Model(&model.McpServer{}).
+		Select("mcp_servers.name AS name, mcp_servers.description AS description, COUNT(tools.id) AS tool_count").
+		Joins("LEFT JOIN tools ON tools.server_id = mcp_servers.id AND tools.enabled = ? AND tools.deleted_at IS NULL", true).
+		Where("mcp_servers.enabled = ?", true).
+		Group("mcp_servers.id").
+		Order("mcp_servers.name ASC").
+		Scan(&summaries).Error
+	if err != nil {
+		return nil, err
+	}
+	return summaries, nil
+}
+
 // GetMcpServer fetches a server from the database by name.
 func (m *MCPService) GetMcpServer(name string) (*model.McpServer, error) {
 	var serverModel model.McpServer
