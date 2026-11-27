@@ -83,14 +83,17 @@ These endpoints implement the [Model Context Protocol](https://modelcontextproto
 | Endpoint | Transport | Description |
 |----------|-----------|-------------|
 | `ANY /mcp` | Streamable HTTP | Global MCP proxy. Exposes all enabled tools across all registered servers. |
+| `ANY /mcp?mode=discovery` | Streamable HTTP | Global proxy in discovery mode. Exposes the `discover_tools`, `get_tool_schema` and `execute_tool` meta-tools instead of every tool. |
 | `ANY /sse` | SSE | Legacy SSE transport for the global proxy. Use `/mcp` for new integrations. |
+| `ANY /sse?mode=discovery` | SSE | Global proxy in discovery mode over the legacy SSE transport. Discovery sessions post messages to `/discovery/message`. |
 | `ANY /message` | SSE | SSE message handler (companion to `/sse`). |
+| `ANY /discovery/message` | SSE | SSE message handler for discovery-mode sessions. |
 | `GET /v0/groups/:name/mcp` | Streamable HTTP | Tool-group-scoped MCP proxy. Only exposes tools in the named group. |
 | `ANY /v0/groups/:name/sse` | SSE | SSE transport for a specific tool group. |
 | `ANY /v0/groups/:name/message` | SSE | SSE message handler for a specific tool group. |
 
 <Tip>
-  Point your MCP client at `/mcp` for full access or at `/v0/groups/:name/mcp` to restrict it to a named tool group. The streamable HTTP transport is preferred over SSE for new integrations.
+  Point your MCP client at `/mcp` for full access, at `/mcp?mode=discovery` to expose only the discovery meta-tools, or at `/v0/groups/:name/mcp` to restrict it to a named tool group. The streamable HTTP transport is preferred over SSE for new integrations.
 </Tip>
 
 ## Metrics endpoint

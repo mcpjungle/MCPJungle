@@ -28,6 +28,7 @@ Use it as a quick product-readiness view:
 | MCP entities            | Prompts | Stable | Prompts are supported and can be listed, retrieved, enabled, and disabled.                                                   |
 | MCP entities            | Resources | Beta | Some features such as tool groups may not fully support Resources yet.                                                        |
 | Group endpoints         | Tool Groups | Stable | Main mechanism for exposing curated subsets of tools to specific clients.                                                    |
+| MCP proxy               | On-demand tool discovery | Stable | Clients opt in per connection with `/mcp?mode=discovery` or `/sse?mode=discovery` and see the `discover_tools`, `get_tool_schema` and `execute_tool` meta-tools instead of every tool. |
 
 ## Authentication and access control
 

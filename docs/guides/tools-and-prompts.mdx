@@ -64,6 +64,37 @@ You can also invoke through a Tool Group context:
 mcpjungle invoke filesystem__read_file --group claude-tools --input '{"path": "README.md"}'
 ```
 
+## On-demand tool discovery
+
+Some clients work best when the gateway exposes a small fixed set of tools instead of every registered tool. Point an MCP client at `/mcp?mode=discovery` to switch that client into discovery mode; clients that use plain `/mcp` keep the full tool list.
+
+Discovery mode exposes three meta-tools:
+
+| Tool | Purpose |
+|------|---------|
+| `discover_tools` | With no arguments, lists the registered servers and their tool counts. With a `domain` argument, lists that server's tools as signatures. |
+| `get_tool_schema` | Returns one tool's full input schema. Use it when a signature is not enough. |
+| `execute_tool` | Calls a tool by its canonical name and forwards the arguments to its server. |
+
+The initialize handshake carries a short server overview, so the model already knows which servers exist before it calls anything:
+
+```text
+Servers:
+- **context7** (12 tools) — Up-to-date library documentation
+- **filesystem** (8 tools)
+```
+
+A typical sequence looks like this:
+
+1. Call `discover_tools()` to list the servers.
+2. Call `discover_tools(domain="context7")` to see that server's tool signatures.
+3. Call `get_tool_schema` if a signature does not explain the parameters.
+4. Call `execute_tool` with `tool_name` and `arguments`.
+
+The overview is generated when Mcpjungle starts. If you register or remove servers afterwards, restart Mcpjungle so the handshake overview matches the registry; `discover_tools()` itself always reads the current registry.
+
+Discovery mode works on both global transports: connect to `/mcp?mode=discovery` for Streamable HTTP, or `/sse?mode=discovery` for the legacy SSE transport. Discovery SSE sessions post their messages to `/discovery/message`. Tool group endpoints keep their existing behavior.
+
 ## Prompts
 
 Mcpjungle supports [MCP Prompts](https://modelcontextprotocol.io/specification/2025-06-18/server/prompts). If a registered server exposes prompts, Mcpjungle registers them alongside that server's tools.
