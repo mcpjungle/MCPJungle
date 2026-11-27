@@ -184,6 +184,38 @@ func TestE2E_DiscoveryMode_EagerEndpointUnchanged(t *testing.T) {
 	}
 }
 
+func TestE2E_DiscoveryMode_LegacySSE(t *testing.T) {
+	env := setupE2EServer(t, model.ModeDev)
+	registerEverythingServer(t, env, "")
+
+	c, err := client.NewSSEMCPClient(env.baseURL + "/sse?mode=discovery")
+	require.NoError(t, err)
+	require.NoError(t, c.Start(context.Background()))
+	t.Cleanup(func() { _ = c.Close() })
+
+	initResult, err := c.Initialize(context.Background(), mcp.InitializeRequest{
+		Params: mcp.InitializeParams{
+			ProtocolVersion: mcp.LATEST_PROTOCOL_VERSION,
+			ClientInfo:      mcp.Implementation{Name: "e2e-discovery-sse", Version: "1.0.0"},
+		},
+	})
+	require.NoError(t, err)
+	assert.Contains(t, initResult.Instructions, "on-demand tool discovery")
+	assert.ElementsMatch(t, discoveryMetaToolNames, listMCPToolNames(t, c))
+
+	result := callDiscoveryTool(t, c, "discover_tools", map[string]any{})
+	require.False(t, result.IsError, "discover_tools failed: %s", discoveryToolText(t, result))
+
+	var payload struct {
+		Domains []struct {
+			Name string `json:"name"`
+		} `json:"domains"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(discoveryToolText(t, result)), &payload))
+	require.Len(t, payload.Domains, 1)
+	assert.Equal(t, "everything", payload.Domains[0].Name)
+}
+
 func TestE2E_DiscoveryMode_EnterpriseAccessControl(t *testing.T) {
 	env := setupE2EServer(t, model.ModeEnterprise)
 	registerEverythingServer(t, env, env.adminToken)

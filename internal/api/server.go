@@ -61,6 +61,11 @@ type Server struct {
 	// discoveryMcpHandler serves the discovery-mode MCP server when a client
 	// opts in with the discovery mode query parameter on the MCP endpoint.
 	discoveryMcpHandler http.Handler
+	// discoverySseHandler and discoverySseMessageHandler serve discovery-mode
+	// sessions on the legacy SSE transport. Discovery sessions use their own
+	// message endpoint so message routing never mixes with the eager SSE server.
+	discoverySseHandler        http.Handler
+	discoverySseMessageHandler http.Handler
 
 	mcpService       *mcp.MCPService
 	mcpClientService *mcpclient.McpClientService
@@ -117,6 +122,12 @@ func NewServer(opts *ServerOptions) (*Server, error) {
 
 	if s.mcpService != nil && s.mcpService.DiscoveryMcpProxyServer() != nil {
 		s.discoveryMcpHandler = server.NewStreamableHTTPServer(s.mcpService.DiscoveryMcpProxyServer())
+		discoverySseServer := server.NewSSEServer(
+			s.mcpService.DiscoveryMcpProxyServer(),
+			server.WithMessageEndpoint("/discovery/message"),
+		)
+		s.discoverySseHandler = discoverySseServer.SSEHandler()
+		s.discoverySseMessageHandler = discoverySseServer.MessageHandler()
 	}
 
 	// Set up the router after the server is fully initialized
@@ -233,13 +244,15 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		s.toolGroupMCPServerCallHandler(),
 	)
 
-	// Set up the SSE transport-based MCP proxy server for the global /sse endpoint
+	// Set up the SSE transport-based MCP proxy server for the global /sse endpoint.
+	// Clients can opt into discovery mode with the discovery query parameter; their
+	// sessions advertise /discovery/message as the message endpoint.
 	sseServer := server.NewSSEServer(s.sseMcpProxyServer)
 	r.Any(
 		"/sse",
 		s.requireInitialized(),
 		s.checkAuthForMcpProxyAccess(),
-		gin.WrapH(sseServer.SSEHandler()),
+		s.sseProxyDispatchHandler(sseServer.SSEHandler()),
 	)
 	r.Any(
 		"/message",
@@ -247,6 +260,14 @@ func (s *Server) setupRouter() (*gin.Engine, error) {
 		s.checkAuthForMcpProxyAccess(),
 		gin.WrapH(sseServer.MessageHandler()),
 	)
+	if s.discoverySseMessageHandler != nil {
+		r.Any(
+			"/discovery/message",
+			s.requireInitialized(),
+			s.checkAuthForMcpProxyAccess(),
+			gin.WrapH(s.discoverySseMessageHandler),
+		)
+	}
 
 	r.Any(
 		V0PathPrefix+"/groups/:name/sse",

@@ -35,3 +35,17 @@ func (s *Server) mcpProxyDispatchHandler(eager http.Handler) gin.HandlerFunc {
 		eager.ServeHTTP(c.Writer, c.Request)
 	}
 }
+
+// sseProxyDispatchHandler routes legacy SSE connection setup to the
+// discovery-mode SSE server when the client opts in with the discovery query
+// parameter. Discovery sessions advertise their own message endpoint, so
+// message routing never mixes the two servers.
+func (s *Server) sseProxyDispatchHandler(eager http.Handler) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if isDiscoveryModeRequest(c) && s.discoverySseHandler != nil {
+			s.discoverySseHandler.ServeHTTP(c.Writer, c.Request)
+			return
+		}
+		eager.ServeHTTP(c.Writer, c.Request)
+	}
+}

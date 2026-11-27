@@ -50,4 +50,4 @@ The discovery-mode overview in the initialize handshake is generated when Mcpjun
 
 In enterprise mode, the handshake overview lists every enabled server and its tool count to all authenticated clients. The per-client allow-list is applied to `discover_tools()` results and to `get_tool_schema` and `execute_tool` calls, but not to the handshake text, because the MCP server instance is shared across clients.
 
-Discovery mode is available on the global streamable HTTP endpoint only. Tool group endpoints and the legacy SSE transport do not support it.
+Discovery mode is available on both global transports, Streamable HTTP and the legacy SSE transport. Tool group endpoints do not support it.

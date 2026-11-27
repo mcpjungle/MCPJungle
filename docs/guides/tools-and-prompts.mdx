@@ -93,7 +93,7 @@ A typical sequence looks like this:
 
 The overview is generated when Mcpjungle starts. If you register or remove servers afterwards, restart Mcpjungle so the handshake overview matches the registry; `discover_tools()` itself always reads the current registry.
 
-Discovery mode currently applies to the global streamable HTTP endpoint only. Tool group endpoints and the legacy SSE transport keep their existing behavior.
+Discovery mode works on both global transports: connect to `/mcp?mode=discovery` for Streamable HTTP, or `/sse?mode=discovery` for the legacy SSE transport. Discovery SSE sessions post their messages to `/discovery/message`. Tool group endpoints keep their existing behavior.
 
 ## Prompts
 
